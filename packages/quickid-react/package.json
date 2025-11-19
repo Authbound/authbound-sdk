@@ -1,0 +1,54 @@
+{
+  "name": "@authbound/quickid-react",
+  "version": "0.1.0",
+  "description": "Authbound QuickID React bindings: hooks and components for document + selfie verification.",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "author": "Authbound",
+  "homepage": "https://github.com/authbound/sdk",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/authbound/sdk.git",
+    "directory": "packages/quickid-react"
+  },
+  "bugs": {
+    "url": "https://github.com/authbound/sdk/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "src"],
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "dependencies": {
+    "@authbound/quickid-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:react",
+    "tsup": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "@authbound/tsconfig": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsup src/index.tsx --dts --format esm,cjs --clean",
+    "dev": "tsup src/index.tsx --dts --format esm,cjs --watch",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

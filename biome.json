@@ -1,0 +1,79 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "extends": ["ultracite"],
+  "javascript": {
+    "globals": ["React"]
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "a11y": {
+        "noSvgWithoutTitle": "off",
+        "useKeyWithClickEvents": "error",
+        "useMediaCaption": "error"
+      },
+      "nursery": {
+        "useSortedClasses": "off",
+        "noNestedTernary": "off",
+        "noExportedImports": "off",
+        "noEnum": "off"
+      },
+      "complexity": {
+        "noForEach": "off",
+        "noBannedTypes": "error",
+        "noStaticOnlyClass": "error",
+        "noUselessConstructor": "error",
+        "noUselessFragments": "error",
+        "noExcessiveCognitiveComplexity": "off"
+      },
+      "suspicious": {
+        "useAwait": "off",
+        "noConsole": "off",
+        "noConsoleLog": {
+          "level": "warn"
+        },
+        "noExplicitAny": "off",
+        "noEmptyBlockStatements": "off",
+        "noEmptyBlock": "off",
+        "noEvolvingTypes": "off",
+        "noArrayIndexKey": "off",
+        "noAssignInExpressions": "error",
+        "noShadowRestrictedNames": "error"
+      },
+      "correctness": {
+        "useExhaustiveDependencies": "info",
+        "noUnreachable": "error",
+        "noUnusedVariables": "off",
+        "useHookAtTopLevel": "off",
+        "noUnusedFunctionParameters": "warn"
+      },
+      "style": {
+        "noNonNullAssertion": "error",
+        "noParameterAssign": "error",
+        "useBlockStatements": "off",
+        "useShorthandArrayType": "error",
+        "useTemplate": "error",
+        "noParameterProperties": "off",
+        "noUnusedTemplateLiteral": "off"
+      },
+      "performance": {
+        "useTopLevelRegex": "off",
+        "noAccumulatingSpread": "off"
+      }
+    }
+  },
+  "organizeImports": {
+    "enabled": true
+  },
+  "json": {
+    "parser": {
+      "allowComments": true
+    },
+    "formatter": {
+      "enabled": true,
+      "indentStyle": "space",
+      "indentWidth": 2,
+      "lineWidth": 100
+    }
+  }
+}

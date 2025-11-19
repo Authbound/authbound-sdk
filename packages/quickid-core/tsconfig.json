@@ -1,0 +1,7 @@
+{
+  "extends": "@authbound/tsconfig/core.json",
+  "compilerOptions": {
+    "outDir": "dist"
+  },
+  "include": ["src"]
+}

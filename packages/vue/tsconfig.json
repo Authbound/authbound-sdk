@@ -1,0 +1,5 @@
+{
+  "extends": "@authbound/tsconfig/vue-library.json",
+  "compilerOptions": { "outDir": "dist" },
+  "include": ["src"]
+}

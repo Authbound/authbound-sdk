@@ -1,0 +1,62 @@
+{
+  "name": "@authbound/react",
+  "version": "0.1.0",
+  "description": "Authbound React 18 bindings (hooks + headless components) for verification flows.",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "author": "Authbound",
+  "homepage": "https://github.com/authbound/sdk",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/authbound/sdk.git",
+    "directory": "packages/react"
+  },
+  "bugs": {
+    "url": "https://github.com/authbound/sdk/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "peerDependencies": {
+    "react": "catalog:react",
+    "react-dom": "catalog:react"
+  },
+  "dependencies": {
+    "@authbound/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@authbound/tsconfig": "workspace:*",
+    "@types/react": "catalog:react",
+    "@types/react-dom": "catalog:react",
+    "tsup": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "@testing-library/react": "catalog:"
+  },
+  "scripts": {
+    "build": "tsup src/index.tsx --dts --format esm,cjs --clean",
+    "dev": "tsup src/index.tsx --dts --format esm,cjs --watch",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "ultracite lint",
+    "format": "ultracite format"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

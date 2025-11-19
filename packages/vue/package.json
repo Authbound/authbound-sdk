@@ -1,0 +1,55 @@
+{
+  "name": "@authbound/vue",
+  "version": "0.1.0",
+  "description": "Authbound Vue 3 bindings (composables + headless components) for the verification flows.",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "author": "Authbound",
+  "homepage": "https://github.com/authbound/sdk",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/authbound/sdk.git",
+    "directory": "packages/vue"
+  },
+  "bugs": {
+    "url": "https://github.com/authbound/sdk/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "peerDependencies": {
+    "vue": "catalog:"
+  },
+  "dependencies": {
+    "@authbound/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@authbound/tsconfig": "workspace:*",
+    "typescript": "catalog:",
+    "tsup": "catalog:",
+    "vitest": "catalog:"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --dts --format esm,cjs --clean",
+    "dev": "tsup src/index.ts --dts --format esm,cjs --watch",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "ultracite lint",
+    "format": "ultracite format"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

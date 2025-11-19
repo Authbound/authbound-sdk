@@ -1,0 +1,62 @@
+{
+  "name": "@authbound/server",
+  "version": "0.1.0",
+  "description": "Authbound server helpers: mint requests, verify presentations, JWKS utilities.",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "author": "Authbound",
+  "homepage": "https://github.com/authbound/sdk",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/authbound/sdk.git",
+    "directory": "packages/server"
+  },
+  "bugs": {
+    "url": "https://github.com/authbound/sdk/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./edge": {
+      "types": "./dist/edge.d.ts",
+      "import": "./dist/edge.mjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "dependencies": {
+    "@authbound/core": "workspace:*",
+    "@authbound/shared": "workspace:*"
+  },
+  "peerDependencies": {},
+  "devDependencies": {
+    "@authbound/tsconfig": "workspace:*",
+    "tsup": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "@types/node": "catalog:"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --dts --format esm,cjs --clean && tsup src/edge.ts --dts --format esm --out-dir dist --silent",
+    "dev": "tsup src/index.ts --dts --format esm,cjs --watch",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "ultracite lint",
+    "format": "ultracite format"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

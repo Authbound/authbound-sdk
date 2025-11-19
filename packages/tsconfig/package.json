@@ -1,0 +1,17 @@
+{
+  "name": "@authbound/tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "base.json",
+    "node.json",
+    "core.json",
+    "react-library.json",
+    "vue-library.json",
+    "next-library.json"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@authbound",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "ultracite lint",
+    "format": "ultracite format",
+    "check-types": "turbo run check-types"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.5",
+    "@types/node": "catalog:",
+    "changesets": "^1.0.2",
+    "tsup": "catalog:",
+    "turbo": "^2.6.1",
+    "typescript": "catalog:",
+    "ultracite": "^6.3.2",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "pnpm@10.14.0"
+}

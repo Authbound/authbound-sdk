@@ -1,0 +1,55 @@
+{
+  "name": "@authbound/shared",
+  "version": "0.1.0",
+  "description": "Shared types, schemas, constants, and small cross-runtime utilities for Authbound SDK.",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "author": "Authbound",
+  "homepage": "https://github.com/authbound/sdk",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/authbound/sdk.git",
+    "directory": "packages/shared"
+  },
+  "bugs": {
+    "url": "https://github.com/authbound/sdk/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./zod": {
+      "types": "./dist/zod.d.ts",
+      "import": "./dist/zod.mjs",
+      "require": "./dist/zod.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "devDependencies": {
+    "@authbound/tsconfig": "workspace:*",
+    "tsup": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "zod": "catalog:"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/zod.ts --dts --format esm,cjs --clean",
+    "dev": "tsup src/index.ts src/zod.ts --dts --format esm,cjs --watch",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "ultracite lint",
+    "format": "ultracite format"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
