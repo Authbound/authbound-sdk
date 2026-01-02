@@ -1,50 +1,71 @@
 import {
-  type CreateSessionInput,
   QuickID as QuickIDClient,
   type QuickIDConfig,
-  type QuickIdResult,
-  type QuickIdSession,
+  type QuickIDPhase,
+  type VerificationResult,
   QuickIDError,
 } from "@authbound/quickid-core";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type QuickIDUiPhase =
-  | "idle"
-  | "creating_session"
-  | "awaiting_document"
-  | "awaiting_selfie"
-  | "verifying"
-  | "done";
+export interface UseQuickIDConfig extends QuickIDConfig {
+  /**
+   * URL to your backend's QuickID session proxy.
+   * Defaults to "/api/quickid" if not provided.
+   * Used when start() is called without a token.
+   */
+  proxyUrl?: string;
+}
 
 export interface UseQuickIDState {
-  phase: QuickIDUiPhase;
-  session: QuickIdSession | null;
-  result: QuickIdResult | null;
+  phase: QuickIDPhase;
+  result: VerificationResult | null;
   error: string | null;
   errorCode: string | null;
   isBusy: boolean;
+  clientToken: string | null;
 }
 
 export interface UseQuickID {
   state: UseQuickIDState;
-  start: (input?: CreateSessionInput) => Promise<void>;
-  uploadDocument: (file: File, side?: "front" | "back") => Promise<void>;
-  uploadSelfieAndVerify: (file: File) => Promise<void>;
+  /**
+   * Starts the flow.
+   * If clientToken is provided, uses it.
+   * If not, attempts to fetch one from the configured proxyUrl.
+   */
+  start: (clientToken?: string) => Promise<void>;
+  /**
+   * Sets the document file and advances phase.
+   */
+  setDocument: (file: File) => void;
+  /**
+   * Sets the selfie file.
+   * If submitImmediately is true (default), calls submit() right away.
+   */
+  setSelfie: (file: File, submitImmediately?: boolean) => Promise<void>;
+  /**
+   * Submits the collected files for verification.
+   */
+  submit: () => Promise<void>;
+  /**
+   * Resets the state to idle.
+   */
   reset: () => void;
 }
 
 /**
  * React hook wrapping the QuickID core client.
- *
- * Keeps all asynchronous flow and state transitions in one place.
  */
-export function useQuickID(config: QuickIDConfig): UseQuickID {
-  const [phase, setPhase] = useState<QuickIDUiPhase>("idle");
-  const [session, setSession] = useState<QuickIdSession | null>(null);
-  const [result, setResult] = useState<QuickIdResult | null>(null);
+export function useQuickID(config: UseQuickIDConfig): UseQuickID {
+  const [phase, setPhase] = useState<QuickIDPhase>("idle");
+  const [clientToken, setClientToken] = useState<string | null>(null);
+  const [result, setResult] = useState<VerificationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+
+  // Local file state
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [selfieFile, setSelfieFile] = useState<File | null>(null);
 
   const quickIdRef = useRef<QuickIDClient | null>(null);
   const isMountedRef = useRef(true);
@@ -57,14 +78,7 @@ export function useQuickID(config: QuickIDConfig): UseQuickID {
       isMountedRef.current = false;
       quickIdRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    config.apiBaseUrl,
-    config.token,
-    config.upload,
-    config.pollIntervalMs,
-    config.defaultLevel,
-  ]);
+  }, [config.apiBaseUrl, config.pollIntervalMs, config.fetch]);
 
   const safeSetState = useCallback(<T>(setFn: (value: T) => void, value: T) => {
     if (!isMountedRef.current) return;
@@ -90,161 +104,169 @@ export function useQuickID(config: QuickIDConfig): UseQuickID {
   );
 
   const start = useCallback(
-    async (input?: CreateSessionInput) => {
-      if (!quickIdRef.current) return;
-
-      safeSetState(setIsBusy, true);
+    async (token?: string) => {
       safeSetState(setError, null);
       safeSetState(setErrorCode, null);
-      safeSetState(setResult, null);
-      safeSetState(setPhase, "creating_session");
-
-      try {
-        const session = await quickIdRef.current.createSession(input);
-        safeSetState(setSession, session);
-        safeSetState(setPhase, "awaiting_document");
-      } catch (err) {
-        handleError(err, "Failed to create QuickID session");
-        safeSetState(setPhase, "idle");
-      } finally {
-        safeSetState(setIsBusy, false);
-      }
-    },
-    [safeSetState, handleError]
-  );
-
-  const uploadDocument = useCallback(
-    async (file: File, side: "front" | "back" = "front") => {
-      if (!quickIdRef.current) return;
-
       safeSetState(setIsBusy, true);
-      safeSetState(setError, null);
-      safeSetState(setErrorCode, null);
 
-      try {
-        const updatedSession = await quickIdRef.current.uploadDocument(
-          file,
-          side
-        );
-        safeSetState(setSession, updatedSession);
+      let activeToken = token;
 
-        // Only advance phase if we are done with documents.
-        // This logic could be improved if the session state included "documents needed".
-        // For now, the UI drives the flow, so we might leave phase management to the UI
-        // or assume 'front' implies we are done if it's a passport, but that's tricky.
-        //
-        // IMPORTANT: The Core/Backend should dictate the state.
-        // If the session status remains 'created' or 'document_uploaded', we might stay in 'awaiting_document'.
-        // However, the UI layer often needs fine-grained control.
-        // We'll optimistically advance to 'awaiting_selfie' ONLY if the user logic decides so.
-        // BUT, `useQuickID` was originally opinionated.
-        // Let's keep the original behavior: uploadDocument -> awaiting_selfie.
-        // Consumers calling uploadDocument('front') then uploadDocument('back')
-        // might flicker the phase.
-        //
-        // BETTER APPROACH: Don't auto-advance phase on document upload inside the hook,
-        // OR let the session status dictate.
-        //
-        // Current legacy behavior:
-        // safeSetState(setPhase, 'awaiting_selfie');
-        //
-        // We'll stick to legacy for 'front' or default, but maybe we should expose a way to not advance.
-        // For simplicity in this refactor: we update the session.
+      if (!activeToken) {
+        try {
+          const proxyUrl = config.proxyUrl || "/api/quickid";
+          const res = await fetch(proxyUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
 
-        // If the session status suggests we are ready for selfie (e.g. if backend tracks required docs)
-        // we could switch. For now, we will trust the caller or just update the session.
-        // The Example App manually handles steps, so the phase in this hook is less critical
-        // if the app uses `start/uploadDocument` imperatively.
+          if (!res.ok) {
+            throw new Error(
+              `Failed to create session: ${res.status} ${res.statusText}`
+            );
+          }
 
-        safeSetState(setPhase, "awaiting_selfie");
-      } catch (err) {
-        handleError(err, "Failed to upload document");
-      } finally {
-        safeSetState(setIsBusy, false);
-      }
-    },
-    [safeSetState, handleError]
-  );
-
-  const uploadSelfieAndVerify = useCallback(
-    async (file: File) => {
-      if (!quickIdRef.current) return;
-
-      safeSetState(setIsBusy, true);
-      safeSetState(setError, null);
-      safeSetState(setErrorCode, null);
-      safeSetState(setPhase, "verifying");
-
-      try {
-        const sessionAfterSelfie = await quickIdRef.current.uploadSelfie(file);
-        safeSetState(setSession, sessionAfterSelfie);
-
-        // Kick off verification + polling loop
-        const verifiedSession = await quickIdRef.current.verify();
-        safeSetState(setSession, verifiedSession);
-
-        // If backend sets status immediately:
-        if (verifiedSession.status === "verified" && verifiedSession.result) {
-          safeSetState(setResult, verifiedSession.result);
-          safeSetState(setPhase, "done");
+          const data = await res.json();
+          if (!data.client_token) {
+            throw new Error("Proxy response missing client_token");
+          }
+          activeToken = data.client_token;
+        } catch (err) {
+          handleError(err, "Failed to initialize session");
+          safeSetState(setIsBusy, false);
           return;
         }
+      }
 
-        // Otherwise, poll for status changes until terminal state
-        for await (const event of quickIdRef.current.pollStatus()) {
+      if (activeToken) {
+        safeSetState(setClientToken, activeToken);
+        safeSetState(setResult, null);
+        safeSetState(setDocumentFile, null);
+        safeSetState(setSelfieFile, null);
+        safeSetState(setPhase, "awaiting_document");
+      }
+
+      safeSetState(setIsBusy, false);
+    },
+    [safeSetState, config, handleError]
+  );
+
+  const setDocument = useCallback(
+    (file: File) => {
+      safeSetState(setDocumentFile, file);
+      safeSetState(setError, null); // Clear previous errors if any
+      safeSetState(setPhase, "awaiting_selfie");
+    },
+    [safeSetState]
+  );
+
+  // To handle the async state update issue, we'll use refs for files
+  const docRef = useRef<File | null>(null);
+  const selfieRef = useRef<File | null>(null);
+  const tokenRef = useRef<string | null>(null);
+
+  // Sync refs
+  useEffect(() => {
+    docRef.current = documentFile;
+  }, [documentFile]);
+  useEffect(() => {
+    selfieRef.current = selfieFile;
+  }, [selfieFile]);
+  useEffect(() => {
+    tokenRef.current = clientToken;
+  }, [clientToken]);
+
+  const submitImplementation = useCallback(async () => {
+    if (!quickIdRef.current) return;
+    if (!tokenRef.current) {
+      handleError(new Error("Missing client token"), "Session not started");
+      return;
+    }
+    if (!docRef.current || !selfieRef.current) {
+      handleError(
+        new Error("Missing files"),
+        "Please upload both document and selfie"
+      );
+      return;
+    }
+
+    safeSetState(setIsBusy, true);
+    safeSetState(setError, null);
+    safeSetState(setErrorCode, null);
+    safeSetState(setPhase, "verifying");
+
+    try {
+      const res = await quickIdRef.current.submitVerification(
+        tokenRef.current,
+        docRef.current,
+        selfieRef.current
+      );
+
+      safeSetState(setResult, res);
+
+      // If pending, poll
+      if (res.status === "PENDING") {
+        // Start polling
+        for await (const update of quickIdRef.current.pollResult(
+          tokenRef.current,
+          res.session_id
+        )) {
           if (!isMountedRef.current) return;
-
-          if (event.type === "PROCESSING") {
-            safeSetState(setPhase, "verifying");
-            safeSetState(setSession, event.session);
-          }
-
-          if (event.type === "VERIFIED") {
-            safeSetState(setSession, event.session);
-            safeSetState(setResult, event.result);
-            safeSetState(setPhase, "done");
-            break;
-          }
-
-          if (event.type === "FAILED") {
-            safeSetState(setSession, event.session);
-            safeSetState(setError, event.error);
-            safeSetState(setErrorCode, "VERIFICATION_FAILED");
-            safeSetState(setPhase, "done");
+          safeSetState(setResult, update);
+          if (update.status !== "PENDING") {
             break;
           }
         }
-      } catch (err) {
-        handleError(err, "Failed to upload selfie or verify identity");
-        safeSetState(setPhase, "done");
-      } finally {
-        safeSetState(setIsBusy, false);
+      }
+
+      safeSetState(setPhase, "done");
+    } catch (err) {
+      handleError(err, "Verification failed");
+      safeSetState(setPhase, "done");
+    } finally {
+      safeSetState(setIsBusy, false);
+    }
+  }, [safeSetState, handleError]);
+
+  const setSelfie = useCallback(
+    async (file: File, submitImmediately = true) => {
+      safeSetState(setSelfieFile, file);
+      // Update ref immediately for the submit call
+      selfieRef.current = file;
+
+      if (submitImmediately) {
+        await submitImplementation();
       }
     },
-    [safeSetState, handleError]
+    [safeSetState, submitImplementation]
   );
 
   const reset = useCallback(() => {
     safeSetState(setPhase, "idle");
-    safeSetState(setSession, null);
+    safeSetState(setClientToken, null);
     safeSetState(setResult, null);
     safeSetState(setError, null);
     safeSetState(setErrorCode, null);
     safeSetState(setIsBusy, false);
+    safeSetState(setDocumentFile, null);
+    safeSetState(setSelfieFile, null);
+    docRef.current = null;
+    selfieRef.current = null;
+    tokenRef.current = null;
   }, [safeSetState]);
 
   return {
     state: {
       phase,
-      session,
       result,
       error,
       errorCode,
       isBusy,
+      clientToken,
     },
     start,
-    uploadDocument,
-    uploadSelfieAndVerify,
+    setDocument,
+    setSelfie,
+    submit: submitImplementation,
     reset,
   };
 }

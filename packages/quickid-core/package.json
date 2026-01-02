@@ -30,6 +30,7 @@
     "src"
   ],
   "dependencies": {
+    "@authbound/core": "workspace:*",
     "@authbound/shared": "workspace:*",
     "zod": "catalog:"
   },

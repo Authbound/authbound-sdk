@@ -1,21 +1,12 @@
-// packages/quickid-core/src/quickid.ts
-
-import type {
-  CreateSessionInput,
-  QuickIDConfig,
-  QuickIDEvent,
-  QuickIdResult,
-  QuickIdSession,
-} from "./types";
-import { QuickIdSessionSchema, ApiErrorSchema } from "./schemas";
+import type { QuickIDConfig, VerificationResult } from "./types";
+import { VerificationResultSchema, ApiErrorSchema } from "./schemas";
 import { z } from "zod";
 
 export type QuickIDErrorCode =
   | "NO_FETCH"
-  | "NO_SESSION"
-  | "NO_UPLOADER"
   | "HTTP_ERROR"
-  | "PARSING_ERROR";
+  | "PARSING_ERROR"
+  | "VALIDATION_ERROR";
 
 export class QuickIDError extends Error {
   readonly code: QuickIDErrorCode;
@@ -34,28 +25,26 @@ export class QuickIDError extends Error {
     this.details = options?.details;
 
     if (options?.cause) {
-      // Node 16+ / modern runtimes support Error.cause
       this.cause = options.cause;
     }
   }
 }
 
+const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/jpg"];
+
 /**
- * Lightweight client for the QuickID backend.
- *
- * This class is framework-agnostic and browser-first.
- * React/Vue bindings should wrap this instead of talking to the API directly.
+ * Client for the QuickID backend.
  */
 export class QuickID {
   private readonly config: QuickIDConfig;
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
-  private sessionId?: string;
 
   constructor(config: QuickIDConfig) {
     this.config = {
       pollIntervalMs: 1500,
-      defaultLevel: "standard",
       ...config,
     };
 
@@ -71,157 +60,70 @@ export class QuickID {
   }
 
   /**
-   * Returns the current session id (if any).
-   */
-  get currentSessionId(): string | undefined {
-    return this.sessionId;
-  }
-
-  /**
-   * Creates a new QuickID session.
-   * Must be called before uploadDocument/uploadSelfie/verify.
-   */
-  async createSession(input: CreateSessionInput = {}): Promise<QuickIdSession> {
-    const body: CreateSessionInput = {
-      level: input.level ?? this.config.defaultLevel ?? "standard",
-      userHint: input.userHint,
-      redirectUrl: input.redirectUrl,
-      metadata: input.metadata,
-    };
-
-    const session = await this.request(
-      "/api/quickid/sessions",
-      {
-        method: "POST",
-        body: JSON.stringify(body),
-        headers: { "Content-Type": "application/json" },
-      },
-      QuickIdSessionSchema
-    );
-
-    this.sessionId = session.id;
-    return session;
-  }
-
-  /**
-   * Uploads a document photo via the configured file uploader,
-   * then notifies the backend that the document is attached.
+   * Submits the document and selfie for verification.
    *
-   * @param file The file to upload
-   * @param side 'front' or 'back' (defaults to 'front')
+   * @param clientToken The short-lived session token provided by your backend.
+   * @param document The document image file (Passport/ID).
+   * @param selfie The selfie image file.
    */
-  async uploadDocument(
-    file: File,
-    side: "front" | "back" = "front"
-  ): Promise<QuickIdSession> {
-    const sessionId = this.ensureSession();
-    const uploader = this.ensureUploader();
+  async submitVerification(
+    clientToken: string,
+    document: File,
+    selfie: File
+  ): Promise<VerificationResult> {
+    this.validateFile(document, "document");
+    this.validateFile(selfie, "selfie");
 
-    const documentUrl = await uploader(file);
+    const formData = new FormData();
+    formData.append("passport_image", document);
+    formData.append("selfie_image", selfie);
 
-    const session = await this.request(
-      `/api/quickid/sessions/${encodeURIComponent(sessionId)}/document`,
+    const result = await this.request(
+      "/verify",
       {
         method: "POST",
-        body: JSON.stringify({ documentUrl, side }),
-        headers: { "Content-Type": "application/json" },
+        body: formData, // fetch will set Content-Type: multipart/form-data automatically
       },
-      QuickIdSessionSchema
+      VerificationResultSchema,
+      clientToken
     );
 
-    return session;
+    return result;
   }
 
   /**
-   * Uploads a selfie via the configured file uploader,
-   * then notifies the backend that the selfie is attached.
+   * Fetches the current status of the session.
+   * Useful if the initial verification returns PENDING.
    */
-  async uploadSelfie(file: File): Promise<QuickIdSession> {
-    const sessionId = this.ensureSession();
-    const uploader = this.ensureUploader();
-
-    const selfieUrl = await uploader(file);
-
-    const session = await this.request(
-      `/api/quickid/sessions/${encodeURIComponent(sessionId)}/selfie`,
-      {
-        method: "POST",
-        body: JSON.stringify({ selfieUrl }),
-        headers: { "Content-Type": "application/json" },
-      },
-      QuickIdSessionSchema
-    );
-
-    return session;
-  }
-
-  /**
-   * Explicitly triggers verification for the current session.
-   * Depending on backend implementation, this might also happen automatically.
-   */
-  async verify(): Promise<QuickIdSession> {
-    const sessionId = this.ensureSession();
-
-    const session = await this.request(
-      `/api/quickid/sessions/${encodeURIComponent(sessionId)}/verify`,
-      {
-        method: "POST",
-      },
-      QuickIdSessionSchema
-    );
-
-    return session;
-  }
-
-  /**
-   * Fetches the latest session state from the backend.
-   */
-  async getStatus(): Promise<QuickIdSession> {
-    const sessionId = this.ensureSession();
-
-    const session = await this.request(
-      `/api/quickid/sessions/${encodeURIComponent(sessionId)}`,
+  async getSessionResult(
+    clientToken: string,
+    sessionId: string
+  ): Promise<VerificationResult> {
+    return this.request(
+      `/sessions/${encodeURIComponent(sessionId)}`,
       {
         method: "GET",
       },
-      QuickIdSessionSchema
+      VerificationResultSchema,
+      clientToken
     );
-
-    return session;
   }
 
   /**
-   * Convenience polling helper. Yields events until the session
-   * reaches a terminal state (verified/failed) or an error is thrown.
+   * Polls the session status until it is no longer PENDING.
    */
-  async *pollStatus(
+  async *pollResult(
+    clientToken: string,
+    sessionId: string,
     intervalMs: number = this.config.pollIntervalMs ?? 1500
-  ): AsyncGenerator<QuickIDEvent> {
-    this.ensureSession();
-
+  ): AsyncGenerator<VerificationResult> {
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      const session = await this.getStatus();
+      const result = await this.getSessionResult(clientToken, sessionId);
 
-      if (session.status === "processing") {
-        yield { type: "PROCESSING", session };
-      }
+      yield result;
 
-      if (session.status === "verified" && session.result) {
-        yield {
-          type: "VERIFIED",
-          session,
-          result: session.result as QuickIdResult,
-        };
-        return;
-      }
-
-      if (session.status === "failed") {
-        yield {
-          type: "FAILED",
-          session,
-          error: session.errorCode ?? "verification_failed",
-        };
+      if (result.status !== "PENDING") {
         return;
       }
 
@@ -229,13 +131,29 @@ export class QuickID {
     }
   }
 
-  /**
-   * Internal helper for HTTP requests with Zod validation.
-   */
+  private validateFile(file: File, label: string) {
+    if (!file) {
+      throw new QuickIDError("VALIDATION_ERROR", `${label} file is missing`);
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      throw new QuickIDError(
+        "VALIDATION_ERROR",
+        `${label} file size exceeds ${MAX_FILE_SIZE_MB}MB limit`
+      );
+    }
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      throw new QuickIDError(
+        "VALIDATION_ERROR",
+        `${label} file type ${file.type} is not supported. Use JPG or PNG.`
+      );
+    }
+  }
+
   private async request<T>(
     path: string,
     init: RequestInit,
-    schema: z.ZodType<T>
+    schema: z.ZodType<T>,
+    token?: string
   ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
 
@@ -243,10 +161,8 @@ export class QuickID {
       ...(init.headers ?? {}),
     };
 
-    if (this.config.token) {
-      (
-        headers as Record<string, string>
-      ).Authorization = `Bearer ${this.config.token}`;
+    if (token) {
+      (headers as Record<string, string>).Authorization = `Bearer ${token}`;
     }
 
     let res: Response;
@@ -296,26 +212,6 @@ export class QuickID {
     }
 
     return validation.data;
-  }
-
-  private ensureSession(): string {
-    if (!this.sessionId) {
-      throw new QuickIDError(
-        "NO_SESSION",
-        "No QuickID session. Call createSession() first."
-      );
-    }
-    return this.sessionId;
-  }
-
-  private ensureUploader() {
-    if (!this.config.upload) {
-      throw new QuickIDError(
-        "NO_UPLOADER",
-        "No upload function configured. Provide config.upload to QuickID constructor."
-      );
-    }
-    return this.config.upload;
   }
 
   private async sleep(ms: number): Promise<void> {

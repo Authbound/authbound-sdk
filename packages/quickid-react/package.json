@@ -40,8 +40,8 @@
     "@authbound/tsconfig": "workspace:*"
   },
   "scripts": {
-    "build": "tsup src/index.tsx --dts --format esm,cjs --clean",
-    "dev": "tsup src/index.tsx --dts --format esm,cjs --watch",
+    "build": "tsup src/index.ts --dts --format esm,cjs --clean",
+    "dev": "tsup src/index.ts --dts --format esm,cjs --watch",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

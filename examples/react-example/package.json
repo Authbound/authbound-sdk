@@ -1,5 +1,5 @@
 {
-  "name": "react-example",
+  "name": "@authbound/react-example",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,9 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@authbound/quickid-react": "workspace:*",
     "@authbound/quickid-core": "workspace:*",
+    "@authbound/quickid-react": "workspace:*",
     "@tailwindcss/vite": "^4.1.17",
+    "@tanstack/react-query": "^5.90.10",
     "autoprefixer": "^10.4.22",
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.554.0",

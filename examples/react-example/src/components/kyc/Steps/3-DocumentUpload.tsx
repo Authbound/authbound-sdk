@@ -189,11 +189,12 @@ export const DocumentUploadStep: React.FC<StepProps> = ({
     // Update UI state immediately for preview
     if (side === "front") {
       updateUIState({ documentFront: file });
+      // We only send the front to the SDK for now as per current specs
+      await onUploadDocument(file);
     } else {
       updateUIState({ documentBack: file });
+      // We don't send back to SDK yet
     }
-    // Call SDK to upload
-    await onUploadDocument(file, side);
   };
 
   return (

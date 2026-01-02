@@ -2,31 +2,44 @@ import { useState } from "react";
 import { Shield, CheckCircle, User, FileText } from "lucide-react";
 import { KYCModal } from "./components/kyc/KYCModal";
 import type { QuickIDConfig } from "@authbound/quickid-core";
+import { useCreateSession } from "./hooks/useCreateSession";
 import "./App.css";
 
 function App() {
   const [isKYCOpen, setIsKYCOpen] = useState(false);
   const [kycStatus, setKycStatus] = useState<"idle" | "completed">("idle");
+  const [clientToken, setClientToken] = useState<string>("");
 
   // SDK Configuration
-  // TODO: Replace with your actual API endpoint and upload function
   const quickIDConfig: QuickIDConfig = {
     apiBaseUrl:
       import.meta.env.VITE_QUICKID_API_URL || "https://api.authbound.com",
-    token: import.meta.env.VITE_QUICKID_API_KEY,
-    upload: async (file: File): Promise<string> => {
-      // TODO: Implement your file upload logic
-      // This should upload the file to your storage (S3, R2, etc.) and return a URL
-      // Example:
-      // const formData = new FormData();
-      // formData.append('file', file);
-      // const response = await fetch('/api/upload', { method: 'POST', body: formData });
-      // const { url } = await response.json();
-      // return url;
+  };
 
-      // For now, return a mock URL
-      return `https://example.com/uploads/${file.name}`;
-    },
+  console.log("quickIDConfig", quickIDConfig);
+
+  // React Query mutation for creating sessions
+  const createSessionMutation = useCreateSession();
+
+  const handleOpenKYC = async () => {
+    // Always fetch a fresh session when starting the flow
+    createSessionMutation.mutate(
+      {
+        customer_user_ref: `demo_user_${Date.now()}`,
+      },
+      {
+        onSuccess: (data) => {
+          setClientToken(data.client_token);
+          setIsKYCOpen(true);
+        },
+        onError: (error) => {
+          console.error("Failed to create session:", error);
+          alert(
+            `Failed to start verification session: ${error.message}. See console for details.`
+          );
+        },
+      }
+    );
   };
 
   return (
@@ -69,10 +82,13 @@ function App() {
             ) : (
               <button
                 className="btn-primary"
-                onClick={() => setIsKYCOpen(true)}
+                onClick={handleOpenKYC}
+                disabled={createSessionMutation.isPending}
               >
                 <Shield size={18} className="btn-icon" />
-                Verify Identity to Start
+                {createSessionMutation.isPending
+                  ? "Starting..."
+                  : "Verify Identity to Start"}
               </button>
             )}
             <button className="btn-secondary">Learn more</button>
@@ -113,6 +129,7 @@ function App() {
           setKycStatus("completed");
         }}
         config={quickIDConfig}
+        clientToken={clientToken}
       />
     </div>
   );

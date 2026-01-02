@@ -1,28 +1,24 @@
+import {
+  VerificationStatusSchema,
+  AssuranceLevelSchema,
+  DocumentDataSchema,
+  BiometricDataSchema,
+  ErrorDetailSchema,
+} from "@authbound/core";
+import { VerificationResultSchema } from "./schemas";
 import { z } from "zod";
-import type {
-  QuickIdLevelSchema,
-  QuickIdStatusSchema,
-  QuickIdResultSchema,
-  QuickIdSessionSchema,
-  CreateSessionInputSchema,
-} from "./schemas";
 
-// Re-export types inferred from Zod schemas
-export type QuickIdLevel = z.infer<typeof QuickIdLevelSchema>;
-export type QuickIdStatus = z.infer<typeof QuickIdStatusSchema>;
-export type QuickIdResult = z.infer<typeof QuickIdResultSchema>;
-export type QuickIdSession = z.infer<typeof QuickIdSessionSchema>;
-export type CreateSessionInput = z.infer<typeof CreateSessionInputSchema>;
+// Re-export types from core
+export type {
+  VerificationStatus,
+  AssuranceLevel,
+  DocumentData,
+  BiometricData,
+  ErrorDetail,
+} from "@authbound/core";
 
-/**
- * Strategy for uploading files (document / selfie) to storage.
- * Returns a URL that the QuickID backend can later access.
- *
- * You plug in your own implementation, e.g.:
- *  - S3 / R2 presigned URL uploader
- *  - Your own `POST /uploads` endpoint
- */
-export type QuickIDFileUploader = (file: File) => Promise<string>;
+// Re-export VerificationResult type inferred from schema
+export type VerificationResult = z.infer<typeof VerificationResultSchema>;
 
 export interface QuickIDConfig {
   /**
@@ -30,23 +26,6 @@ export interface QuickIDConfig {
    * Do not include trailing slash.
    */
   apiBaseUrl: string;
-
-  /**
-   * Optional bearer token or other auth header value.
-   * If provided, QuickIDCore will send `Authorization: Bearer <token>`.
-   */
-  token?: string;
-
-  /**
-   * Optional function that uploads a File and returns a URL.
-   * If not provided, calls to uploadDocument/uploadSelfie will throw.
-   */
-  upload?: QuickIDFileUploader;
-
-  /**
-   * Default verification level used when CreateSessionInput.level is omitted.
-   */
-  defaultLevel?: QuickIdLevel;
 
   /**
    * Polling interval for pollStatus (in ms). Default: 1500.
@@ -60,22 +39,9 @@ export interface QuickIDConfig {
   fetch?: typeof fetch;
 }
 
-/**
- * High-level client-side phase for UI state.
- * This is separate from the backend session.status.
- */
 export type QuickIDPhase =
   | "idle"
-  | "creating_session"
   | "awaiting_document"
   | "awaiting_selfie"
   | "verifying"
   | "done";
-
-export type QuickIDEvent =
-  | { type: "SESSION_CREATED"; session: QuickIdSession }
-  | { type: "DOCUMENT_UPLOADED"; session: QuickIdSession }
-  | { type: "SELFIE_UPLOADED"; session: QuickIdSession }
-  | { type: "PROCESSING"; session: QuickIdSession }
-  | { type: "VERIFIED"; session: QuickIdSession; result: QuickIdResult }
-  | { type: "FAILED"; session: QuickIdSession; error: string };

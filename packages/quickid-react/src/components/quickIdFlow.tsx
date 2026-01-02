@@ -1,18 +1,18 @@
 import type {
   QuickIDConfig,
-  QuickIdResult,
-  QuickIdSession,
-} from '@authbound/quickid-core';
-import type React from 'react';
-import { useEffect } from 'react';
-import { useQuickID } from '../useQuickID';
-import { DocumentUpload } from './documentUpload';
-import { SelfieCapture } from './selfieCapture';
-import { Status } from './status';
+  VerificationResult,
+} from "@authbound/quickid-core";
+import type React from "react";
+import { useEffect } from "react";
+import { useQuickID, type UseQuickIDConfig } from "../useQuickID";
+import { DocumentUpload } from "./documentUpload";
+import { SelfieCapture } from "./selfieCapture";
+import { Status } from "./status";
 
 export interface QuickIDFlowProps {
-  config: QuickIDConfig;
-  onComplete?: (session: QuickIdSession, result: QuickIdResult | null) => void;
+  config: UseQuickIDConfig;
+  clientToken?: string;
+  onComplete?: (result: VerificationResult | null) => void;
   onError?: (error: string) => void;
   startButtonLabel?: string;
   title?: string;
@@ -21,62 +21,64 @@ export interface QuickIDFlowProps {
 
 /**
  * Opinionated "wizard-style" QuickID flow:
- *  1. Start session
- *  2. Upload document
- *  3. Upload selfie
+ *  1. Start (initializes internal state)
+ *  2. Upload document (stored locally)
+ *  3. Upload selfie (stored locally) -> Auto Submit
  *  4. Verify & show result
- *
- * Consumers who need more control can use the hook + smaller components directly.
  */
 export const QuickIDFlow: React.FC<QuickIDFlowProps> = ({
   config,
+  clientToken,
   onComplete,
   onError,
-  startButtonLabel = 'Start identity verification',
-  title = 'Verify your identity',
-  description = 'We will verify your identity using your document and a selfie.',
+  startButtonLabel = "Start identity verification",
+  title = "Verify your identity",
+  description = "We will verify your identity using your document and a selfie.",
 }) => {
   const {
-    state: { phase, session, result, error, isBusy },
+    state: { phase, result, error, isBusy },
     start,
-    uploadDocument,
-    uploadSelfieAndVerify,
+    setDocument,
+    setSelfie,
     reset,
   } = useQuickID(config);
 
+  // Notify parent of errors
   useEffect(() => {
     if (error && onError) {
       onError(error);
     }
   }, [error, onError]);
 
+  // Notify parent of completion
   useEffect(() => {
-    if (phase === 'done' && session && onComplete) {
-      onComplete(session, result ?? null);
+    if (phase === "done" && result && onComplete) {
+      onComplete(result);
     }
-  }, [phase, session, result, onComplete]);
+  }, [phase, result, onComplete]);
 
-  const handleStart = async () => {
-    await start();
+  const handleStart = () => {
+    // start() now handles missing tokens by fetching from proxy
+    start(clientToken);
   };
 
-  const showStartScreen = phase === 'idle';
-  const showDocScreen = phase === 'awaiting_document';
-  const showSelfieScreen = phase === 'awaiting_selfie';
-  const showVerifying = phase === 'verifying';
-  const showDone = phase === 'done';
+  const showStartScreen = phase === "idle";
+  const showDocScreen = phase === "awaiting_document";
+  const showSelfieScreen = phase === "awaiting_selfie";
+  const showVerifying = phase === "verifying";
+  const showDone = phase === "done";
 
   return (
     <div
       style={{
         borderRadius: 12,
-        border: '1px solid rgba(0,0,0,0.08)',
+        border: "1px solid rgba(0,0,0,0.08)",
         padding: 20,
         maxWidth: 480,
-        display: 'flex',
-        flexDirection: 'column',
+        display: "flex",
+        flexDirection: "column",
         gap: 16,
-        background: '#fff',
+        background: "#fff",
       }}
     >
       <div>
@@ -91,9 +93,9 @@ export const QuickIDFlow: React.FC<QuickIDFlowProps> = ({
         </h2>
         <p
           style={{
-            margin: '4px 0 0',
+            margin: "4px 0 0",
             fontSize: 13,
-            color: '#555',
+            color: "#555",
           }}
         >
           {description}
@@ -115,15 +117,15 @@ export const QuickIDFlow: React.FC<QuickIDFlowProps> = ({
             disabled={isBusy}
             style={{
               marginTop: 8,
-              alignSelf: 'flex-start',
-              padding: '8px 14px',
+              alignSelf: "flex-start",
+              padding: "8px 14px",
               borderRadius: 999,
-              border: 'none',
-              background: '#0058cc',
-              color: '#fff',
+              border: "none",
+              background: "#0058cc",
+              color: "#fff",
               fontSize: 14,
               fontWeight: 500,
-              cursor: isBusy ? 'not-allowed' : 'pointer',
+              cursor: isBusy ? "not-allowed" : "pointer",
               opacity: isBusy ? 0.6 : 1,
             }}
           >
@@ -141,7 +143,7 @@ export const QuickIDFlow: React.FC<QuickIDFlowProps> = ({
               description={error}
             />
           )}
-          <DocumentUpload onUpload={uploadDocument} disabled={isBusy} />
+          <DocumentUpload onUpload={setDocument} disabled={isBusy} />
         </>
       )}
 
@@ -154,7 +156,7 @@ export const QuickIDFlow: React.FC<QuickIDFlowProps> = ({
               description={error}
             />
           )}
-          <SelfieCapture onCapture={uploadSelfieAndVerify} disabled={isBusy} />
+          <SelfieCapture onCapture={setSelfie} disabled={isBusy} />
         </>
       )}
 
@@ -169,11 +171,11 @@ export const QuickIDFlow: React.FC<QuickIDFlowProps> = ({
 
       {showDone && (
         <>
-          {result?.verified ? (
+          {result?.status === "VERIFIED" ? (
             <Status
               tone="success"
               label="Identity verified"
-              description="You can now continue to your appointment."
+              description="You can now continue."
             />
           ) : (
             <Status
@@ -181,7 +183,7 @@ export const QuickIDFlow: React.FC<QuickIDFlowProps> = ({
               label="Verification failed"
               description={
                 error ??
-                'We could not verify your identity. Please check that your document and selfie are clear and try again.'
+                "We could not verify your identity. Please check that your document and selfie are clear and try again."
               }
             />
           )}
@@ -190,14 +192,14 @@ export const QuickIDFlow: React.FC<QuickIDFlowProps> = ({
             onClick={reset}
             style={{
               marginTop: 8,
-              alignSelf: 'flex-start',
-              padding: '6px 12px',
+              alignSelf: "flex-start",
+              padding: "6px 12px",
               borderRadius: 999,
-              border: '1px solid rgba(0,0,0,0.2)',
-              background: '#fff',
-              color: '#333',
+              border: "1px solid rgba(0,0,0,0.2)",
+              background: "#fff",
+              color: "#333",
               fontSize: 13,
-              cursor: 'pointer',
+              cursor: "pointer",
             }}
           >
             Start over

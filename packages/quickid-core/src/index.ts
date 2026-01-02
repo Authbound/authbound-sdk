@@ -2,10 +2,10 @@ export * from "./types";
 export * from "./quickid";
 // Export schemas for advanced users who need runtime validation
 export {
-  QuickIdLevelSchema,
-  QuickIdStatusSchema,
-  QuickIdResultSchema,
-  QuickIdSessionSchema,
-  CreateSessionInputSchema,
-  ApiErrorSchema,
-} from "./schemas";
+  VerificationStatusSchema,
+  AssuranceLevelSchema,
+  DocumentDataSchema,
+  BiometricDataSchema,
+  ErrorDetailSchema,
+} from "@authbound/core";
+export { VerificationResultSchema, ApiErrorSchema } from "./schemas";

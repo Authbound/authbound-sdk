@@ -1,7 +1,7 @@
 {
   "name": "@authbound/server",
   "version": "0.1.0",
-  "description": "Authbound server helpers: mint requests, verify presentations, JWKS utilities.",
+  "description": "Authbound server SDK: middleware, API handlers, and JWT utilities for identity/age verification.",
   "type": "module",
   "sideEffects": false,
   "license": "MIT",
@@ -18,16 +18,21 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
+      "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./next": {
+      "types": "./dist/next/index.d.ts",
+      "import": "./dist/next/index.js",
+      "require": "./dist/next/index.cjs"
     },
     "./edge": {
       "types": "./dist/edge.d.ts",
-      "import": "./dist/edge.mjs"
+      "import": "./dist/edge.js"
     }
   },
   "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
@@ -35,19 +40,29 @@
   ],
   "dependencies": {
     "@authbound/core": "workspace:*",
-    "@authbound/shared": "workspace:*"
+    "@authbound/shared": "workspace:*",
+    "jose": "^5.10.0"
   },
-  "peerDependencies": {},
+  "peerDependencies": {
+    "next": ">=14.0.0"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@authbound/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "next": "^15.5.9",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "@types/node": "catalog:"
+    "zod": "catalog:"
   },
   "scripts": {
-    "build": "tsup src/index.ts --dts --format esm,cjs --clean && tsup src/edge.ts --dts --format esm --out-dir dist --silent",
-    "dev": "tsup src/index.ts --dts --format esm,cjs --watch",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "ultracite lint",

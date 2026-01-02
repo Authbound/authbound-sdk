@@ -16,6 +16,7 @@ interface KYCModalProps {
   onClose: () => void;
   onComplete: () => void;
   config: QuickIDConfig;
+  clientToken: string;
 }
 
 const STEPS_ORDER: KYCStep[] = [
@@ -31,10 +32,8 @@ const mapPhaseToStep = (phase: string, uiStep: KYCStep): KYCStep => {
   switch (phase) {
     case "idle":
       return uiStep === "intro" ? "intro" : "intro";
-    case "creating_session":
-      return "document-type";
     case "awaiting_document":
-      return "document-upload";
+      return "document-upload"; // We might need to manually handle document-type -> document-upload
     case "awaiting_selfie":
       return "selfie";
     case "verifying":
@@ -51,6 +50,7 @@ export const KYCModal: React.FC<KYCModalProps> = ({
   onClose,
   onComplete,
   config,
+  clientToken,
 }) => {
   const [uiStep, setUiStep] = useState<KYCStep>("intro");
   const [uiState, setUIState] = useState<KYCUIState>({
@@ -62,18 +62,34 @@ export const KYCModal: React.FC<KYCModalProps> = ({
 
   // Use SDK hook
   const {
-    state: { phase, session, result, error, isBusy },
+    state: { phase, result, error, isBusy },
     start,
-    uploadDocument,
-    uploadSelfieAndVerify,
+    setDocument,
+    setSelfie,
     reset,
   } = useQuickID(config);
 
   // Sync SDK phase to UI step
   useEffect(() => {
     if (!isOpen) return;
+    
+    // Only auto-advance if the mapped step is "forward" in the flow
+    // But we also have manual steps like document-type which SDK doesn't know about.
+    // So we rely on manual navigation for non-SDK phases.
+    
+    if (phase === "awaiting_document" && uiStep === "intro") {
+        setUiStep("document-type");
+        return;
+    }
+
     const mappedStep = mapPhaseToStep(phase, uiStep);
-    if (mappedStep !== uiStep) {
+    
+    // Don't override document-type if we are essentially in awaiting_document phase
+    if (phase === "awaiting_document" && uiStep === "document-type") {
+        return;
+    }
+
+    if (mappedStep !== uiStep && mappedStep !== "intro") {
       setUiStep(mappedStep);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -97,13 +113,10 @@ export const KYCModal: React.FC<KYCModalProps> = ({
 
   // Handle completion
   useEffect(() => {
-    if (phase === "done" && result?.verified) {
-      const timer = setTimeout(() => {
-        onComplete();
-      }, 2000);
-      return () => clearTimeout(timer);
+    if (phase === "done" && result?.status === "VERIFIED") {
+      // SuccessStep handles the delay and onNext call
     }
-  }, [phase, result, onComplete]);
+  }, [phase, result]);
 
   if (!isOpen) return null;
 
@@ -131,18 +144,23 @@ export const KYCModal: React.FC<KYCModalProps> = ({
   };
 
   const handleStartSession = async () => {
-    await start();
-    setUiStep("document-type");
+    if (!clientToken) {
+        console.error("No client token available");
+        return;
+    }
+    start(clientToken);
+    // phase will update to awaiting_document
+    // effect will setUiStep('document-type')
   };
 
-  const handleUploadDocument = async (file: File, side: "front" | "back") => {
-    await uploadDocument(file, side);
-    // Don't auto-advance - let user control flow
+  const handleUploadDocument = (file: File) => {
+    setDocument(file);
+    // phase updates to awaiting_selfie
   };
 
-  const handleUploadSelfie = async (file: File) => {
-    await uploadSelfieAndVerify(file);
-    // SDK will handle verification and phase transitions
+  const handleUploadSelfie = (file: File) => {
+    setSelfie(file, true); // Submit immediately
+    // phase updates to verifying
   };
 
   const renderStep = () => {
@@ -152,7 +170,6 @@ export const KYCModal: React.FC<KYCModalProps> = ({
       uiState,
       updateUIState,
       phase,
-      session,
       result,
       error,
       isBusy,

@@ -1,5 +1,5 @@
-import type { QuickIDUiPhase } from "@authbound/quickid-react";
-import type { QuickIdSession, QuickIdResult } from "@authbound/quickid-core";
+import type { QuickIDPhase } from "@authbound/quickid-core";
+import type { VerificationResult } from "@authbound/quickid-core";
 
 // Extended state for UI-specific data not managed by SDK
 export interface KYCUIState {
@@ -24,13 +24,12 @@ export interface StepProps {
   uiState: KYCUIState;
   updateUIState: (updates: Partial<KYCUIState>) => void;
   // SDK state
-  phase: QuickIDUiPhase;
-  session: QuickIdSession | null;
-  result: QuickIdResult | null;
+  phase: QuickIDPhase;
+  result: VerificationResult | null;
   error: string | null;
   isBusy: boolean;
   // SDK methods
   onStartSession: () => Promise<void>;
-  onUploadDocument: (file: File, side: "front" | "back") => Promise<void>;
-  onUploadSelfie: (file: File) => Promise<void>;
+  onUploadDocument: (file: File) => Promise<void> | void;
+  onUploadSelfie: (file: File) => Promise<void> | void;
 }

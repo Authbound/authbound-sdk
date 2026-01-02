@@ -10,7 +10,7 @@ export const SuccessStep: React.FC<StepProps & { onNext: () => void }> = ({
   phase,
 }) => {
   const isProcessing = phase === "verifying";
-  const isSuccess = result?.verified === true;
+  const isSuccess = result?.status === "VERIFIED";
 
   useEffect(() => {
     if (isSuccess && !isProcessing) {
@@ -79,7 +79,7 @@ export const SuccessStep: React.FC<StepProps & { onNext: () => void }> = ({
             Your identity has been verified securely. You can now access all
             health portal features.
           </p>
-          {result.score && (
+          {result.risk_score !== undefined && (
             <p
               style={{
                 marginTop: "1rem",
@@ -87,7 +87,7 @@ export const SuccessStep: React.FC<StepProps & { onNext: () => void }> = ({
                 color: "#64748b",
               }}
             >
-              Verification score: {(result.score * 100).toFixed(0)}%
+              Verification score: {(100 - result.risk_score).toFixed(0)}%
             </p>
           )}
           <div

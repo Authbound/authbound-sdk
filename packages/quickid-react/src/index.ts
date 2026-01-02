@@ -7,9 +7,10 @@ export * from "./components/status";
 // Re-export core types for convenience
 export type {
   QuickIDConfig,
-  QuickIdSession,
-  QuickIdResult,
-  QuickIdStatus,
-  QuickIdLevel,
-  CreateSessionInput,
+  VerificationResult,
+  VerificationStatus,
+  AssuranceLevel,
+  DocumentData,
+  BiometricData,
+  ErrorDetail,
 } from "@authbound/quickid-core";
