@@ -1,0 +1,66 @@
+{
+	"name": "@authbound/quickid-server",
+	"version": "0.1.0",
+	"description": "Authbound QuickID server SDK: session management, polling, and webhook verification for Node.js",
+	"type": "module",
+	"sideEffects": false,
+	"license": "MIT",
+	"author": "Authbound",
+	"homepage": "https://github.com/authbound/sdk",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/authbound/sdk.git",
+		"directory": "packages/quickid-server"
+	},
+	"bugs": {
+		"url": "https://github.com/authbound/sdk/issues"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"require": "./dist/index.cjs"
+		},
+		"./nextjs": {
+			"types": "./dist/adapters/nextjs.d.ts",
+			"import": "./dist/adapters/nextjs.js",
+			"require": "./dist/adapters/nextjs.cjs"
+		}
+	},
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": ["dist", "src"],
+	"dependencies": {
+		"@authbound/quickid-core": "workspace:*"
+	},
+	"peerDependencies": {
+		"next": ">=14.0.0"
+	},
+	"peerDependenciesMeta": {
+		"next": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@authbound/tsconfig": "workspace:*",
+		"@types/node": "catalog:",
+		"next": "^15.0.0",
+		"tsup": "catalog:",
+		"typescript": "catalog:",
+		"vitest": "catalog:",
+		"zod": "catalog:"
+	},
+	"scripts": {
+		"build": "tsup",
+		"dev": "tsup --watch",
+		"test": "vitest run",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"engines": {
+		"node": ">=18"
+	},
+	"publishConfig": {
+		"access": "public"
+	}
+}

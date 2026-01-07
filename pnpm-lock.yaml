@@ -261,6 +261,34 @@ importers:
         specifier: 'catalog:'
         version: 4.0.8(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)
 
+  packages/quickid-server:
+    dependencies:
+      '@authbound/quickid-core':
+        specifier: workspace:*
+        version: link:../quickid-core
+    devDependencies:
+      '@authbound/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.1
+      next:
+        specifier: ^15.0.0
+        version: 15.5.9(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      tsup:
+        specifier: 'catalog:'
+        version: 8.5.0(jiti@2.6.1)(postcss@8.5.6)(typescript@5.9.2)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.8(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)
+      zod:
+        specifier: 'catalog:'
+        version: 4.1.12
+
   packages/react:
     dependencies:
       '@authbound/core':
