@@ -267,7 +267,7 @@ importers:
         specifier: workspace:*
         version: link:../quickid-core
     devDependencies:
-      '@authbound/tsconfig':
+      '@authbound/sdk-tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':

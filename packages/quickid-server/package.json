@@ -43,7 +43,7 @@
 		}
 	},
 	"devDependencies": {
-		"@authbound/tsconfig": "workspace:*",
+		"@authbound/sdk-tsconfig": "workspace:*",
 		"@types/node": "catalog:",
 		"next": "^15.0.0",
 		"tsup": "catalog:",

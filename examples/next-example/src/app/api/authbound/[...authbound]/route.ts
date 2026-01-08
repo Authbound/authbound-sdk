@@ -14,11 +14,13 @@ import { authboundConfig } from "@/authbound.config";
  */
 export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig, {
   // Called when a webhook is received
-  onWebhook: async (payload) => {
+  onWebhook: async (event) => {
+    const session = event.data.object;
     console.log("[Authbound] Webhook received:", {
-      sessionId: payload.session_id,
-      status: payload.status,
-      userRef: payload.customer_user_ref,
+      eventType: event.type,
+      sessionId: session.id,
+      status: session.status,
+      userRef: session.client_reference_id,
     });
 
     // Here you can:

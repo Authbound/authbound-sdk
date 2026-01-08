@@ -158,6 +158,10 @@ export const CheckErrorSchema = z.object({
 });
 export type CheckError = z.infer<typeof CheckErrorSchema>;
 
+// Alias for backwards compatibility with quickid-core
+export const ErrorDetailSchema = CheckErrorSchema;
+export type ErrorDetail = CheckError;
+
 /**
  * Document type enum for verification reports
  */
