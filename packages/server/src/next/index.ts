@@ -76,10 +76,18 @@ export type {
   CookieOptions,
   VerificationStatus,
   AssuranceLevel,
-  WebhookPayload,
   CreateSessionResponse,
   SessionStatusResponse,
   MiddlewareResult,
+  // Webhook types (Stripe Identity-compatible)
+  WebhookEvent,
+  WebhookEventType,
+  VerificationSessionObject,
+  VerificationSessionStatus,
+  VerifiedOutputs,
+  LastError,
+  Dob,
+  Sex,
 } from "../core/types";
 
 // Re-export core utilities

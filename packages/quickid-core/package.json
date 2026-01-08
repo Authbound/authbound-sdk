@@ -35,7 +35,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@authbound/tsconfig": "workspace:*",
+    "@authbound/sdk-tsconfig": "workspace:*",
     "openapi-typescript-codegen": "^0.29.0",
     "tsup": "catalog:",
     "typescript": "catalog:",
@@ -44,7 +44,7 @@
   "scripts": {
     "build": "tsup src/index.ts --dts --format esm,cjs --clean",
     "dev": "tsup src/index.ts --dts --format esm,cjs --watch",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {

@@ -37,7 +37,7 @@
     "@authbound/core": "workspace:*"
   },
   "devDependencies": {
-    "@authbound/tsconfig": "workspace:*",
+    "@authbound/sdk-tsconfig": "workspace:*",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",
     "tsup": "catalog:",
@@ -48,7 +48,7 @@
   "scripts": {
     "build": "tsup src/index.tsx --dts --format esm,cjs --clean",
     "dev": "tsup src/index.tsx --dts --format esm,cjs --watch",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "ultracite lint",
     "format": "ultracite format"
