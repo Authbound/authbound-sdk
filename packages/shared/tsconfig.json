@@ -1,5 +1,8 @@
 {
-  "extends": "@authbound/tsconfig/node.json",
-  "compilerOptions": { "outDir": "dist" },
+  "extends": "@authbound/sdk-tsconfig/node.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "skipLibCheck": true
+  },
   "include": ["src"]
 }

@@ -37,12 +37,12 @@
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "@authbound/tsconfig": "workspace:*"
+    "@authbound/sdk-tsconfig": "workspace:*"
   },
   "scripts": {
     "build": "tsup src/index.ts --dts --format esm,cjs --clean",
     "dev": "tsup src/index.ts --dts --format esm,cjs --watch",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {

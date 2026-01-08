@@ -36,7 +36,7 @@
     "@authbound/core": "workspace:*"
   },
   "devDependencies": {
-    "@authbound/tsconfig": "workspace:*",
+    "@authbound/sdk-tsconfig": "workspace:*",
     "typescript": "catalog:",
     "tsup": "catalog:",
     "vitest": "catalog:"
@@ -44,7 +44,7 @@
   "scripts": {
     "build": "tsup src/index.ts --dts --format esm,cjs --clean",
     "dev": "tsup src/index.ts --dts --format esm,cjs --watch",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "ultracite lint",
     "format": "ultracite format"

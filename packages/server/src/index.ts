@@ -32,10 +32,18 @@ export type {
   CookieOptions,
   VerificationStatus,
   AssuranceLevel,
-  WebhookPayload,
   CreateSessionResponse,
   SessionStatusResponse,
   MiddlewareResult,
+  // Webhook types (Stripe Identity-compatible)
+  WebhookEvent,
+  WebhookEventType,
+  VerificationSessionObject,
+  VerificationSessionStatus,
+  VerifiedOutputs,
+  LastError,
+  Dob,
+  Sex,
 } from "./core/types";
 
 // Core Utilities
@@ -52,7 +60,15 @@ export {
   RoutesConfigSchema,
   AuthboundConfigSchema,
   AuthboundClaimsSchema,
-  WebhookPayloadSchema,
+  // Webhook schemas (Stripe Identity-compatible)
+  WebhookEventSchema,
+  WebhookEventTypeSchema,
+  VerificationSessionObjectSchema,
+  VerificationSessionStatusSchema,
+  VerifiedOutputsSchema,
+  LastErrorSchema,
+  DobSchema,
+  SexSchema,
 } from "./core/types";
 
 // JWT Utilities

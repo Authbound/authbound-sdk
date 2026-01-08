@@ -52,7 +52,6 @@
     }
   },
   "devDependencies": {
-    "@authbound/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "next": "^15.5.9",
     "tsup": "catalog:",
@@ -63,7 +62,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "ultracite lint",
     "format": "ultracite format"

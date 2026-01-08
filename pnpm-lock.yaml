@@ -195,7 +195,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.12
     devDependencies:
-      '@authbound/tsconfig':
+      '@authbound/sdk-tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       tsup:
@@ -220,7 +220,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.12
     devDependencies:
-      '@authbound/tsconfig':
+      '@authbound/sdk-tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       openapi-typescript-codegen:
@@ -245,7 +245,7 @@ importers:
         specifier: '>=18'
         version: 19.2.0
     devDependencies:
-      '@authbound/tsconfig':
+      '@authbound/sdk-tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/react':
@@ -301,7 +301,7 @@ importers:
         specifier: catalog:react
         version: 19.2.0(react@19.2.0)
     devDependencies:
-      '@authbound/tsconfig':
+      '@authbound/sdk-tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@testing-library/react':
@@ -335,9 +335,6 @@ importers:
         specifier: ^5.10.0
         version: 5.10.0
     devDependencies:
-      '@authbound/tsconfig':
-        specifier: workspace:*
-        version: link:../tsconfig
       '@types/node':
         specifier: 'catalog:'
         version: 24.10.1
@@ -359,7 +356,7 @@ importers:
 
   packages/shared:
     devDependencies:
-      '@authbound/tsconfig':
+      '@authbound/sdk-tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       tsup:
@@ -386,7 +383,7 @@ importers:
         specifier: 'catalog:'
         version: 3.5.24(typescript@5.9.2)
     devDependencies:
-      '@authbound/tsconfig':
+      '@authbound/sdk-tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       tsup:

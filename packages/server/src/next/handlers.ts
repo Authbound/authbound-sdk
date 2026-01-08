@@ -4,9 +4,10 @@ import type {
   AuthboundConfig,
   CreateSessionResponse,
   SessionStatusResponse,
-  WebhookPayload,
+  WebhookEvent,
+  VerificationSessionObject,
 } from "../core/types";
-import { WebhookPayloadSchema, calculateAge, parseConfig } from "../core/types";
+import { WebhookEventSchema, parseConfig } from "../core/types";
 import { logError, createSafeErrorResponse } from "../core/error-utils";
 import {
   getSessionFromCookie,
@@ -31,10 +32,14 @@ export interface AuthboundHandlers {
 
 export interface HandlersOptions {
   /**
-   * Custom handler called when a webhook is received.
+   * Custom handler called when a webhook event is received.
    * Use this to sync verification status with your database.
+   *
+   * The event follows Stripe Identity webhook format with nested structure:
+   * - event.type: The event type (e.g., "identity.verification_session.verified")
+   * - event.data.object: The verification session object with status and verified_outputs
    */
-  onWebhook?: (payload: WebhookPayload) => void | Promise<void>;
+  onWebhook?: (event: WebhookEvent) => void | Promise<void>;
 
   /**
    * Custom handler called when a session is created.
@@ -45,10 +50,13 @@ export interface HandlersOptions {
    * Custom handler to validate the webhook signature.
    * Return true if valid, false if invalid.
    * By default, no signature validation is performed.
+   *
+   * Use the Authbound-Signature header to verify the webhook:
+   * Format: "t=<timestamp>,v1=<signature>"
    */
   validateWebhookSignature?: (
     request: NextRequest,
-    payload: WebhookPayload
+    event: WebhookEvent
   ) => boolean | Promise<boolean>;
 
   /**
@@ -290,6 +298,42 @@ async function handleCreateSession(
   }
 }
 
+/**
+ * Calculate age from a Dob object
+ */
+function calculateAgeFromDob(dob: { day: number; month: number; year: number }): number {
+  const today = new Date();
+  const birthDate = new Date(dob.year, dob.month - 1, dob.day);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+
+  return age;
+}
+
+/**
+ * Map webhook session status to internal verification status
+ */
+function mapSessionStatusToVerificationStatus(
+  status: VerificationSessionObject["status"]
+): "VERIFIED" | "REJECTED" | "PENDING" | "MANUAL_REVIEW_NEEDED" {
+  switch (status) {
+    case "verified":
+      return "VERIFIED";
+    case "failed":
+    case "canceled":
+      return "REJECTED";
+    case "requires_input":
+      return "MANUAL_REVIEW_NEEDED";
+    case "processing":
+    default:
+      return "PENDING";
+  }
+}
+
 async function handleWebhook(
   request: NextRequest,
   config: AuthboundConfig,
@@ -297,26 +341,27 @@ async function handleWebhook(
 ): Promise<NextResponse> {
   try {
     const rawBody = await request.json();
-    const parsed = WebhookPayloadSchema.safeParse(rawBody);
+    const parsed = WebhookEventSchema.safeParse(rawBody);
 
     if (!parsed.success) {
       logError(
-        new Error(`Invalid webhook payload: ${parsed.error.message}`),
+        new Error(`Invalid webhook event: ${parsed.error.message}`),
         "Webhook",
         config.debug
       );
       return createErrorResponse(
-        "Invalid webhook payload",
+        "Invalid webhook event",
         400,
         "INVALID_PAYLOAD"
       );
     }
 
-    const payload = parsed.data;
+    const event = parsed.data;
+    const session = event.data.object;
 
     // Validate signature if handler provided
     if (options.validateWebhookSignature) {
-      const isValid = await options.validateWebhookSignature(request, payload);
+      const isValid = await options.validateWebhookSignature(request, event);
       if (!isValid) {
         logError(
           new Error("Invalid webhook signature"),
@@ -333,31 +378,39 @@ async function handleWebhook(
 
     // Call custom webhook handler
     if (options.onWebhook) {
-      await options.onWebhook(payload);
+      await options.onWebhook(event);
     }
 
     // Calculate age from DOB if available
-    const age = payload.document_data?.date_of_birth
-      ? calculateAge(payload.document_data.date_of_birth)
+    const age = session.verified_outputs?.dob
+      ? calculateAgeFromDob(session.verified_outputs.dob)
+      : undefined;
+
+    // Format DOB as ISO string for session cookie
+    const dateOfBirth = session.verified_outputs?.dob
+      ? `${session.verified_outputs.dob.year}-${String(session.verified_outputs.dob.month).padStart(2, "0")}-${String(session.verified_outputs.dob.day).padStart(2, "0")}`
       : undefined;
 
     // Create response with session cookie
     const response = createJsonResponse({ success: true });
 
     // Set the session cookie with verification data
+    // Map the session status to our internal verification status
     await setSessionCookie(response, config, {
-      userRef: payload.customer_user_ref,
-      sessionId: payload.session_id,
-      status: payload.status,
-      assuranceLevel: payload.assurance_level,
+      userRef: session.client_reference_id,
+      sessionId: session.id,
+      status: mapSessionStatusToVerificationStatus(session.status),
+      assuranceLevel: "SUBSTANTIAL", // Default assurance level for verified sessions
       age,
-      dateOfBirth: payload.document_data?.date_of_birth,
+      dateOfBirth,
     });
 
     if (config.debug) {
       console.log("[Authbound] Webhook processed:", {
-        sessionId: payload.session_id,
-        status: payload.status,
+        eventId: event.id,
+        eventType: event.type,
+        sessionId: session.id,
+        status: session.status,
       });
     }
 
