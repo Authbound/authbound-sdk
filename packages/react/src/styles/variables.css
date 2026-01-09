@@ -1,0 +1,261 @@
+/**
+ * Authbound CSS Variables
+ *
+ * These variables can be overridden by setting custom values in the
+ * AuthboundProvider's appearance prop, or by setting CSS custom properties.
+ *
+ * Prefix: --ab-* (authbound)
+ */
+
+:root {
+  /* ============================================
+   * Colors
+   * ============================================ */
+
+  /* Primary brand color - used for buttons, links, focus states */
+  --ab-color-primary: #0058cc;
+
+  /* Success color - used for verified state */
+  --ab-color-success: #16794f;
+
+  /* Error color - used for failed state, error messages */
+  --ab-color-error: #b3261e;
+
+  /* Warning color - used for timeout warnings */
+  --ab-color-warning: #f59e0b;
+
+  /* Background color - card and container backgrounds */
+  --ab-color-background: #ffffff;
+
+  /* Foreground color - primary text */
+  --ab-color-foreground: #1a1a1a;
+
+  /* Muted color - secondary text, descriptions */
+  --ab-color-muted: #6b7280;
+
+  /* Border color - dividers, card borders */
+  --ab-color-border: #e5e7eb;
+
+  /* ============================================
+   * Typography
+   * ============================================ */
+
+  /* Font family - system fonts for best performance */
+  --ab-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Base font size */
+  --ab-font-size-base: 1rem;
+
+  /* Small font size - hints, help text */
+  --ab-font-size-small: 0.875rem;
+
+  /* Large font size - headings */
+  --ab-font-size-large: 1.125rem;
+
+  /* ============================================
+   * Spacing
+   * ============================================ */
+
+  /* Base spacing unit */
+  --ab-space-unit: 0.25rem;
+
+  /* Card padding */
+  --ab-card-padding: 1.5rem;
+
+  /* ============================================
+   * Border Radius
+   * ============================================ */
+
+  /* Card border radius */
+  --ab-radius-card: 0.75rem;
+
+  /* Button border radius */
+  --ab-radius-button: 0.5rem;
+
+  /* Input border radius */
+  --ab-radius-input: 0.375rem;
+
+  /* ============================================
+   * Component-specific
+   * ============================================ */
+
+  /* QR code size */
+  --ab-qr-size: 256px;
+
+  /* Card shadow */
+  --ab-card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1),
+    0 2px 4px -2px rgb(0 0 0 / 0.1);
+
+  /* Transition duration */
+  --ab-transition-duration: 200ms;
+}
+
+/* ============================================
+ * Dark Mode
+ * ============================================ */
+
+.ab-root[data-ab-theme="dark"],
+.ab-dark,
+[data-theme="dark"] .ab-root {
+  --ab-color-background: #0a0a0a;
+  --ab-color-foreground: #fafafa;
+  --ab-color-muted: #a1a1aa;
+  --ab-color-border: #27272a;
+  --ab-card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3),
+    0 2px 4px -2px rgb(0 0 0 / 0.2);
+}
+
+/* Auto dark mode based on system preference */
+@media (prefers-color-scheme: dark) {
+  .ab-root[data-ab-theme="auto"] {
+    --ab-color-background: #0a0a0a;
+    --ab-color-foreground: #fafafa;
+    --ab-color-muted: #a1a1aa;
+    --ab-color-border: #27272a;
+    --ab-card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3),
+      0 2px 4px -2px rgb(0 0 0 / 0.2);
+  }
+}
+
+/* ============================================
+ * Animations
+ * ============================================ */
+
+@keyframes ab-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ab-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes ab-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ab-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+ * Base Component Styles
+ * ============================================ */
+
+.ab-root {
+  font-family: var(--ab-font-family);
+  font-size: var(--ab-font-size-base);
+  color: var(--ab-color-foreground);
+  background-color: var(--ab-color-background);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Card styles */
+.ab-card {
+  background-color: var(--ab-color-background);
+  border: 1px solid var(--ab-color-border);
+  border-radius: var(--ab-radius-card);
+  box-shadow: var(--ab-card-shadow);
+  padding: var(--ab-card-padding);
+}
+
+/* Button styles */
+.ab-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: var(--ab-radius-button);
+  font-family: var(--ab-font-family);
+  font-size: var(--ab-font-size-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity var(--ab-transition-duration),
+    transform var(--ab-transition-duration);
+}
+
+.ab-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.ab-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.ab-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ab-button--primary {
+  background-color: var(--ab-color-primary);
+  color: white;
+}
+
+.ab-button--secondary {
+  background-color: transparent;
+  border: 1px solid var(--ab-color-border);
+  color: var(--ab-color-foreground);
+}
+
+/* Spinner */
+.ab-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--ab-color-border);
+  border-top-color: var(--ab-color-primary);
+  border-radius: 50%;
+  animation: ab-spin 1s linear infinite;
+}
+
+/* QR code container */
+.ab-qr-code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ab-qr-size);
+  height: var(--ab-qr-size);
+}
+
+/* Status indicator */
+.ab-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--ab-radius-button);
+  font-size: var(--ab-font-size-base);
+}
+
+/* Focus styles */
+.ab-root *:focus-visible {
+  outline: 2px solid var(--ab-color-primary);
+  outline-offset: 2px;
+}

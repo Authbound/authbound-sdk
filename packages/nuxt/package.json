@@ -1,0 +1,59 @@
+{
+  "name": "@authbound/nuxt",
+  "version": "0.1.0",
+  "description": "Authbound Nuxt 3 module - Complete verification for Nuxt with auto-imports and server middleware.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Authbound",
+  "homepage": "https://github.com/authbound/sdk",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/authbound/sdk.git",
+    "directory": "packages/nuxt"
+  },
+  "bugs": {
+    "url": "https://github.com/authbound/sdk/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/module.mjs",
+      "require": "./dist/module.cjs"
+    }
+  },
+  "main": "./dist/module.cjs",
+  "module": "./dist/module.mjs",
+  "types": "./dist/types.d.ts",
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@authbound/core": "workspace:*",
+    "@authbound/server": "workspace:*",
+    "@authbound/vue": "workspace:*",
+    "@nuxt/kit": "^3.17.4"
+  },
+  "peerDependencies": {
+    "nuxt": "^3.0.0"
+  },
+  "devDependencies": {
+    "@authbound/sdk-tsconfig": "workspace:*",
+    "@nuxt/module-builder": "^0.8.4",
+    "@nuxt/schema": "^3.17.4",
+    "nuxt": "^3.17.4",
+    "typescript": "catalog:",
+    "unbuild": "^3.5.0"
+  },
+  "scripts": {
+    "build": "npx nuxt-module-build build",
+    "dev": "npx nuxt-module-build build --stub",
+    "prepack": "npx nuxt-module-build build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

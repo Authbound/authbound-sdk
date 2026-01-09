@@ -300,10 +300,33 @@ async function handleCreateSession(
 
 /**
  * Calculate age from a Dob object
+ *
+ * @throws Error if the date of birth is invalid (e.g., February 31st)
  */
 function calculateAgeFromDob(dob: { day: number; month: number; year: number }): number {
+  // Validate input ranges
+  if (dob.month < 1 || dob.month > 12) {
+    throw new Error(`Invalid month: ${dob.month}. Month must be between 1 and 12.`);
+  }
+  if (dob.day < 1 || dob.day > 31) {
+    throw new Error(`Invalid day: ${dob.day}. Day must be between 1 and 31.`);
+  }
+
   const today = new Date();
   const birthDate = new Date(dob.year, dob.month - 1, dob.day);
+
+  // Validate that the Date constructor didn't silently roll over
+  // (e.g., Feb 31 becomes March 2 or 3)
+  if (
+    birthDate.getFullYear() !== dob.year ||
+    birthDate.getMonth() !== dob.month - 1 ||
+    birthDate.getDate() !== dob.day
+  ) {
+    throw new Error(
+      `Invalid date: ${dob.year}-${String(dob.month).padStart(2, "0")}-${String(dob.day).padStart(2, "0")} does not exist.`
+    );
+  }
+
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
 
@@ -382,9 +405,16 @@ async function handleWebhook(
     }
 
     // Calculate age from DOB if available
-    const age = session.verified_outputs?.dob
-      ? calculateAgeFromDob(session.verified_outputs.dob)
-      : undefined;
+    let age: number | undefined;
+    if (session.verified_outputs?.dob) {
+      try {
+        age = calculateAgeFromDob(session.verified_outputs.dob);
+      } catch (error) {
+        // Log invalid DOB but don't fail the webhook
+        logError(error, "Age calculation from DOB", config.debug);
+        // age remains undefined
+      }
+    }
 
     // Format DOB as ISO string for session cookie
     const dateOfBirth = session.verified_outputs?.dob

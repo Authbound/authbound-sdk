@@ -20,7 +20,8 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
-    }
+    },
+    "./styles.css": "./src/styles/variables.css"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -33,10 +34,12 @@
     "vue": "catalog:"
   },
   "dependencies": {
-    "@authbound/core": "workspace:*"
+    "@authbound/core": "workspace:*",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@authbound/sdk-tsconfig": "workspace:*",
+    "@types/qrcode": "^1.5.5",
     "typescript": "catalog:",
     "tsup": "catalog:",
     "vitest": "catalog:"

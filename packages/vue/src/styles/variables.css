@@ -1,0 +1,211 @@
+/**
+ * Authbound Vue SDK CSS Variables
+ *
+ * Import this file to get default Authbound styling:
+ * import '@authbound/vue/styles.css';
+ */
+
+:root {
+  /* Colors - Light theme */
+  --ab-color-primary: #0058cc;
+  --ab-color-primary-hover: #0047a8;
+  --ab-color-success: #16794f;
+  --ab-color-error: #b3261e;
+  --ab-color-warning: #f59e0b;
+  --ab-color-background: #ffffff;
+  --ab-color-foreground: #1a1a1a;
+  --ab-color-muted: #f5f5f5;
+  --ab-color-muted-foreground: #737373;
+  --ab-color-border: #e5e5e5;
+
+  /* Typography */
+  --ab-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ab-font-size-base: 1rem;
+  --ab-font-size-sm: 0.875rem;
+  --ab-font-size-lg: 1.125rem;
+  --ab-font-weight-normal: 400;
+  --ab-font-weight-medium: 500;
+  --ab-font-weight-bold: 600;
+
+  /* Spacing */
+  --ab-space-1: 0.25rem;
+  --ab-space-2: 0.5rem;
+  --ab-space-3: 0.75rem;
+  --ab-space-4: 1rem;
+  --ab-space-6: 1.5rem;
+  --ab-space-8: 2rem;
+
+  /* Border radius */
+  --ab-radius-sm: 0.25rem;
+  --ab-radius-md: 0.5rem;
+  --ab-radius-lg: 0.75rem;
+  --ab-radius-full: 9999px;
+
+  /* Component-specific */
+  --ab-qr-size: 256px;
+  --ab-card-padding: 1.5rem;
+  --ab-button-height: 2.5rem;
+}
+
+/* Dark theme */
+.ab-dark,
+[data-ab-theme="dark"] {
+  --ab-color-background: #0a0a0a;
+  --ab-color-foreground: #fafafa;
+  --ab-color-muted: #262626;
+  --ab-color-muted-foreground: #a3a3a3;
+  --ab-color-border: #404040;
+  --ab-color-primary: #3b82f6;
+  --ab-color-primary-hover: #60a5fa;
+}
+
+/* Auto dark mode (respects system preference) */
+@media (prefers-color-scheme: dark) {
+  [data-ab-theme="auto"] {
+    --ab-color-background: #0a0a0a;
+    --ab-color-foreground: #fafafa;
+    --ab-color-muted: #262626;
+    --ab-color-muted-foreground: #a3a3a3;
+    --ab-color-border: #404040;
+    --ab-color-primary: #3b82f6;
+    --ab-color-primary-hover: #60a5fa;
+  }
+}
+
+/* Base component styles */
+.ab-root {
+  font-family: var(--ab-font-family);
+  font-size: var(--ab-font-size-base);
+  color: var(--ab-color-foreground);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* QR Code */
+.ab-qr-code {
+  display: inline-block;
+  border-radius: var(--ab-radius-lg);
+  overflow: hidden;
+}
+
+.ab-qr-code--loading,
+.ab-qr-code--error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--ab-color-muted);
+}
+
+/* Spinner */
+.ab-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ab-space-2);
+}
+
+.ab-spinner::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--ab-color-border);
+  border-top-color: var(--ab-color-primary);
+  border-radius: 50%;
+  animation: ab-spin 0.8s linear infinite;
+}
+
+@keyframes ab-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Status badge */
+.ab-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: var(--ab-radius-full);
+  font-weight: var(--ab-font-weight-medium);
+  transition: all 0.2s ease;
+}
+
+/* Verification status */
+.ab-verification-status {
+  transition: all 0.3s ease;
+}
+
+/* Wall */
+.ab-wall {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--ab-space-4);
+  background-color: var(--ab-color-muted);
+}
+
+.ab-wall__card {
+  background-color: var(--ab-color-background);
+  border-radius: var(--ab-radius-lg);
+  padding: var(--ab-card-padding);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+}
+
+.ab-wall__title {
+  font-size: 1.5rem;
+  font-weight: var(--ab-font-weight-bold);
+  color: var(--ab-color-foreground);
+  margin: 0 0 0.5rem 0;
+}
+
+.ab-wall__subtitle {
+  font-size: var(--ab-font-size-sm);
+  color: var(--ab-color-muted-foreground);
+  margin: 0;
+}
+
+.ab-wall__qr {
+  display: flex;
+  justify-content: center;
+  margin: var(--ab-space-6) 0 var(--ab-space-4) 0;
+}
+
+.ab-wall__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--ab-button-height);
+  padding: 0 var(--ab-space-6);
+  border-radius: var(--ab-radius-md);
+  font-size: var(--ab-font-size-base);
+  font-weight: var(--ab-font-weight-medium);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  width: 100%;
+  margin-top: var(--ab-space-4);
+}
+
+.ab-wall__button--primary {
+  background-color: var(--ab-color-primary);
+  color: #ffffff;
+}
+
+.ab-wall__button--primary:hover {
+  background-color: var(--ab-color-primary-hover);
+}
+
+.ab-wall__button--secondary {
+  background-color: transparent;
+  color: var(--ab-color-primary);
+  border: 1px solid var(--ab-color-border);
+}
+
+.ab-wall__button--secondary:hover {
+  background-color: var(--ab-color-muted);
+}

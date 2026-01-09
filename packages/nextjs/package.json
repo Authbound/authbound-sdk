@@ -1,7 +1,7 @@
 {
-  "name": "@authbound/react",
+  "name": "@authbound/nextjs",
   "version": "0.1.0",
-  "description": "Authbound React 18 bindings (hooks + headless components) for verification flows.",
+  "description": "Authbound Next.js SDK - Complete verification for Next.js with middleware, handlers, and React components.",
   "type": "module",
   "sideEffects": false,
   "license": "MIT",
@@ -10,7 +10,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/authbound/sdk.git",
-    "directory": "packages/react"
+    "directory": "packages/nextjs"
   },
   "bugs": {
     "url": "https://github.com/authbound/sdk/issues"
@@ -21,12 +21,22 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
-    "./testing": {
-      "types": "./dist/testing.d.ts",
-      "import": "./dist/testing.js",
-      "require": "./dist/testing.cjs"
+    "./middleware": {
+      "types": "./dist/middleware.d.ts",
+      "import": "./dist/middleware.js",
+      "require": "./dist/middleware.cjs"
     },
-    "./styles.css": "./src/styles/variables.css"
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js",
+      "require": "./dist/server.cjs"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js",
+      "require": "./dist/client.cjs"
+    },
+    "./styles.css": "./dist/styles.css"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -35,27 +45,28 @@
     "dist",
     "src"
   ],
+  "dependencies": {
+    "@authbound/core": "workspace:*",
+    "@authbound/react": "workspace:*",
+    "@authbound/server": "workspace:*"
+  },
   "peerDependencies": {
+    "next": ">=14.0.0",
     "react": "catalog:react",
     "react-dom": "catalog:react"
   },
-  "dependencies": {
-    "@authbound/core": "workspace:*",
-    "qrcode": "^1.5.4"
-  },
   "devDependencies": {
     "@authbound/sdk-tsconfig": "workspace:*",
-    "@types/qrcode": "^1.5.5",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",
+    "next": "^15.5.9",
     "tsup": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "@testing-library/react": "catalog:"
+    "vitest": "catalog:"
   },
   "scripts": {
-    "build": "tsup src/index.tsx src/testing.tsx --dts --format esm,cjs --clean",
-    "dev": "tsup src/index.tsx src/testing.tsx --dts --format esm,cjs --watch",
+    "build": "tsup && cp src/styles.css dist/styles.css",
+    "dev": "tsup --watch",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "ultracite lint",
