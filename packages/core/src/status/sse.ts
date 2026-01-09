@@ -18,8 +18,9 @@ import type { ResolvedConfig } from "../client/config";
  * Maximum buffer size for SSE data (64KB).
  * Prevents memory exhaustion from malicious/buggy servers sending
  * unbounded data without proper event delimiters.
+ * @internal Exported for testing
  */
-const MAX_BUFFER_SIZE = 64 * 1024;
+export const MAX_BUFFER_SIZE = 64 * 1024;
 
 // ============================================================================
 // SSE Subscription

@@ -302,8 +302,9 @@ async function handleCreateSession(
  * Calculate age from a Dob object
  *
  * @throws Error if the date of birth is invalid (e.g., February 31st)
+ * @internal Exported for testing
  */
-function calculateAgeFromDob(dob: { day: number; month: number; year: number }): number {
+export function calculateAgeFromDob(dob: { day: number; month: number; year: number }): number {
   // Validate input ranges
   if (dob.month < 1 || dob.month > 12) {
     throw new Error(`Invalid month: ${dob.month}. Month must be between 1 and 12.`);

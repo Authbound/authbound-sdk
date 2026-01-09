@@ -5,6 +5,7 @@
 export {
   createStatusSubscription,
   isSSESupported,
+  MAX_BUFFER_SIZE,
   type SSESubscriptionOptions,
 } from "./sse";
 
