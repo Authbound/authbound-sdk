@@ -6,11 +6,11 @@
  *          and ensuring slow requests don't exceed max duration
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { createPollingSubscription, DEFAULT_POLLING_CONFIG } from "../polling";
-import type { StatusEvent } from "../../types/verification";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResolvedConfig } from "../../client/config";
-import { asSessionId, asClientToken } from "../../types/branded";
+import { asClientToken, asSessionId } from "../../types/branded";
+import type { StatusEvent } from "../../types/verification";
+import { createPollingSubscription } from "../polling";
 
 // Test fixtures
 const TEST_CONFIG: ResolvedConfig = {
@@ -56,7 +56,12 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
         TEST_SESSION_ID,
         TEST_CLIENT_TOKEN,
         (event) => events.push(event),
-        { pollingConfig: { maxDuration: SHORT_DURATION, initialInterval: INTERVAL } }
+        {
+          pollingConfig: {
+            maxDuration: SHORT_DURATION,
+            initialInterval: INTERVAL,
+          },
+        }
       );
 
       // Poll a few times then let duration expire
@@ -163,7 +168,7 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
         TEST_SESSION_ID,
         TEST_CLIENT_TOKEN,
         () => {},
-        { pollingConfig: { maxDuration: 60000 } } // 60s total
+        { pollingConfig: { maxDuration: 60_000 } } // 60s total
       );
 
       // Trigger first poll
@@ -171,7 +176,7 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
 
       // Find the abort timeout call (should be 30000ms or less)
       const abortTimeoutCall = setTimeoutSpy.mock.calls.find(
-        ([, ms]) => typeof ms === "number" && ms <= 30000 && ms > 1000
+        ([, ms]) => typeof ms === "number" && ms <= 30_000 && ms > 1000
       );
       expect(abortTimeoutCall).toBeDefined();
     });
@@ -192,7 +197,7 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
 
       // The abort timeout should be ~2000ms (remaining time), not 30000ms
       const recentAbortCalls = setTimeoutSpy.mock.calls.filter(
-        ([, ms]) => typeof ms === "number" && ms < 30000 && ms > 0
+        ([, ms]) => typeof ms === "number" && ms < 30_000 && ms > 0
       );
       expect(recentAbortCalls.length).toBeGreaterThan(0);
     });

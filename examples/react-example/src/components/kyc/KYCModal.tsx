@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { X, ChevronLeft } from "lucide-react";
-import { AnimatePresence } from "framer-motion";
-import { useQuickID } from "@authbound/quickid-react";
 import type { QuickIDConfig } from "@authbound/quickid-core";
+import { useQuickID } from "@authbound/quickid-react";
+import { AnimatePresence } from "framer-motion";
+import { ChevronLeft, X } from "lucide-react";
+import type React from "react";
+import { useEffect, useState } from "react";
 import { IntroStep } from "./Steps/1-Intro";
 import { DocumentTypeStep } from "./Steps/2-DocumentType";
 import { DocumentUploadStep } from "./Steps/3-DocumentUpload";
@@ -72,21 +73,21 @@ export const KYCModal: React.FC<KYCModalProps> = ({
   // Sync SDK phase to UI step
   useEffect(() => {
     if (!isOpen) return;
-    
+
     // Only auto-advance if the mapped step is "forward" in the flow
     // But we also have manual steps like document-type which SDK doesn't know about.
     // So we rely on manual navigation for non-SDK phases.
-    
+
     if (phase === "awaiting_document" && uiStep === "intro") {
-        setUiStep("document-type");
-        return;
+      setUiStep("document-type");
+      return;
     }
 
     const mappedStep = mapPhaseToStep(phase, uiStep);
-    
+
     // Don't override document-type if we are essentially in awaiting_document phase
     if (phase === "awaiting_document" && uiStep === "document-type") {
-        return;
+      return;
     }
 
     if (mappedStep !== uiStep && mappedStep !== "intro") {
@@ -145,8 +146,8 @@ export const KYCModal: React.FC<KYCModalProps> = ({
 
   const handleStartSession = async () => {
     if (!clientToken) {
-        console.error("No client token available");
-        return;
+      console.error("No client token available");
+      return;
     }
     start(clientToken);
     // phase will update to awaiting_document

@@ -1,9 +1,9 @@
 import {
   QuickID as QuickIDClient,
   type QuickIDConfig,
+  QuickIDError,
   type QuickIDPhase,
   type VerificationResult,
-  QuickIDError,
 } from "@authbound/quickid-core";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -181,7 +181,7 @@ export function useQuickID(config: UseQuickIDConfig): UseQuickID {
       handleError(new Error("Missing client token"), "Session not started");
       return;
     }
-    if (!docRef.current || !selfieRef.current) {
+    if (!(docRef.current && selfieRef.current)) {
       handleError(
         new Error("Missing files"),
         "Please upload both document and selfie"

@@ -5,35 +5,35 @@
  */
 
 import {
-  createContext,
-  useContext,
-  useMemo,
-  useState,
-  useCallback,
-  useEffect,
-  Component,
-  type ReactNode,
-  type ErrorInfo,
-} from "react";
-import {
-  createClient,
   type AuthboundClient,
   type AuthboundClientConfig,
-  type PublishableKey,
-  type PolicyId,
-  type SessionId,
-  type EudiVerificationStatus,
-  type VerificationResult,
-  type StatusEvent,
-  type AuthboundErrorCode,
   AuthboundError,
+  type AuthboundErrorCode,
+  createClient,
+  type EudiVerificationStatus,
+  type PolicyId,
+  type PublishableKey,
+  type SessionId,
+  type StatusEvent,
+  type VerificationResult,
 } from "@authbound/core";
+import {
+  Component,
+  createContext,
+  type ErrorInfo,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import type { AuthboundAppearance } from "../types/appearance";
 import {
-  DEFAULT_VARIABLES,
   DARK_THEME_VARIABLES,
-  variablesToCSSProperties,
+  DEFAULT_VARIABLES,
   mergeAppearance,
+  variablesToCSSProperties,
 } from "../types/appearance";
 
 // ============================================================================
@@ -102,7 +102,9 @@ export interface AuthboundContextValue {
  * Exported for use by MockAuthboundProvider in testing utilities.
  * @internal
  */
-export const AuthboundContext = createContext<AuthboundContextValue | null>(null);
+export const AuthboundContext = createContext<AuthboundContextValue | null>(
+  null
+);
 
 // ============================================================================
 // Provider Props
@@ -183,7 +185,7 @@ export function AuthboundProvider({
       return () => mediaQuery.removeEventListener("change", handleChange);
     }
     // Legacy browsers (Safari <14)
-    else if (mediaQuery.addListener) {
+    if (mediaQuery.addListener) {
       mediaQuery.addListener(handleChange);
       return () => mediaQuery.removeListener(handleChange);
     }
@@ -193,14 +195,10 @@ export function AuthboundProvider({
   const appearance = useMemo(() => {
     const base = appearanceProp ?? {};
     const isDark =
-      base.baseTheme === "dark" ||
-      (base.baseTheme === "auto" && prefersDark);
+      base.baseTheme === "dark" || (base.baseTheme === "auto" && prefersDark);
 
     if (isDark) {
-      return mergeAppearance(
-        { variables: DARK_THEME_VARIABLES },
-        base
-      );
+      return mergeAppearance({ variables: DARK_THEME_VARIABLES }, base);
     }
 
     return base;
@@ -231,12 +229,9 @@ export function AuthboundProvider({
   }, []);
 
   // Update session helper
-  const updateSession = useCallback(
-    (update: Partial<VerificationSession>) => {
-      setSession((prev) => (prev ? { ...prev, ...update } : null));
-    },
-    []
-  );
+  const updateSession = useCallback((update: Partial<VerificationSession>) => {
+    setSession((prev) => (prev ? { ...prev, ...update } : null));
+  }, []);
 
   // Reset session
   const resetSession = useCallback(() => {
@@ -273,7 +268,9 @@ export function AuthboundProvider({
         // Subscribe to status updates
         client.subscribeToStatus(
           response.sessionId as SessionId,
-          response.clientToken as Parameters<typeof client.subscribeToStatus>[1],
+          response.clientToken as Parameters<
+            typeof client.subscribeToStatus
+          >[1],
           (event: StatusEvent) => {
             setSession((prev) => {
               if (!prev || prev.sessionId !== response.sessionId) return prev;
@@ -358,8 +355,8 @@ export function AuthboundProvider({
     <AuthboundContext.Provider value={value}>
       <div
         className="ab-root"
-        style={cssProperties as React.CSSProperties}
         data-ab-theme={appearance.baseTheme ?? "light"}
+        style={cssProperties as React.CSSProperties}
       >
         {children}
       </div>
@@ -378,7 +375,9 @@ export interface AuthboundErrorBoundaryProps {
   /** Child components to wrap */
   children: ReactNode;
   /** Custom fallback UI when an error occurs */
-  fallback?: ReactNode | ((props: { error: Error; reset: () => void }) => ReactNode);
+  fallback?:
+    | ReactNode
+    | ((props: { error: Error; reset: () => void }) => ReactNode);
   /** Callback when an error is caught */
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
   /** Enable debug logging */
@@ -497,7 +496,6 @@ export class AuthboundErrorBoundary extends Component<
           </div>
           <button
             onClick={this.reset}
-            type="button"
             style={{
               padding: "8px 16px",
               fontSize: "var(--ab-font-size-sm, 0.875rem)",
@@ -508,6 +506,7 @@ export class AuthboundErrorBoundary extends Component<
               borderRadius: "6px",
               cursor: "pointer",
             }}
+            type="button"
           >
             Try again
           </button>

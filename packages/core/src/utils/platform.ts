@@ -161,7 +161,10 @@ export async function canOpenDeepLink(
       const handleVisibilityChange = () => {
         if (document.hidden) {
           // App opened successfully
-          document.removeEventListener("visibilitychange", handleVisibilityChange);
+          document.removeEventListener(
+            "visibilitychange",
+            handleVisibilityChange
+          );
           resolve(true);
         }
       };
@@ -173,7 +176,10 @@ export async function canOpenDeepLink(
 
       // If we're still here after timeout, scheme is not registered
       setTimeout(() => {
-        document.removeEventListener("visibilitychange", handleVisibilityChange);
+        document.removeEventListener(
+          "visibilitychange",
+          handleVisibilityChange
+        );
         if (Date.now() - start >= timeout - 100) {
           resolve(false);
         }
@@ -228,7 +234,7 @@ export function isWebView(): boolean {
   // iOS WebView detection
   if (isIOS()) {
     // Safari has "Safari" in UA, WebView doesn't
-    return !(/safari/.test(ua));
+    return !/safari/.test(ua);
   }
 
   // Android WebView detection

@@ -1,12 +1,12 @@
-import Link from "next/link";
-import { cookies } from "next/headers";
 import { getSessionFromToken } from "@authbound/server/next";
+import { cookies } from "next/headers";
+import Link from "next/link";
 import { authboundConfig } from "@/authbound.config";
 
 export default async function MembersPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get("__authbound")?.value;
-  
+
   let session = null;
   if (token) {
     session = await getSessionFromToken(token, authboundConfig.secret);
@@ -23,11 +23,16 @@ export default async function MembersPage() {
       </nav>
 
       <div className="container">
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "2rem" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "1rem",
+            marginBottom: "2rem",
+          }}
+        >
           <h1>Members Area</h1>
-          <span className="badge">
-            Low Assurance
-          </span>
+          <span className="badge">Low Assurance</span>
         </div>
 
         <div className="card" style={{ marginBottom: "2rem" }}>
@@ -53,7 +58,9 @@ export default async function MembersPage() {
               <p style={{ marginTop: "0.75rem" }}>
                 <strong>Member Since:</strong>{" "}
                 <span>
-                  {new Date(session.expiresAt.getTime() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                  {new Date(
+                    session.expiresAt.getTime() - 7 * 24 * 60 * 60 * 1000
+                  ).toLocaleDateString()}
                 </span>
               </p>
             </div>
@@ -78,4 +85,3 @@ export default async function MembersPage() {
     </>
   );
 }
-

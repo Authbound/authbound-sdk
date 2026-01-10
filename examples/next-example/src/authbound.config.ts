@@ -72,4 +72,3 @@ export const authboundConfig: AuthboundConfig = {
     callback: "/api/authbound/callback",
   },
 };
-

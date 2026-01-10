@@ -5,8 +5,8 @@
  */
 
 import { z } from "zod";
-import type { SessionId, PolicyId } from "./branded";
-import type { VerificationClaims, Verdict } from "./verification";
+import type { PolicyId, SessionId } from "./branded";
+import type { Verdict, VerificationClaims } from "./verification";
 
 // ============================================================================
 // Client Token Claims

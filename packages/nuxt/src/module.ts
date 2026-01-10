@@ -16,15 +16,15 @@
  * ```
  */
 
-import {
-  defineNuxtModule,
-  addPlugin,
-  addImports,
-  addComponent,
-  createResolver,
-  addServerHandler,
-} from "@nuxt/kit";
 import type { PolicyId } from "@authbound/core";
+import {
+  addComponent,
+  addImports,
+  addPlugin,
+  addServerHandler,
+  createResolver,
+  defineNuxtModule,
+} from "@nuxt/kit";
 
 // ============================================================================
 // Module Options

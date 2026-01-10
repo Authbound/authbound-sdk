@@ -1,13 +1,13 @@
 "use client";
 
-import * as React from "react";
 import {
   buildDeepLink,
   buildOpenID4VPDeepLink,
-  supportsDeepLinks,
   detectMobilePlatform,
+  supportsDeepLinks,
   type WalletScheme,
 } from "@authbound/core";
+import * as React from "react";
 
 // ============================================================================
 // Types
@@ -147,13 +147,13 @@ export function DeepLinkButton({
 
   return (
     <button
-      type="button"
-      onClick={handleClick}
-      disabled={disabled || isOpening}
-      className={className}
       aria-label={typeof children === "string" ? children : "Open wallet app"}
+      className={className}
       data-authbound-deep-link
       data-session-id={sessionId}
+      disabled={disabled || isOpening}
+      onClick={handleClick}
+      type="button"
       {...props}
     >
       {children}

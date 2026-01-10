@@ -2,36 +2,34 @@
  * Link generation exports.
  */
 
-export {
-  buildDeepLink,
-  buildOpenID4VPDeepLink,
-  buildCustomDeepLink,
-  supportsDeepLinks,
-  detectMobilePlatform,
-  canOpenDeepLink,
-  WALLET_SCHEMES,
-  type WalletScheme,
-} from "./deep-link";
-
-export {
-  buildUniversalLink,
-  buildWalletUniversalLink,
-  buildSmartLink,
-  getAppStoreLink,
-  UNIVERSAL_LINK_BASE,
-  WALLET_APP_STORES,
-  type UniversalLinkOptions,
-} from "./universal-link";
-
 // Re-export platform utilities for convenience
 export {
   detectPlatform,
-  type Platform,
-  type MobilePlatform,
-  isMobile,
-  isIOS,
   isAndroid,
-  isDesktop,
   isBrowser,
+  isDesktop,
+  isIOS,
+  isMobile,
   isServer,
+  type MobilePlatform,
+  type Platform,
 } from "../utils/platform";
+export {
+  buildCustomDeepLink,
+  buildDeepLink,
+  buildOpenID4VPDeepLink,
+  canOpenDeepLink,
+  detectMobilePlatform,
+  supportsDeepLinks,
+  WALLET_SCHEMES,
+  type WalletScheme,
+} from "./deep-link";
+export {
+  buildSmartLink,
+  buildUniversalLink,
+  buildWalletUniversalLink,
+  getAppStoreLink,
+  UNIVERSAL_LINK_BASE,
+  type UniversalLinkOptions,
+  WALLET_APP_STORES,
+} from "./universal-link";

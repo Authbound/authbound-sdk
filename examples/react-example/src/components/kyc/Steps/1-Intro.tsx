@@ -1,6 +1,6 @@
-import React from "react";
-import { Shield, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
+import { ArrowRight, Shield } from "lucide-react";
+import type React from "react";
 import type { StepProps } from "../types";
 
 export const IntroStep: React.FC<StepProps> = ({
@@ -15,10 +15,10 @@ export const IntroStep: React.FC<StepProps> = ({
 
   return (
     <motion.div
-      className="kyc-content"
-      initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
+      className="kyc-content"
       exit={{ opacity: 0, x: -20 }}
+      initial={{ opacity: 0, x: 20 }}
     >
       <div className="kyc-icon-large">
         <Shield size={32} />
@@ -62,8 +62,8 @@ export const IntroStep: React.FC<StepProps> = ({
       >
         <button
           className="btn-primary btn-full"
-          onClick={handleStart}
           disabled={isBusy}
+          onClick={handleStart}
           style={{ opacity: isBusy ? 0.5 : 1 }}
         >
           Start Verification <ArrowRight size={18} />

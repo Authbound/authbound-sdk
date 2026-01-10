@@ -28,54 +28,54 @@
 // ============================================================================
 
 export {
-  // Provider
-  AuthboundProvider,
-  useAuthbound,
-  useAuthboundOptional,
-  type AuthboundProviderProps,
-  type AuthboundContextValue,
-  type VerificationSession,
-  // Hooks
-  useVerification,
-  type UseVerificationOptions,
-  type UseVerificationReturn,
-  // Components
-  QRCode,
-  QRCodeWithLoading,
-  type QRCodeProps,
-  VerificationStatus,
-  StatusBadge,
-  type VerificationStatusProps,
-  type StatusBadgeProps,
-  VerificationWall,
-  type VerificationWallProps,
-  // Deep Link Support (for mobile wallet opening)
-  DeepLinkButton,
-  useDeepLinkSupport,
-  type DeepLinkButtonProps,
   // Appearance
   type AuthboundAppearance,
-  type AuthboundVariables,
+  type AuthboundContextValue,
   type AuthboundElements,
-  type AuthboundLayout,
-  DEFAULT_VARIABLES,
-  DARK_THEME_VARIABLES,
-  variablesToCSSProperties,
-  mergeAppearance,
-  // Core types
-  type PolicyId,
-  type SessionId,
-  type PublishableKey,
-  type EudiVerificationStatus,
-  type VerificationResult,
-  type VerificationClaims,
-  type StatusEvent,
   // Errors
   AuthboundError,
   type AuthboundErrorCode,
+  type AuthboundLayout,
+  // Provider
+  AuthboundProvider,
+  type AuthboundProviderProps,
+  type AuthboundVariables,
+  DARK_THEME_VARIABLES,
+  DEFAULT_VARIABLES,
+  // Deep Link Support (for mobile wallet opening)
+  DeepLinkButton,
+  type DeepLinkButtonProps,
+  type EudiVerificationStatus,
   isAuthboundError,
-  // Policy presets
-  PolicyPresets,
   // Utilities
   isTerminalStatus,
+  mergeAppearance,
+  // Core types
+  type PolicyId,
+  // Policy presets
+  PolicyPresets,
+  type PublishableKey,
+  // Components
+  QRCode,
+  type QRCodeProps,
+  QRCodeWithLoading,
+  type SessionId,
+  StatusBadge,
+  type StatusBadgeProps,
+  type StatusEvent,
+  type UseVerificationOptions,
+  type UseVerificationReturn,
+  useAuthbound,
+  useAuthboundOptional,
+  useDeepLinkSupport,
+  // Hooks
+  useVerification,
+  type VerificationClaims,
+  type VerificationResult,
+  type VerificationSession,
+  VerificationStatus,
+  type VerificationStatusProps,
+  VerificationWall,
+  type VerificationWallProps,
+  variablesToCSSProperties,
 } from "@authbound/react";

@@ -6,9 +6,9 @@
  */
 
 import {
+  canOpenDeepLink as canOpenDeepLinkUtil,
   detectMobilePlatform as detectMobilePlatformUtil,
   supportsDeepLinks as supportsDeepLinksUtil,
-  canOpenDeepLink as canOpenDeepLinkUtil,
 } from "../utils/platform";
 
 // ============================================================================
@@ -76,7 +76,9 @@ export function buildDeepLink(
  *
  * This follows the OpenID4VP specification for wallet invocation.
  */
-export function buildOpenID4VPDeepLink(authorizationRequestUrl: string): string {
+export function buildOpenID4VPDeepLink(
+  authorizationRequestUrl: string
+): string {
   // OpenID4VP uses the openid4vp:// scheme with the full URL
   return `openid4vp://?${new URL(authorizationRequestUrl).search.slice(1)}`;
 }
@@ -89,7 +91,7 @@ export function buildOpenID4VPDeepLink(authorizationRequestUrl: string): string 
 export function buildCustomDeepLink(
   authorizationRequestUrl: string,
   scheme: string,
-  path: string = ""
+  path = ""
 ): string {
   const deepLink = new URL(`${scheme}://${path}`);
   deepLink.searchParams.set("request_uri", authorizationRequestUrl);

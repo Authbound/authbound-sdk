@@ -30,18 +30,18 @@
 // ============================================================================
 
 export {
+  type AuthboundClient,
+  type AuthboundClientConfig,
+  configure,
   // Main factory
   createClient,
-  configure,
+  DEFAULT_CONFIG,
   getClient,
+  getConfigFromEnv,
   isConfigured,
-  type AuthboundClient,
+  type ResolvedConfig,
   // Configuration
   resolveConfig,
-  getConfigFromEnv,
-  DEFAULT_CONFIG,
-  type AuthboundClientConfig,
-  type ResolvedConfig,
 } from "./client";
 
 // ============================================================================
@@ -50,93 +50,90 @@ export {
 
 // Branded types
 export {
-  type PolicyId,
-  type SessionId,
-  type PublishableKey,
-  type SecretKey,
-  type ClientToken,
-  isPolicyId,
-  asPolicyId,
-  parsePolicyId,
-  isSessionId,
-  asSessionId,
-  isPublishableKey,
-  asPublishableKey,
-  isSecretKey,
-  asSecretKey,
-  getKeyEnvironment,
   asClientToken,
+  asPolicyId,
+  asPublishableKey,
+  asSecretKey,
+  asSessionId,
+  type ClientToken,
+  getKeyEnvironment,
+  isPolicyId,
+  isPublishableKey,
+  isSecretKey,
+  isSessionId,
+  type PolicyId,
+  type PublishableKey,
+  parsePolicyId,
+  type SecretKey,
+  type SessionId,
 } from "./types/branded";
 
 // Error types
 export {
-  type AuthboundErrorCode,
   AuthboundError,
+  type AuthboundErrorCode,
+  assertAuthboundError,
   ERROR_MESSAGES,
   isAuthboundError,
-  assertAuthboundError,
 } from "./types/errors";
-
-// Verification types
-export {
-  type EudiVerificationStatus,
-  type Verdict,
-  type VerificationClaims,
-  type VerificationAttributes,
-  type VerificationResult,
-  type CreateSessionRequest,
-  type CreateSessionResponse,
-  type SessionStatusResponse,
-  type StatusEvent,
-  EudiVerificationStatusSchema,
-  VerdictSchema,
-  VerificationClaimsSchema,
-  VerificationAttributesSchema,
-  VerificationResultSchema,
-  CreateSessionRequestSchema,
-  CreateSessionResponseSchema,
-  SessionStatusResponseSchema,
-  StatusEventSchema,
-  TERMINAL_STATUSES,
-  isTerminalStatus,
-} from "./types/verification";
-
 // Policy types
 export {
-  type Policy,
   type CredentialRequirement,
-  PolicySchema,
   CredentialRequirementSchema,
+  type Policy,
   PolicyPresets,
+  PolicySchema,
   PRESET_POLICIES,
 } from "./types/policy";
-
 // Token types
 export {
   type ClientTokenClaims,
-  type ResultTokenClaims,
-  type WebhookTokenClaims,
   ClientTokenClaimsSchema,
-  ResultTokenClaimsSchema,
-  WebhookTokenClaimsSchema,
-  TOKEN_TTL,
-  TOKEN_ISSUER,
   RESULT_COOKIE_NAME,
+  type ResultTokenClaims,
+  ResultTokenClaimsSchema,
+  TOKEN_ISSUER,
+  TOKEN_TTL,
+  type WebhookTokenClaims,
+  WebhookTokenClaimsSchema,
 } from "./types/tokens";
+// Verification types
+export {
+  type CreateSessionRequest,
+  CreateSessionRequestSchema,
+  type CreateSessionResponse,
+  CreateSessionResponseSchema,
+  type EudiVerificationStatus,
+  EudiVerificationStatusSchema,
+  isTerminalStatus,
+  type SessionStatusResponse,
+  SessionStatusResponseSchema,
+  type StatusEvent,
+  StatusEventSchema,
+  TERMINAL_STATUSES,
+  type Verdict,
+  VerdictSchema,
+  type VerificationAttributes,
+  VerificationAttributesSchema,
+  type VerificationClaims,
+  VerificationClaimsSchema,
+  type VerificationResult,
+  VerificationResultSchema,
+} from "./types/verification";
 
 // ============================================================================
 // Status Subscriptions
 // ============================================================================
 
 export {
-  createStatusSubscription,
-  isSSESupported,
-  type SSESubscriptionOptions,
   createPollingSubscription,
-  pollOnce,
+  createStatusSubscription,
   DEFAULT_POLLING_CONFIG,
+  isSSESupported,
   type PollingConfig,
   type PollingSubscriptionOptions,
+  pollOnce,
+  type SSESubscriptionOptions,
 } from "./status";
 
 // ============================================================================
@@ -144,21 +141,21 @@ export {
 // ============================================================================
 
 export {
+  buildCustomDeepLink,
   buildDeepLink,
   buildOpenID4VPDeepLink,
-  buildCustomDeepLink,
-  supportsDeepLinks,
-  detectMobilePlatform,
-  canOpenDeepLink,
-  WALLET_SCHEMES,
-  type WalletScheme,
+  buildSmartLink,
   buildUniversalLink,
   buildWalletUniversalLink,
-  buildSmartLink,
+  canOpenDeepLink,
+  detectMobilePlatform,
   getAppStoreLink,
+  supportsDeepLinks,
   UNIVERSAL_LINK_BASE,
-  WALLET_APP_STORES,
   type UniversalLinkOptions,
+  WALLET_APP_STORES,
+  WALLET_SCHEMES,
+  type WalletScheme,
 } from "./links";
 
 // ============================================================================
@@ -166,14 +163,14 @@ export {
 // ============================================================================
 
 export {
-  resolvePolicy,
-  parseSemVer,
   compareSemVer,
-  formatSemVer,
   findLatestVersion,
+  formatSemVer,
   matchesVersionRange,
-  type SemVer,
+  parseSemVer,
   type ResolutionContext,
+  resolvePolicy,
+  type SemVer,
 } from "./policy";
 
 // ============================================================================

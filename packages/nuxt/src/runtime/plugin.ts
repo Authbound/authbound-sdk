@@ -4,8 +4,8 @@
  * Initializes the Authbound client on the client side.
  */
 
+import { type AuthboundClient, createClient } from "@authbound/core";
 import { defineNuxtPlugin, useRuntimeConfig } from "#app";
-import { createClient, type AuthboundClient } from "@authbound/core";
 
 export default defineNuxtPlugin({
   name: "authbound",

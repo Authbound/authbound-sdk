@@ -18,9 +18,9 @@
  * ```
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import type { PolicyId } from "@authbound/core";
-import { verifyToken, type AuthboundClaims } from "@authbound/server";
+import { type AuthboundClaims, verifyToken } from "@authbound/server";
+import { type NextRequest, NextResponse } from "next/server";
 
 // ============================================================================
 // Types
@@ -41,7 +41,9 @@ const DEFAULT_COOKIE_NAME = "authbound_session";
  *
  * This protects against subdomain takeover attacks.
  */
-export function getSecureCookieName(baseName: string = DEFAULT_COOKIE_NAME): string {
+export function getSecureCookieName(
+  baseName: string = DEFAULT_COOKIE_NAME
+): string {
   // Use __Host- prefix in production for maximum security
   // In development, we skip it because localhost doesn't support Secure cookies
   if (process.env.NODE_ENV === "production") {
@@ -119,7 +121,10 @@ export interface WithAuthboundOptions {
    * Callback when a valid session is found.
    * Useful for passing claims to downstream handlers.
    */
-  onVerified?: (request: NextRequest, claims: AuthboundClaims) => void | Promise<void>;
+  onVerified?: (
+    request: NextRequest,
+    claims: AuthboundClaims
+  ) => void | Promise<void>;
 }
 
 // ============================================================================
@@ -231,11 +236,13 @@ export function withAuthbound(
 
   // Determine cookie name with optional __Host- prefix
   const cookieName = customCookieName
-    ? (disableSecureCookiePrefix ? customCookieName : getSecureCookieName(customCookieName))
+    ? disableSecureCookiePrefix
+      ? customCookieName
+      : getSecureCookieName(customCookieName)
     : getSecureCookieName();
 
   // Validate secret is provided for secure operation
-  if (!secret && !customIsVerified) {
+  if (!(secret || customIsVerified)) {
     console.warn(
       "[Authbound] Warning: No AUTHBOUND_SECRET configured. " +
         "Set AUTHBOUND_SECRET environment variable or provide a custom isVerified function. " +
@@ -297,18 +304,26 @@ export function withAuthbound(
               verified = claims.status === "VERIFIED";
 
               if (debug && !verified) {
-                console.log("[Authbound] Session not verified, status:", claims.status);
+                console.log(
+                  "[Authbound] Session not verified, status:",
+                  claims.status
+                );
               }
             } else if (debug) {
               console.log("[Authbound] Session token expired");
             }
           } else if (debug) {
-            console.log("[Authbound] Invalid session token (verification failed)");
+            console.log(
+              "[Authbound] Invalid session token (verification failed)"
+            );
           }
         } catch (error) {
           // Token is invalid, tampered with, or corrupted
           if (debug) {
-            console.error("[Authbound] Session token verification error:", error);
+            console.error(
+              "[Authbound] Session token verification error:",
+              error
+            );
           }
           verified = false;
         }
@@ -356,9 +371,9 @@ export function withAuthbound(
 // ============================================================================
 
 export {
+  type AuthboundMiddleware,
   authboundMiddleware,
   chainMiddleware,
   createMatcherConfig,
-  type AuthboundMiddleware,
   type MiddlewareOptions,
 } from "@authbound/server/next";

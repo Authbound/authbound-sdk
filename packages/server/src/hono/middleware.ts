@@ -18,8 +18,8 @@ import type {
   AuthboundConfig,
   AuthboundSession,
   MiddlewareResult,
-  VerificationRequirements,
   ProtectedRouteConfig,
+  VerificationRequirements,
 } from "../core/types";
 import { checkRequirements, parseConfig } from "../core/types";
 import { getSessionFromCookie } from "./cookies";

@@ -107,7 +107,11 @@ export function createHttpClient(config: ResolvedConfig) {
       if (!response.ok) {
         throw AuthboundError.fromResponse(
           response,
-          data as { code?: string; message?: string; details?: Record<string, unknown> }
+          data as {
+            code?: string;
+            message?: string;
+            details?: Record<string, unknown>;
+          }
         );
       }
 

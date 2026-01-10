@@ -3,7 +3,7 @@
  */
 
 import { z } from "zod";
-import type { PublishableKey, PolicyId } from "../types/branded";
+import type { PolicyId, PublishableKey } from "../types/branded";
 import { isPublishableKey } from "../types/branded";
 import { AuthboundError } from "../types/errors";
 
@@ -36,7 +36,8 @@ export interface AuthboundClientConfig {
 
 export const AuthboundClientConfigSchema = z.object({
   publishableKey: z.string().refine(isPublishableKey, {
-    message: "Invalid publishable key format. Expected pk_live_... or pk_test_...",
+    message:
+      "Invalid publishable key format. Expected pk_live_... or pk_test_...",
   }),
   policyId: z
     .string()
@@ -58,7 +59,7 @@ export const AuthboundClientConfigSchema = z.object({
 export const DEFAULT_CONFIG = {
   gatewayUrl: "https://gateway.authbound.io",
   sessionEndpoint: "/api/authbound/session",
-  timeout: 30000,
+  timeout: 30_000,
   debug: false,
 } as const;
 
@@ -106,7 +107,8 @@ export function resolveConfig(config: AuthboundClientConfig): ResolvedConfig {
     publishableKey: validated.publishableKey as PublishableKey,
     policyId: validated.policyId as PolicyId | undefined,
     gatewayUrl: validated.gatewayUrl ?? DEFAULT_CONFIG.gatewayUrl,
-    sessionEndpoint: validated.sessionEndpoint ?? DEFAULT_CONFIG.sessionEndpoint,
+    sessionEndpoint:
+      validated.sessionEndpoint ?? DEFAULT_CONFIG.sessionEndpoint,
     timeout: validated.timeout ?? DEFAULT_CONFIG.timeout,
     debug: validated.debug ?? DEFAULT_CONFIG.debug,
     environment,
@@ -129,7 +131,9 @@ export function getConfigFromEnv(): Partial<AuthboundClientConfig> {
   const getEnvVar = (key: string): string | undefined => {
     try {
       // Use globalThis to access process safely
-      const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+      const proc = (
+        globalThis as { process?: { env?: Record<string, string | undefined> } }
+      ).process;
       return proc?.env?.[key];
     } catch {
       return undefined;

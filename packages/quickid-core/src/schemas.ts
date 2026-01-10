@@ -1,11 +1,11 @@
-import { z } from "zod";
 import {
-  VerificationStatusSchema,
   AssuranceLevelSchema,
-  DocumentDataSchema,
   BiometricDataSchema,
+  DocumentDataSchema,
   ErrorDetailSchema,
+  VerificationStatusSchema,
 } from "@authbound/core";
+import { z } from "zod";
 
 // Re-export schemas from core
 export {

@@ -187,7 +187,7 @@ export function verifyWebhookSignatureDetailed(
     return { valid: false, error: "Missing v1 signature" };
   }
 
-  const timestamp = parseInt(timestampPart.slice(2), 10);
+  const timestamp = Number.parseInt(timestampPart.slice(2), 10);
   const expectedSignature = signaturePart.slice(3);
 
   if (isNaN(timestamp)) {
@@ -267,7 +267,11 @@ export function generateWebhookSignature(options: {
 }): { signature: string; timestamp: number } {
   const crypto = require("crypto") as typeof import("crypto");
 
-  const { payload, secret, timestamp = Math.floor(Date.now() / 1000) } = options;
+  const {
+    payload,
+    secret,
+    timestamp = Math.floor(Date.now() / 1000),
+  } = options;
 
   const signedPayload = `${timestamp}.${payload}`;
   const hmac = crypto

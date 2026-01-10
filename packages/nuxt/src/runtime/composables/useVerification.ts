@@ -2,16 +2,16 @@
  * useVerification - Main verification composable for Nuxt.
  */
 
-import { ref, computed, watch, onUnmounted } from "vue";
-import { useRouter, useRuntimeConfig } from "#app";
 import type {
+  AuthboundErrorCode,
   EudiVerificationStatus,
   PolicyId,
   SessionId,
   VerificationResult,
-  AuthboundErrorCode,
 } from "@authbound/core";
 import { AuthboundError, isTerminalStatus } from "@authbound/core";
+import { computed, onUnmounted, ref, watch } from "vue";
+import { useRouter, useRuntimeConfig } from "#app";
 import { useAuthbound } from "./useAuthbound";
 
 // ============================================================================
@@ -147,11 +147,16 @@ export function useVerification(options: UseVerificationOptions = {}) {
       if (options.redirectOnSuccess) {
         router.push(options.redirectOnSuccess);
       }
-    } else if ((newStatus === "failed" || newStatus === "error") && error.value) {
+    } else if (
+      (newStatus === "failed" || newStatus === "error") &&
+      error.value
+    ) {
       options.onFailed?.(error.value);
       stopTimer();
     } else if (newStatus === "timeout") {
-      options.onFailed?.(new AuthboundError("wallet_timeout", "Session timed out"));
+      options.onFailed?.(
+        new AuthboundError("wallet_timeout", "Session timed out")
+      );
       stopTimer();
     }
   });

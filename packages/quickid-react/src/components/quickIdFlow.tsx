@@ -1,10 +1,7 @@
-import type {
-  QuickIDConfig,
-  VerificationResult,
-} from "@authbound/quickid-core";
+import type { VerificationResult } from "@authbound/quickid-core";
 import type React from "react";
 import { useEffect } from "react";
-import { useQuickID, type UseQuickIDConfig } from "../useQuickID";
+import { type UseQuickIDConfig, useQuickID } from "../useQuickID";
 import { DocumentUpload } from "./documentUpload";
 import { SelfieCapture } from "./selfieCapture";
 import { Status } from "./status";
@@ -106,15 +103,14 @@ export const QuickIDFlow: React.FC<QuickIDFlowProps> = ({
         <>
           {error && (
             <Status
-              tone="error"
-              label="Something went wrong"
               description={error}
+              label="Something went wrong"
+              tone="error"
             />
           )}
           <button
-            type="button"
-            onClick={handleStart}
             disabled={isBusy}
+            onClick={handleStart}
             style={{
               marginTop: 8,
               alignSelf: "flex-start",
@@ -128,6 +124,7 @@ export const QuickIDFlow: React.FC<QuickIDFlowProps> = ({
               cursor: isBusy ? "not-allowed" : "pointer",
               opacity: isBusy ? 0.6 : 1,
             }}
+            type="button"
           >
             {startButtonLabel}
           </button>
@@ -138,12 +135,12 @@ export const QuickIDFlow: React.FC<QuickIDFlowProps> = ({
         <>
           {error && (
             <Status
-              tone="error"
-              label="Something went wrong"
               description={error}
+              label="Something went wrong"
+              tone="error"
             />
           )}
-          <DocumentUpload onUpload={setDocument} disabled={isBusy} />
+          <DocumentUpload disabled={isBusy} onUpload={setDocument} />
         </>
       )}
 
@@ -151,21 +148,21 @@ export const QuickIDFlow: React.FC<QuickIDFlowProps> = ({
         <>
           {error && (
             <Status
-              tone="error"
-              label="Something went wrong"
               description={error}
+              label="Something went wrong"
+              tone="error"
             />
           )}
-          <SelfieCapture onCapture={setSelfie} disabled={isBusy} />
+          <SelfieCapture disabled={isBusy} onCapture={setSelfie} />
         </>
       )}
 
       {showVerifying && (
         <Status
-          tone="info"
-          label="Verifying your identity…"
           description="This usually takes a few seconds."
+          label="Verifying your identity…"
           showSpinner
+          tone="info"
         />
       )}
 
@@ -173,22 +170,21 @@ export const QuickIDFlow: React.FC<QuickIDFlowProps> = ({
         <>
           {result?.status === "VERIFIED" ? (
             <Status
-              tone="success"
-              label="Identity verified"
               description="You can now continue."
+              label="Identity verified"
+              tone="success"
             />
           ) : (
             <Status
-              tone="error"
-              label="Verification failed"
               description={
                 error ??
                 "We could not verify your identity. Please check that your document and selfie are clear and try again."
               }
+              label="Verification failed"
+              tone="error"
             />
           )}
           <button
-            type="button"
             onClick={reset}
             style={{
               marginTop: 8,
@@ -201,6 +197,7 @@ export const QuickIDFlow: React.FC<QuickIDFlowProps> = ({
               fontSize: 13,
               cursor: "pointer",
             }}
+            type="button"
           >
             Start over
           </button>

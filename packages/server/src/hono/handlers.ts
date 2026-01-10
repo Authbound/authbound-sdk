@@ -16,9 +16,11 @@
  * ```
  */
 
-import { Hono } from "hono";
 import type { Context } from "hono";
+import { Hono } from "hono";
 import { z } from "zod";
+import { AuthboundClient, AuthboundClientError } from "../core/client";
+import { createSafeErrorResponse, logError } from "../core/error-utils";
 import type {
   AuthboundConfig,
   CreateSessionResponse,
@@ -26,20 +28,15 @@ import type {
   WebhookEvent,
 } from "../core/types";
 import {
-  WebhookEventSchema,
-  parseConfig,
   calculateAgeFromDob,
   mapSessionStatusToVerificationStatus,
+  parseConfig,
+  WebhookEventSchema,
 } from "../core/types";
-import { logError, createSafeErrorResponse } from "../core/error-utils";
 import {
-  AuthboundClient,
-  AuthboundClientError,
-} from "../core/client";
-import {
+  clearSessionCookie,
   getSessionFromCookie,
   setSessionCookie,
-  clearSessionCookie,
 } from "./cookies";
 
 // ============================================================================
@@ -145,7 +142,14 @@ async function handleCreateSession(
   } catch (error) {
     if (error instanceof AuthboundClientError) {
       logError(error, "Session creation", config.debug);
-      const statusCode = (error.statusCode ?? 500) as 400 | 401 | 403 | 404 | 500 | 502 | 503;
+      const statusCode = (error.statusCode ?? 500) as
+        | 400
+        | 401
+        | 403
+        | 404
+        | 500
+        | 502
+        | 503;
       return c.json(
         {
           error: error.message,
@@ -391,8 +395,7 @@ export function createSessionHandler(
     debug: validatedConfig.debug,
   });
 
-  return (c) =>
-    handleCreateSession(c, validatedConfig, options, client);
+  return (c) => handleCreateSession(c, validatedConfig, options, client);
 }
 
 /**

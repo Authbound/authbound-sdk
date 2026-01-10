@@ -5,27 +5,34 @@
  * without making actual API calls.
  */
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useMemo,
-  type ReactNode,
-} from "react";
 import type {
-  EudiVerificationStatus,
-  VerificationResult,
-  SessionId,
-  PolicyId,
-  VerificationClaims,
   AuthboundErrorCode,
   ClientToken,
+  EudiVerificationStatus,
+  PolicyId,
+  SessionId,
+  VerificationClaims,
+  VerificationResult,
 } from "@authbound/core";
 import { AuthboundError } from "@authbound/core";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
+import {
+  AuthboundContext,
+  type AuthboundContextValue,
+  type VerificationSession,
+} from "../context/authbound-context";
 import type { AuthboundAppearance } from "../types/appearance";
-import { DEFAULT_VARIABLES, variablesToCSSProperties } from "../types/appearance";
-import { AuthboundContext, type AuthboundContextValue, type VerificationSession } from "../context/authbound-context";
+import {
+  DEFAULT_VARIABLES,
+  variablesToCSSProperties,
+} from "../types/appearance";
 
 // ============================================================================
 // Mock Scenarios
@@ -53,7 +60,10 @@ export const MockScenarios = {
   failure: {
     delay: 1000,
     result: "failed" as const,
-    error: new AuthboundError("presentation_rejected", "Credentials not accepted"),
+    error: new AuthboundError(
+      "presentation_rejected",
+      "Credentials not accepted"
+    ),
   },
 
   /** Verification times out */
@@ -214,10 +224,11 @@ export function MockAuthboundProvider({
         return {
           ...prev,
           status: "verified",
-          result: result ?? config.customResult ?? {
-            verdict: "approved",
-            claims: { age_over_18: true },
-          },
+          result: result ??
+            config.customResult ?? {
+              verdict: "approved",
+              claims: { age_over_18: true },
+            },
         };
       });
     },
@@ -231,7 +242,8 @@ export function MockAuthboundProvider({
         return {
           ...prev,
           status: "failed",
-          error: error ?? config.customError ?? new AuthboundError("unknown_error"),
+          error:
+            error ?? config.customError ?? new AuthboundError("unknown_error"),
         };
       });
     },
@@ -259,13 +271,15 @@ export function MockAuthboundProvider({
   // Mock start verification
   const startVerification = useCallback(async () => {
     // Check for fail-on-start scenarios
-    const scenario = resolvedScenario as {
-      failOnStart?: boolean;
-      error?: AuthboundError;
-      delay: number;
-      result: string;
-      claims?: VerificationClaims;
-    } | undefined;
+    const scenario = resolvedScenario as
+      | {
+          failOnStart?: boolean;
+          error?: AuthboundError;
+          delay: number;
+          result: string;
+          claims?: VerificationClaims;
+        }
+      | undefined;
 
     if (scenario?.failOnStart) {
       throw scenario.error ?? new AuthboundError("network_error");
@@ -304,7 +318,13 @@ export function MockAuthboundProvider({
         }
       }, delay);
     }
-  }, [config, resolvedScenario, triggerVerified, triggerFailed, triggerTimeout]);
+  }, [
+    config,
+    resolvedScenario,
+    triggerVerified,
+    triggerFailed,
+    triggerTimeout,
+  ]);
 
   // Mock context value (matches AuthboundContextValue interface)
   const mockContextValue = useMemo(
@@ -314,7 +334,7 @@ export function MockAuthboundProvider({
           publishableKey: "pk_test_mock" as any,
           gatewayUrl: "https://mock.authbound.io",
           sessionEndpoint: "/api/mock/session",
-          timeout: 30000,
+          timeout: 30_000,
           debug: false,
           environment: "test" as const,
         },
@@ -362,7 +382,14 @@ export function MockAuthboundProvider({
       setStatus,
       config,
     }),
-    [triggerVerified, triggerFailed, triggerTimeout, triggerReset, setStatus, config]
+    [
+      triggerVerified,
+      triggerFailed,
+      triggerTimeout,
+      triggerReset,
+      setStatus,
+      config,
+    ]
   );
 
   // CSS properties
@@ -375,12 +402,14 @@ export function MockAuthboundProvider({
   // This allows components using useAuthbound() to work correctly in tests
   return (
     <MockContext.Provider value={mockControlValue}>
-      <AuthboundContext.Provider value={mockContextValue as AuthboundContextValue}>
+      <AuthboundContext.Provider
+        value={mockContextValue as AuthboundContextValue}
+      >
         <div
           className="ab-root ab-root--mock"
-          style={cssProperties as React.CSSProperties}
           data-ab-theme={appearance.baseTheme ?? "light"}
           data-testid="mock-authbound-provider"
+          style={cssProperties as React.CSSProperties}
         >
           {children}
         </div>

@@ -42,76 +42,73 @@
  * ```
  */
 
+// Error Utilities
+export {
+  createSafeErrorResponse,
+  logError,
+  type SanitizedError,
+  sanitizeError,
+} from "./core/error-utils";
+// JWT Utilities
+export {
+  type CreateTokenOptions,
+  claimsToSession,
+  createToken,
+  getSessionFromToken,
+  isTokenExpired,
+  refreshToken,
+  verifyToken,
+} from "./core/jwt";
 // Core Types
 export type {
-  AuthboundConfig,
-  AuthboundClaims,
-  AuthboundSession,
-  ProtectedRouteConfig,
-  VerificationRequirements,
-  RoutesConfig,
-  CookieOptions,
-  VerificationStatus,
   AssuranceLevel,
+  AuthboundClaims,
+  AuthboundConfig,
+  AuthboundSession,
+  CookieOptions,
   CreateSessionResponse,
-  SessionStatusResponse,
+  Dob,
+  LastError,
   MiddlewareResult,
+  ProtectedRouteConfig,
+  RoutesConfig,
+  SessionStatusResponse,
+  Sex,
+  VerificationRequirements,
+  VerificationSessionObject,
+  VerificationSessionStatus,
+  VerificationStatus,
+  VerifiedOutputs,
   // Webhook types
   WebhookEvent,
   WebhookEventType,
-  VerificationSessionObject,
-  VerificationSessionStatus,
-  VerifiedOutputs,
-  LastError,
-  Dob,
-  Sex,
 } from "./core/types";
-
 // Core Utilities
 export {
-  parseConfig,
-  checkRequirements,
+  AssuranceLevelSchema,
+  AuthboundClaimsSchema,
+  AuthboundConfigSchema,
+  CookieOptionsSchema,
   calculateAge,
   calculateAgeFromDob,
-  mapSessionStatusToVerificationStatus,
+  checkRequirements,
+  DobSchema,
   getDefaultCookieOptions,
-  VerificationStatusSchema,
-  AssuranceLevelSchema,
-  VerificationRequirementsSchema,
+  LastErrorSchema,
+  mapSessionStatusToVerificationStatus,
   ProtectedRouteConfigSchema,
-  CookieOptionsSchema,
+  parseConfig,
   RoutesConfigSchema,
-  AuthboundConfigSchema,
-  AuthboundClaimsSchema,
+  SexSchema,
+  VerificationRequirementsSchema,
+  VerificationSessionObjectSchema,
+  VerificationSessionStatusSchema,
+  VerificationStatusSchema,
+  VerifiedOutputsSchema,
   // Webhook schemas
   WebhookEventSchema,
   WebhookEventTypeSchema,
-  VerificationSessionObjectSchema,
-  VerificationSessionStatusSchema,
-  VerifiedOutputsSchema,
-  LastErrorSchema,
-  DobSchema,
-  SexSchema,
 } from "./core/types";
-
-// JWT Utilities
-export {
-  createToken,
-  verifyToken,
-  getSessionFromToken,
-  refreshToken,
-  isTokenExpired,
-  claimsToSession,
-  type CreateTokenOptions,
-} from "./core/jwt";
-
-// Error Utilities
-export {
-  sanitizeError,
-  logError,
-  createSafeErrorResponse,
-  type SanitizedError,
-} from "./core/error-utils";
 
 // ============================================================================
 // API Client (Manual Orchestration)
@@ -120,15 +117,15 @@ export {
 export {
   // Client class
   AuthboundClient,
-  AuthboundClientError,
-  // Standalone functions
-  createSession,
-  getSessionStatus,
   // Types
   type AuthboundClientConfig,
+  AuthboundClientError,
   type CreateSessionOptions,
   type CreateSessionResult,
+  // Standalone functions
+  createSession,
   type GetSessionResult,
+  getSessionStatus,
   type VerifySignatureOptions,
 } from "./core/client";
 
@@ -137,9 +134,9 @@ export {
 // ============================================================================
 
 export {
+  generateWebhookSignature,
   verifyWebhookSignature,
   verifyWebhookSignatureDetailed,
-  generateWebhookSignature,
   type WebhookSignatureOptions,
   type WebhookSignatureResult,
 } from "./core/webhooks";

@@ -4,8 +4,8 @@
  * Uses the 'qrcode' library for proper, scannable QR code generation.
  */
 
-import { useEffect, useState, type CSSProperties } from "react";
 import QRCodeLib from "qrcode";
+import { type CSSProperties, useEffect, useState } from "react";
 import { useAuthbound } from "../context/authbound-context";
 
 // ============================================================================
@@ -114,7 +114,9 @@ export function QRCode({
   if (error) {
     return (
       <div
+        aria-label="QR code generation failed"
         className={`ab-qr-code ab-qr-code--error ${className ?? ""}`}
+        role="img"
         style={{
           width: size,
           height: size,
@@ -130,8 +132,6 @@ export function QRCode({
           padding: 16,
           ...style,
         }}
-        role="img"
-        aria-label="QR code generation failed"
       >
         Failed to generate QR code
       </div>
@@ -141,7 +141,9 @@ export function QRCode({
   if (!dataUrl) {
     return (
       <div
+        aria-label="Generating QR code..."
         className={`ab-qr-code ab-qr-code--loading ${className ?? ""}`}
+        role="img"
         style={{
           width: size,
           height: size,
@@ -153,8 +155,6 @@ export function QRCode({
           border: "1px solid var(--ab-color-border)",
           ...style,
         }}
-        role="img"
-        aria-label="Generating QR code..."
       >
         <div
           className="ab-spinner"
@@ -188,15 +188,15 @@ export function QRCode({
       }}
     >
       <img
-        src={dataUrl}
         alt={alt}
-        width={size}
         height={size}
+        src={dataUrl}
         style={{
           display: "block",
           width: "100%",
           height: "100%",
         }}
+        width={size}
       />
     </div>
   );

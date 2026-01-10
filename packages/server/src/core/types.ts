@@ -1,62 +1,42 @@
-import { z } from "zod";
 import type {
-  VerificationStatus,
   AssuranceLevel,
-  AuthboundClaims,
   AuthboundSession,
-  WebhookEvent,
-  WebhookEventType,
-  VerificationSessionObject,
-  VerificationSessionStatus,
-  VerifiedOutputs,
-  LastError,
   Dob,
-  Sex,
+  VerificationSessionStatus,
+  VerificationStatus,
 } from "@authbound/core";
-import {
-  VerificationStatusSchema,
-  AssuranceLevelSchema,
-  AuthboundClaimsSchema,
-  WebhookEventSchema,
-  WebhookEventTypeSchema,
-  VerificationSessionObjectSchema,
-  VerificationSessionStatusSchema,
-  VerifiedOutputsSchema,
-  LastErrorSchema,
-  DobSchema,
-  SexSchema,
-  calculateAge,
-} from "@authbound/core";
+import { AssuranceLevelSchema } from "@authbound/core";
+import { z } from "zod";
 
 // Re-export core types for convenience
 export type {
-  VerificationStatus,
   AssuranceLevel,
   AuthboundClaims,
   AuthboundSession,
-  WebhookEvent,
-  WebhookEventType,
+  Dob,
+  LastError,
+  Sex,
   VerificationSessionObject,
   VerificationSessionStatus,
+  VerificationStatus,
   VerifiedOutputs,
-  LastError,
-  Dob,
-  Sex,
+  WebhookEvent,
+  WebhookEventType,
 } from "@authbound/core";
 
 export {
-  VerificationStatusSchema,
   AssuranceLevelSchema,
   AuthboundClaimsSchema,
-  WebhookEventSchema,
-  WebhookEventTypeSchema,
+  calculateAge,
+  DobSchema,
+  LastErrorSchema,
+  SexSchema,
   VerificationSessionObjectSchema,
   VerificationSessionStatusSchema,
+  VerificationStatusSchema,
   VerifiedOutputsSchema,
-  LastErrorSchema,
-  DobSchema,
-  SexSchema,
-  calculateAge,
+  WebhookEventSchema,
+  WebhookEventTypeSchema,
 } from "@authbound/core";
 
 // ============================================================================
@@ -262,9 +242,7 @@ export function calculateAgeFromDob(dob: Dob): number {
     );
   }
   if (dob.day < 1 || dob.day > 31) {
-    throw new Error(
-      `Invalid day: ${dob.day}. Day must be between 1 and 31.`
-    );
+    throw new Error(`Invalid day: ${dob.day}. Day must be between 1 and 31.`);
   }
 
   const today = new Date();

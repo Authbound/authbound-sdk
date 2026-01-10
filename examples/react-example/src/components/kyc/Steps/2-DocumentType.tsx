@@ -1,6 +1,6 @@
-import React from "react";
-import { CreditCard, FileText, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
+import { ArrowRight, CreditCard, FileText } from "lucide-react";
+import type React from "react";
 import type { StepProps } from "../types";
 
 export const DocumentTypeStep: React.FC<StepProps> = ({
@@ -20,10 +20,10 @@ export const DocumentTypeStep: React.FC<StepProps> = ({
 
   return (
     <motion.div
-      className="kyc-content"
-      initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
+      className="kyc-content"
       exit={{ opacity: 0, x: -20 }}
+      initial={{ opacity: 0, x: 20 }}
     >
       <h2 className="kyc-title">Select Document Type</h2>
       <p className="kyc-description">
@@ -68,9 +68,9 @@ export const DocumentTypeStep: React.FC<StepProps> = ({
       >
         <button
           className="btn-primary btn-full"
-          onClick={onNext}
           disabled={!uiState.documentType}
-          style={{ opacity: !uiState.documentType ? 0.5 : 1 }}
+          onClick={onNext}
+          style={{ opacity: uiState.documentType ? 1 : 0.5 }}
         >
           Continue <ArrowRight size={18} />
         </button>

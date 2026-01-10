@@ -29,74 +29,71 @@
  * @packageDocumentation
  */
 
-// Main client
-export { QuickIDServer } from "./quickid";
-export type { QuickIDServerConfig, PollOptions } from "./quickid";
+// Re-export types from quickid-core for convenience
+export type {
+  BiometricErrorCode,
+  // Session types
+  CreateSessionParams,
+  Dob,
+  DocumentErrorCode,
+  IdNumberType,
+  LastError,
+  ParsedSignatureHeader,
+  // Error codes
+  PublicErrorCode,
+  SessionCreated,
+  SessionResult,
+  SessionStatus,
+  Sex,
+  SystemErrorCode,
+  UserErrorCode,
+  VerifiedOutputs,
+  // Webhook types
+  WebhookEvent,
+  WebhookEventHandler,
+  WebhookEventHandlers,
+  WebhookEventType,
+  WebhookVerifyOptions,
+} from "@authbound/quickid-core";
+// Re-export helper functions from quickid-core
+export {
+  ALL_WEBHOOK_EVENT_TYPES,
+  DEFAULT_ERROR_MESSAGES,
+  getErrorMessage,
+  isBiometricError,
+  isDocumentError,
+  isPermanentError,
+  // Error code helpers
+  isRetryableError,
+  isSystemError,
+  isTerminalStatus,
+  TERMINAL_STATUSES,
+  WEBHOOK_API_VERSION,
+} from "@authbound/quickid-core";
 
 // Error classes
 export {
-	QuickIDServerError,
-	QuickIDAPIError,
-	QuickIDAuthenticationError,
-	QuickIDSignatureVerificationError,
-	QuickIDConnectionError,
-	QuickIDTimeoutError,
-	QuickIDValidationError,
-	// Type guards
-	isQuickIDError,
-	isQuickIDAPIError,
-	isQuickIDAuthError,
-	isQuickIDSignatureError,
+  isQuickIDAPIError,
+  isQuickIDAuthError,
+  // Type guards
+  isQuickIDError,
+  isQuickIDSignatureError,
+  QuickIDAPIError,
+  QuickIDAuthenticationError,
+  QuickIDConnectionError,
+  QuickIDServerError,
+  QuickIDSignatureVerificationError,
+  QuickIDTimeoutError,
+  QuickIDValidationError,
 } from "./errors";
-
+export type { PollOptions, QuickIDServerConfig } from "./quickid";
+// Main client
+export { QuickIDServer } from "./quickid";
 // Webhook utilities (for advanced use cases)
 export {
-	signPayload,
-	generateSignatureHeader,
-	parseSignatureHeader,
-	verifySignature,
-	constructEvent,
+  constructEvent,
+  generateSignatureHeader,
+  parseSignatureHeader,
+  signPayload,
+  verifySignature,
 } from "./webhooks";
-
-// Re-export types from quickid-core for convenience
-export type {
-	// Session types
-	CreateSessionParams,
-	SessionCreated,
-	SessionStatus,
-	SessionResult,
-	VerifiedOutputs,
-	Dob,
-	Sex,
-	IdNumberType,
-	LastError,
-	// Webhook types
-	WebhookEvent,
-	WebhookEventType,
-	WebhookEventHandler,
-	WebhookEventHandlers,
-	ParsedSignatureHeader,
-	WebhookVerifyOptions,
-	// Error codes
-	PublicErrorCode,
-	DocumentErrorCode,
-	BiometricErrorCode,
-	UserErrorCode,
-	SystemErrorCode,
-} from "@authbound/quickid-core";
-
-// Re-export helper functions from quickid-core
-export {
-	isTerminalStatus,
-	TERMINAL_STATUSES,
-	ALL_WEBHOOK_EVENT_TYPES,
-	WEBHOOK_API_VERSION,
-	// Error code helpers
-	isRetryableError,
-	isSystemError,
-	isPermanentError,
-	isDocumentError,
-	isBiometricError,
-	getErrorMessage,
-	DEFAULT_ERROR_MESSAGES,
-} from "@authbound/quickid-core";

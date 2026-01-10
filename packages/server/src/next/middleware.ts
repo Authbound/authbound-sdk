@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import type {
   AuthboundConfig,
   MiddlewareResult,
   ProtectedRouteConfig,
 } from "../core/types";
 import { checkRequirements, parseConfig } from "../core/types";
-import { getSessionFromCookie, createRedirectResponse } from "./cookies";
+import { createRedirectResponse, getSessionFromCookie } from "./cookies";
 
 // ============================================================================
 // Types

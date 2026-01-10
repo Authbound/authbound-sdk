@@ -5,37 +5,33 @@
  */
 
 import {
-  ref,
-  reactive,
-  computed,
-  readonly,
-  watch,
-  onMounted,
-  onUnmounted,
-  type App,
-  type InjectionKey,
-  type Ref,
-  type ComputedRef,
-} from "vue";
-import {
-  createClient,
   type AuthboundClient,
   type AuthboundClientConfig,
-  type PublishableKey,
-  type PolicyId,
-  type SessionId,
-  type EudiVerificationStatus,
-  type VerificationResult,
-  type StatusEvent,
-  type AuthboundErrorCode,
   AuthboundError,
+  type AuthboundErrorCode,
+  createClient,
+  type EudiVerificationStatus,
+  type PolicyId,
+  type PublishableKey,
+  type SessionId,
+  type StatusEvent,
+  type VerificationResult,
 } from "@authbound/core";
+import {
+  type App,
+  type ComputedRef,
+  computed,
+  type InjectionKey,
+  type Ref,
+  readonly,
+  ref,
+} from "vue";
 import type { AuthboundAppearance } from "./types/appearance";
 import {
-  DEFAULT_VARIABLES,
   DARK_THEME_VARIABLES,
-  variablesToCSSProperties,
+  DEFAULT_VARIABLES,
   mergeAppearance,
+  variablesToCSSProperties,
 } from "./types/appearance";
 
 // ============================================================================
@@ -101,8 +97,7 @@ export interface AuthboundContext {
 // Injection Key
 // ============================================================================
 
-export const AuthboundKey: InjectionKey<AuthboundContext> =
-  Symbol("authbound");
+export const AuthboundKey: InjectionKey<AuthboundContext> = Symbol("authbound");
 
 // ============================================================================
 // Plugin Options
@@ -148,8 +143,13 @@ export interface AuthboundPluginOptions {
  */
 export const AuthboundPlugin = {
   install(app: App, options: AuthboundPluginOptions) {
-    const { publishableKey, policyId, sessionEndpoint, gatewayUrl, debug = false } =
-      options;
+    const {
+      publishableKey,
+      policyId,
+      sessionEndpoint,
+      gatewayUrl,
+      debug = false,
+    } = options;
 
     // Create client instance
     const clientConfig: AuthboundClientConfig = {
@@ -177,7 +177,7 @@ export const AuthboundPlugin = {
     // Track OS color scheme preference for auto theme
     const prefersDark = ref(
       typeof window !== "undefined"
-        ? window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false
+        ? (window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false)
         : false
     );
 
@@ -193,7 +193,8 @@ export const AuthboundPlugin = {
       // Modern browsers
       if (mediaQuery.addEventListener) {
         mediaQuery.addEventListener("change", handleChange);
-        mediaQueryCleanup = () => mediaQuery.removeEventListener("change", handleChange);
+        mediaQueryCleanup = () =>
+          mediaQuery.removeEventListener("change", handleChange);
       }
       // Legacy browsers (Safari <14)
       else if (mediaQuery.addListener) {
@@ -269,9 +270,14 @@ export const AuthboundPlugin = {
         // Subscribe to status updates
         client.subscribeToStatus(
           response.sessionId as SessionId,
-          response.clientToken as Parameters<typeof client.subscribeToStatus>[1],
+          response.clientToken as Parameters<
+            typeof client.subscribeToStatus
+          >[1],
           (event: StatusEvent) => {
-            if (!session.value || session.value.sessionId !== response.sessionId) {
+            if (
+              !session.value ||
+              session.value.sessionId !== response.sessionId
+            ) {
               return;
             }
 
@@ -289,7 +295,10 @@ export const AuthboundPlugin = {
           },
           {
             onError: (error) => {
-              if (!session.value || session.value.sessionId !== response.sessionId) {
+              if (
+                !session.value ||
+                session.value.sessionId !== response.sessionId
+              ) {
                 return;
               }
               session.value = {

@@ -45,4 +45,3 @@ export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig, {
     return `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   },
 });
-

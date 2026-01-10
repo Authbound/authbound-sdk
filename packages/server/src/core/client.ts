@@ -58,7 +58,7 @@ export interface AuthboundClientConfig {
 }
 
 const DEFAULT_API_URL = "https://api.authbound.com";
-const DEFAULT_TIMEOUT = 30000; // 30 seconds
+const DEFAULT_TIMEOUT = 30_000; // 30 seconds
 
 /**
  * Validate API key format.
@@ -270,10 +270,7 @@ export class AuthboundClient {
 
   constructor(config: AuthboundClientConfig) {
     if (!config.apiKey) {
-      throw new AuthboundClientError(
-        "API key is required",
-        "MISSING_API_KEY"
-      );
+      throw new AuthboundClientError("API key is required", "MISSING_API_KEY");
     }
 
     if (!validateApiKeyFormat(config.apiKey)) {
@@ -337,7 +334,10 @@ export class AuthboundClient {
         }
 
         if (this.debug) {
-          console.error(`[AuthboundClient] Error ${response.status}:`, errorBody);
+          console.error(
+            `[AuthboundClient] Error ${response.status}:`,
+            errorBody
+          );
         }
 
         throw new AuthboundClientError(
@@ -540,11 +540,11 @@ class WebhooksApi {
     const timestampPart = parts.find((p) => p.startsWith("t="));
     const signaturePart = parts.find((p) => p.startsWith("v1="));
 
-    if (!timestampPart || !signaturePart) {
+    if (!(timestampPart && signaturePart)) {
       return false;
     }
 
-    const timestamp = parseInt(timestampPart.slice(2), 10);
+    const timestamp = Number.parseInt(timestampPart.slice(2), 10);
     const expectedSignature = signaturePart.slice(3);
 
     // Check timestamp is within tolerance

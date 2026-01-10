@@ -1,6 +1,6 @@
+import type { z } from "zod";
+import { ApiErrorSchema, VerificationResultSchema } from "./schemas";
 import type { QuickIDConfig, VerificationResult } from "./types";
-import { VerificationResultSchema, ApiErrorSchema } from "./schemas";
-import { z } from "zod";
 
 export type QuickIDErrorCode =
   | "NO_FETCH"

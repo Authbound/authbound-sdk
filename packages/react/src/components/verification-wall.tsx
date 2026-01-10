@@ -4,13 +4,16 @@
  * Renders a complete verification flow with QR code, status, and error handling.
  */
 
+import type {
+  AuthboundError,
+  PolicyId,
+  VerificationResult,
+} from "@authbound/core";
 import type { CSSProperties, ReactNode } from "react";
-import type { PolicyId, VerificationResult } from "@authbound/core";
-import { AuthboundError } from "@authbound/core";
+import { useAuthbound } from "../context/authbound-context";
 import { useVerification } from "../hooks/useVerification";
 import { QRCodeWithLoading } from "./qr-code";
 import { VerificationStatus } from "./verification-status";
-import { useAuthbound } from "../context/authbound-context";
 
 // ============================================================================
 // Types
@@ -56,8 +59,8 @@ function DeepLinkButton({
 }) {
   return (
     <a
-      href={href}
       className={`ab-deep-link-button ${className ?? ""}`}
+      href={href}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -74,10 +77,10 @@ function DeepLinkButton({
       }}
     >
       <svg
-        width="20"
+        fill="none"
         height="20"
         viewBox="0 0 20 20"
-        fill="none"
+        width="20"
         xmlns="http://www.w3.org/2000/svg"
       >
         <path
@@ -105,9 +108,9 @@ function StartButton({
 }) {
   return (
     <button
-      onClick={onClick}
-      disabled={isLoading}
       className="ab-start-button"
+      disabled={isLoading}
+      onClick={onClick}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -165,8 +168,8 @@ function StartButton({
 function RetryButton({ onClick }: { onClick: () => void }) {
   return (
     <button
-      onClick={onClick}
       className="ab-retry-button"
+      onClick={onClick}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -184,10 +187,10 @@ function RetryButton({ onClick }: { onClick: () => void }) {
       }}
     >
       <svg
-        width="16"
+        fill="none"
         height="16"
         viewBox="0 0 16 16"
-        fill="none"
+        width="16"
         xmlns="http://www.w3.org/2000/svg"
       >
         <path
@@ -305,8 +308,8 @@ export function VerificationWall({
         {/* Logo */}
         {appearance.layout?.logoImageUrl && (
           <img
-            src={appearance.layout.logoImageUrl}
             alt={appearance.layout.logoAlt ?? ""}
+            src={appearance.layout.logoImageUrl}
             style={{
               maxWidth: "120px",
               marginBottom: "1.5rem",
@@ -341,8 +344,8 @@ export function VerificationWall({
         {/* Idle state - start button */}
         {status === "idle" && (
           <StartButton
-            onClick={startVerification}
             isLoading={isLoading}
+            onClick={startVerification}
             text={buttonText}
           />
         )}
@@ -351,16 +354,16 @@ export function VerificationWall({
         {(status === "pending" || status === "processing") && (
           <>
             <QRCodeWithLoading
-              value={authorizationRequestUrl ?? ""}
               isLoading={!authorizationRequestUrl}
               size={256}
+              value={authorizationRequestUrl ?? ""}
             />
 
             <VerificationStatus
-              status={status}
-              timeRemaining={timeRemaining}
               showTimer
+              status={status}
               style={{ marginTop: "1.5rem", width: "100%" }}
+              timeRemaining={timeRemaining}
             />
 
             {/* Deep link for mobile */}
@@ -392,7 +395,8 @@ export function VerificationWall({
                     width: 64,
                     height: 64,
                     borderRadius: "50%",
-                    backgroundColor: "color-mix(in srgb, var(--ab-color-success) 15%, transparent)",
+                    backgroundColor:
+                      "color-mix(in srgb, var(--ab-color-success) 15%, transparent)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -400,22 +404,25 @@ export function VerificationWall({
                   }}
                 >
                   <svg
-                    width="32"
+                    fill="none"
                     height="32"
                     viewBox="0 0 32 32"
-                    fill="none"
+                    width="32"
                     xmlns="http://www.w3.org/2000/svg"
                   >
                     <path
                       d="M10 16L14 20L22 12"
                       stroke="var(--ab-color-success)"
-                      strokeWidth="3"
                       strokeLinecap="round"
                       strokeLinejoin="round"
+                      strokeWidth="3"
                     />
                   </svg>
                 </div>
-                <VerificationStatus status={status} style={{ marginTop: "1rem" }} />
+                <VerificationStatus
+                  status={status}
+                  style={{ marginTop: "1rem" }}
+                />
               </div>
             )}
           </>
@@ -425,8 +432,8 @@ export function VerificationWall({
         {isFailed && (
           <div style={{ textAlign: "center", width: "100%" }}>
             <VerificationStatus
-              status={status}
               error={error}
+              status={status}
               style={{ marginBottom: "1.5rem" }}
             />
             <RetryButton onClick={retry} />
@@ -436,7 +443,10 @@ export function VerificationWall({
         {/* Timeout state */}
         {status === "timeout" && (
           <div style={{ textAlign: "center", width: "100%" }}>
-            <VerificationStatus status={status} style={{ marginBottom: "1.5rem" }} />
+            <VerificationStatus
+              status={status}
+              style={{ marginBottom: "1.5rem" }}
+            />
             <RetryButton onClick={retry} />
           </div>
         )}
@@ -469,9 +479,9 @@ export function VerificationWall({
             Powered by{" "}
             <a
               href="https://authbound.io"
-              target="_blank"
               rel="noopener noreferrer"
               style={{ color: "inherit" }}
+              target="_blank"
             >
               Authbound
             </a>

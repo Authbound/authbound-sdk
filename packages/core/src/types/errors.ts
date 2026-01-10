@@ -214,9 +214,10 @@ export const ERROR_METADATA: Record<AuthboundErrorCode, ErrorMetadata> = {
  * Human-readable messages for each error code.
  * @deprecated Use ERROR_METADATA instead for hints and docs links.
  */
-export const ERROR_MESSAGES: Record<AuthboundErrorCode, string> = Object.fromEntries(
-  Object.entries(ERROR_METADATA).map(([code, meta]) => [code, meta.message])
-) as Record<AuthboundErrorCode, string>;
+export const ERROR_MESSAGES: Record<AuthboundErrorCode, string> =
+  Object.fromEntries(
+    Object.entries(ERROR_METADATA).map(([code, meta]) => [code, meta.message])
+  ) as Record<AuthboundErrorCode, string>;
 
 // ============================================================================
 // Error Class
@@ -287,7 +288,9 @@ export class AuthboundError extends Error {
     this.retryable = options?.retryable ?? isRetryableCode(code);
     this.retryAfter = options?.retryAfter;
     this.hint = options?.hint ?? metadata.hint;
-    this.docsUrl = options?.docsUrl ?? (metadata.docsPath ? `${DOCS_BASE_URL}${metadata.docsPath}` : undefined);
+    this.docsUrl =
+      options?.docsUrl ??
+      (metadata.docsPath ? `${DOCS_BASE_URL}${metadata.docsPath}` : undefined);
 
     // Maintains proper stack trace for where error was thrown (V8 only)
     const ErrorWithCapture = Error as typeof Error & {
@@ -318,7 +321,11 @@ export class AuthboundError extends Error {
    */
   static fromResponse(
     response: Response,
-    body?: { code?: string; message?: string; details?: Record<string, unknown> }
+    body?: {
+      code?: string;
+      message?: string;
+      details?: Record<string, unknown>;
+    }
   ): AuthboundError {
     const code = mapHttpStatusToCode(response.status, body?.code);
     const retryAfter = parseRetryAfter(response.headers.get("Retry-After"));
@@ -340,10 +347,7 @@ export class AuthboundError extends Error {
 
     if (error instanceof Error) {
       // Check for network errors
-      if (
-        error.name === "TypeError" &&
-        error.message.includes("fetch")
-      ) {
+      if (error.name === "TypeError" && error.message.includes("fetch")) {
         return new AuthboundError("network_error", error.message, {
           cause: error,
         });
@@ -449,7 +453,7 @@ function parseRetryAfter(header: string | null): number | undefined {
   if (!header) return undefined;
 
   // If it's a number, it's seconds
-  const seconds = parseInt(header, 10);
+  const seconds = Number.parseInt(header, 10);
   if (!isNaN(seconds)) {
     return seconds * 1000;
   }

@@ -4,22 +4,21 @@
  * Manages the verification flow state and provides control functions.
  */
 
-import {
-  ref,
-  computed,
-  watch,
-  onUnmounted,
-  type Ref,
-  type ComputedRef,
-} from "vue";
 import type {
   EudiVerificationStatus,
   PolicyId,
   SessionId,
   VerificationResult,
-  AuthboundErrorCode,
 } from "@authbound/core";
 import { AuthboundError, isTerminalStatus } from "@authbound/core";
+import {
+  type ComputedRef,
+  computed,
+  onUnmounted,
+  type Ref,
+  ref,
+  watch,
+} from "vue";
 import { useAuthbound } from "./useAuthbound";
 
 // ============================================================================
@@ -226,7 +225,9 @@ export function useVerification(
         options.onFailed?.(error.value);
         stopTimer();
       } else if (newStatus === "timeout") {
-        options.onFailed?.(new AuthboundError("wallet_timeout", "Session timed out"));
+        options.onFailed?.(
+          new AuthboundError("wallet_timeout", "Session timed out")
+        );
         stopTimer();
       }
     },

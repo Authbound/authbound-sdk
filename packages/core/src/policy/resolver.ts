@@ -39,9 +39,9 @@ export function parseSemVer(version: string): SemVer | null {
   if (!match) return null;
 
   return {
-    major: parseInt(match[1], 10),
-    minor: parseInt(match[2], 10),
-    patch: parseInt(match[3], 10),
+    major: Number.parseInt(match[1], 10),
+    minor: Number.parseInt(match[2], 10),
+    patch: Number.parseInt(match[3], 10),
     prerelease: match[4],
     build: match[5],
   };
@@ -128,11 +128,17 @@ export function resolvePolicy(
     // Validate version format
     const parsed = parseSemVer(version);
     if (!parsed) {
-      throw new AuthboundError("policy_invalid", `Invalid version format: ${version}`);
+      throw new AuthboundError(
+        "policy_invalid",
+        `Invalid version format: ${version}`
+      );
     }
 
     // If available versions provided, check it exists
-    if (context.availableVersions && !context.availableVersions.includes(version)) {
+    if (
+      context.availableVersions &&
+      !context.availableVersions.includes(version)
+    ) {
       throw new AuthboundError(
         "policy_not_found",
         `Policy version ${policyIdOrName} not found. Available: ${context.availableVersions.join(", ")}`
@@ -205,10 +211,7 @@ export function findLatestVersion(versions: string[]): string {
  * - Greater: ">1.0.0", ">=1.0.0"
  * - Less: "<1.0.0", "<=1.0.0"
  */
-export function matchesVersionRange(
-  version: string,
-  range: string
-): boolean {
+export function matchesVersionRange(version: string, range: string): boolean {
   const parsed = parseSemVer(version);
   if (!parsed) return false;
 

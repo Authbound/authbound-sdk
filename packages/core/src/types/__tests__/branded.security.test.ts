@@ -5,8 +5,8 @@
  * Purpose: Prevent path traversal and injection attacks via session IDs
  */
 
-import { describe, it, expect } from "vitest";
-import { isSessionId, isPolicyId } from "../branded";
+import { describe, expect, it } from "vitest";
+import { isPolicyId, isSessionId } from "../branded";
 
 describe("isSessionId - Path Traversal Prevention", () => {
   describe("Attack Prevention", () => {

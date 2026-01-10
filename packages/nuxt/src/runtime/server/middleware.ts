@@ -4,9 +4,9 @@
  * Protects routes that require verification.
  */
 
-import { defineEventHandler, getRequestURL, sendRedirect, getCookie } from "h3";
+import { verifyToken } from "@authbound/server";
+import { defineEventHandler, getCookie, getRequestURL, sendRedirect } from "h3";
 import { useRuntimeConfig } from "#imports";
-import { verifyToken, type AuthboundClaims } from "@authbound/server";
 
 /**
  * Check if a path matches a route pattern.
@@ -99,7 +99,10 @@ export default defineEventHandler(async (event) => {
   }
 
   // Skip custom public routes
-  if (authboundConfig.publicRoutes && matchesAny(path, authboundConfig.publicRoutes)) {
+  if (
+    authboundConfig.publicRoutes &&
+    matchesAny(path, authboundConfig.publicRoutes)
+  ) {
     return;
   }
 
@@ -145,8 +148,12 @@ export default defineEventHandler(async (event) => {
             // Store claims in event context for downstream use
             event.context.authbound = claims;
             return;
-          } else if (config.public.authbound?.debug) {
-            console.log("[Authbound] Session not verified, status:", claims.status);
+          }
+          if (config.public.authbound?.debug) {
+            console.log(
+              "[Authbound] Session not verified, status:",
+              claims.status
+            );
           }
         } else if (config.public.authbound?.debug) {
           console.log("[Authbound] Session token expired");

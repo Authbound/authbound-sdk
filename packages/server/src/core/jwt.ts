@@ -1,10 +1,10 @@
-import * as jose from "jose";
 import type {
+  AssuranceLevel,
   AuthboundClaims,
   AuthboundSession,
-  AssuranceLevel,
   VerificationStatus,
 } from "@authbound/core";
+import * as jose from "jose";
 
 // ============================================================================
 // Constants
@@ -200,7 +200,7 @@ function parseExpiry(expiry: string): number {
     );
   }
 
-  const value = parseInt(match[1], 10);
+  const value = Number.parseInt(match[1], 10);
   const unit = match[2];
 
   switch (unit) {

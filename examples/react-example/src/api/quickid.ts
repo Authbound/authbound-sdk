@@ -26,7 +26,7 @@ export async function createSession(
   const API_KEY = import.meta.env.VITE_QUICKID_API_KEY;
 
   // Fallback to mock if env vars are missing (e.g. in CI/CD or initial setup)
-  if (!API_URL || !API_KEY) {
+  if (!(API_URL && API_KEY)) {
     console.warn(
       "Missing VITE_QUICKID_API_URL or VITE_QUICKID_API_KEY. Using mock token."
     );

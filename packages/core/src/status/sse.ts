@@ -5,10 +5,10 @@
  * Authorization headers (preventing token exposure in URLs).
  */
 
-import type { SessionId, ClientToken } from "../types/branded";
-import type { StatusEvent } from "../types/verification";
-import { AuthboundError } from "../types/errors";
 import type { ResolvedConfig } from "../client/config";
+import type { ClientToken, SessionId } from "../types/branded";
+import { AuthboundError } from "../types/errors";
+import type { StatusEvent } from "../types/verification";
 
 // ============================================================================
 // Constants
@@ -92,11 +92,7 @@ export function createStatusSubscription(
   onEvent: (event: StatusEvent) => void,
   options: SSESubscriptionOptions = {}
 ): () => void {
-  const {
-    onError,
-    autoReconnect = true,
-    maxReconnectAttempts = 5,
-  } = options;
+  const { onError, autoReconnect = true, maxReconnectAttempts = 5 } = options;
 
   let abortController: AbortController | null = null;
   let reconnectAttempts = 0;
@@ -209,7 +205,11 @@ export function createStatusSubscription(
             }
           } catch (parseError) {
             if (config.debug) {
-              console.error("[Authbound] Failed to parse SSE event:", parseError, data);
+              console.error(
+                "[Authbound] Failed to parse SSE event:",
+                parseError,
+                data
+              );
             }
           }
         }
@@ -254,7 +254,7 @@ export function createStatusSubscription(
 
     reconnectAttempts++;
     // Exponential backoff with jitter to prevent thundering herd
-    const baseDelay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000);
+    const baseDelay = Math.min(1000 * 2 ** (reconnectAttempts - 1), 30_000);
     const jitter = Math.random() * 1000; // 0-1000ms random jitter
     const delay = baseDelay + jitter;
 

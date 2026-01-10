@@ -2,9 +2,8 @@
  * Verification status display components.
  */
 
+import type { AuthboundError, EudiVerificationStatus } from "@authbound/core";
 import type { CSSProperties, ReactNode } from "react";
-import type { EudiVerificationStatus } from "@authbound/core";
-import { AuthboundError } from "@authbound/core";
 
 // ============================================================================
 // Types
@@ -48,19 +47,19 @@ const DEFAULT_MESSAGES: Record<EudiVerificationStatus, string> = {
 function IdleIcon() {
   return (
     <svg
-      width="20"
+      fill="none"
       height="20"
       viewBox="0 0 20 20"
-      fill="none"
+      width="20"
       xmlns="http://www.w3.org/2000/svg"
     >
       <circle
         cx="10"
         cy="10"
+        opacity="0.5"
         r="8"
         stroke="currentColor"
         strokeWidth="2"
-        opacity="0.5"
       />
     </svg>
   );
@@ -69,21 +68,21 @@ function IdleIcon() {
 function PendingIcon() {
   return (
     <svg
-      width="20"
+      className="ab-status-icon--spinning"
+      fill="none"
       height="20"
       viewBox="0 0 20 20"
-      fill="none"
+      width="20"
       xmlns="http://www.w3.org/2000/svg"
-      className="ab-status-icon--spinning"
     >
       <circle
         cx="10"
         cy="10"
         r="8"
         stroke="currentColor"
-        strokeWidth="2"
         strokeDasharray="25 25"
         strokeLinecap="round"
+        strokeWidth="2"
       />
       <style>
         {`
@@ -102,19 +101,19 @@ function PendingIcon() {
 function VerifiedIcon() {
   return (
     <svg
-      width="20"
+      fill="none"
       height="20"
       viewBox="0 0 20 20"
-      fill="none"
+      width="20"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <circle cx="10" cy="10" r="9" fill="var(--ab-color-success)" />
+      <circle cx="10" cy="10" fill="var(--ab-color-success)" r="9" />
       <path
         d="M6 10L9 13L14 7"
         stroke="white"
-        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeWidth="2"
       />
     </svg>
   );
@@ -123,18 +122,18 @@ function VerifiedIcon() {
 function FailedIcon() {
   return (
     <svg
-      width="20"
+      fill="none"
       height="20"
       viewBox="0 0 20 20"
-      fill="none"
+      width="20"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <circle cx="10" cy="10" r="9" fill="var(--ab-color-error)" />
+      <circle cx="10" cy="10" fill="var(--ab-color-error)" r="9" />
       <path
         d="M7 7L13 13M13 7L7 13"
         stroke="white"
-        strokeWidth="2"
         strokeLinecap="round"
+        strokeWidth="2"
       />
     </svg>
   );
@@ -143,18 +142,24 @@ function FailedIcon() {
 function TimeoutIcon() {
   return (
     <svg
-      width="20"
+      fill="none"
       height="20"
       viewBox="0 0 20 20"
-      fill="none"
+      width="20"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <circle cx="10" cy="10" r="8" stroke="var(--ab-color-warning)" strokeWidth="2" />
+      <circle
+        cx="10"
+        cy="10"
+        r="8"
+        stroke="var(--ab-color-warning)"
+        strokeWidth="2"
+      />
       <path
         d="M10 6V10L12 12"
         stroke="var(--ab-color-warning)"
-        strokeWidth="2"
         strokeLinecap="round"
+        strokeWidth="2"
       />
     </svg>
   );
@@ -239,7 +244,9 @@ export function VerificationStatus({
 
   return (
     <div
+      aria-live="polite"
       className={`ab-status ${className ?? ""}`}
+      role="status"
       style={{
         display: "flex",
         alignItems: "center",
@@ -253,13 +260,11 @@ export function VerificationStatus({
               ? "color-mix(in srgb, var(--ab-color-error) 10%, transparent)"
               : "var(--ab-color-background)",
         border: `1px solid ${color}`,
-        color: color,
+        color,
         fontFamily: "var(--ab-font-family)",
         fontSize: "var(--ab-font-size-base)",
         ...style,
       }}
-      role="status"
-      aria-live="polite"
     >
       <span className="ab-status__icon">{getStatusIcon(status)}</span>
 
@@ -331,7 +336,7 @@ export function StatusBadge({
         gap: "0.375rem",
         borderRadius: "9999px",
         backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`,
-        color: color,
+        color,
         fontFamily: "var(--ab-font-family)",
         fontWeight: 500,
         textTransform: "capitalize",

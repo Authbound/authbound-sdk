@@ -1,12 +1,8 @@
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import type {
-  AuthboundConfig,
-  AuthboundSession,
-  CookieOptions,
-} from "../core/types";
-import { getDefaultCookieOptions } from "../core/types";
+import { NextResponse } from "next/server";
 import { createToken, getSessionFromToken } from "../core/jwt";
+import type { AuthboundConfig, AuthboundSession } from "../core/types";
+import { getDefaultCookieOptions } from "../core/types";
 
 // ============================================================================
 // Cookie Name Helper

@@ -32,86 +32,80 @@
  * ```
  */
 
-// Middleware
+// Re-export error utilities
 export {
-  authboundMiddleware,
-  chainMiddleware,
-  createMatcherConfig,
-  type AuthboundMiddleware,
-  type MiddlewareOptions,
-} from "./middleware";
-
-// API Handlers
+  createSafeErrorResponse,
+  logError,
+  type SanitizedError,
+  sanitizeError,
+} from "../core/error-utils";
+// Re-export JWT utilities for advanced use cases
 export {
-  createAuthboundHandlers,
-  createSessionHandler,
-  createWebhookHandler,
-  createStatusHandler,
-  createSignOutHandler,
-  type AuthboundHandlers,
-  type HandlersOptions,
-} from "./handlers";
-
-// Cookie Utilities
-export {
-  getCookieName,
-  getCookieValue,
-  getSessionFromCookie,
-  setSessionCookie,
-  clearSessionCookie,
-  createRedirectResponse,
-  createJsonResponse,
-  createErrorResponse,
-  type SetSessionCookieOptions,
-} from "./cookies";
-
+  claimsToSession,
+  createToken,
+  getSessionFromToken,
+  isTokenExpired,
+  refreshToken,
+  verifyToken,
+} from "../core/jwt";
 // Re-export core types for convenience
 export type {
-  AuthboundConfig,
-  AuthboundClaims,
-  AuthboundSession,
-  ProtectedRouteConfig,
-  VerificationRequirements,
-  RoutesConfig,
-  CookieOptions,
-  VerificationStatus,
   AssuranceLevel,
+  AuthboundClaims,
+  AuthboundConfig,
+  AuthboundSession,
+  CookieOptions,
   CreateSessionResponse,
-  SessionStatusResponse,
+  Dob,
+  LastError,
   MiddlewareResult,
+  ProtectedRouteConfig,
+  RoutesConfig,
+  SessionStatusResponse,
+  Sex,
+  VerificationRequirements,
+  VerificationSessionObject,
+  VerificationSessionStatus,
+  VerificationStatus,
+  VerifiedOutputs,
   // Webhook types
   WebhookEvent,
   WebhookEventType,
-  VerificationSessionObject,
-  VerificationSessionStatus,
-  VerifiedOutputs,
-  LastError,
-  Dob,
-  Sex,
 } from "../core/types";
-
 // Re-export core utilities
 export {
-  parseConfig,
-  checkRequirements,
   calculateAge,
+  checkRequirements,
   getDefaultCookieOptions,
+  parseConfig,
 } from "../core/types";
-
-// Re-export JWT utilities for advanced use cases
+// Cookie Utilities
 export {
-  createToken,
-  verifyToken,
-  getSessionFromToken,
-  refreshToken,
-  isTokenExpired,
-  claimsToSession,
-} from "../core/jwt";
-
-// Re-export error utilities
+  clearSessionCookie,
+  createErrorResponse,
+  createJsonResponse,
+  createRedirectResponse,
+  getCookieName,
+  getCookieValue,
+  getSessionFromCookie,
+  type SetSessionCookieOptions,
+  setSessionCookie,
+} from "./cookies";
+// API Handlers
 export {
-  sanitizeError,
-  logError,
-  createSafeErrorResponse,
-  type SanitizedError,
-} from "../core/error-utils";
+  type AuthboundHandlers,
+  createAuthboundHandlers,
+  createSessionHandler,
+  createSignOutHandler,
+  createStatusHandler,
+  createWebhookHandler,
+  type HandlersOptions,
+} from "./handlers";
+// Middleware
+export {
+  type AuthboundMiddleware,
+  authboundMiddleware,
+  chainMiddleware,
+  createMatcherConfig,
+  type MiddlewareOptions,
+} from "./middleware";

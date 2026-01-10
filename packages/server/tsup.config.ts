@@ -30,12 +30,7 @@ export default defineConfig([
     format: ["esm", "cjs"],
     dts: true,
     outDir: "dist/express",
-    external: [
-      "express",
-      "@authbound/core",
-      "@authbound/shared",
-      "jose",
-    ],
+    external: ["express", "@authbound/core", "@authbound/shared", "jose"],
   },
   // Hono specific entry point
   {

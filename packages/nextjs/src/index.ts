@@ -50,14 +50,14 @@
 // ============================================================================
 
 export {
-  withAuthbound,
-  type WithAuthboundOptions,
+  type AuthboundMiddleware,
   // Lower-level middleware
   authboundMiddleware,
   chainMiddleware,
   createMatcherConfig,
-  type AuthboundMiddleware,
   type MiddlewareOptions,
+  type WithAuthboundOptions,
+  withAuthbound,
 } from "./middleware";
 
 // ============================================================================
@@ -65,43 +65,43 @@ export {
 // ============================================================================
 
 export {
-  // Zero-config route handlers
-  createSessionRoute,
-  createWebhookRoute,
-  createStatusRoute,
-  type SessionRouteOptions,
-  type WebhookRouteOptions,
-  type StatusRouteOptions,
-  // Server utilities
-  createSession,
+  type AuthboundClaims,
+  // Types
+  type AuthboundConfig,
+  type AuthboundSession,
+  type CookieOptions,
+  calculateAge,
+  checkRequirements,
+  clearSessionCookie,
   // Advanced handlers
   createAuthboundHandlers,
+  // Server utilities
+  createSession,
   createSessionHandler,
-  createWebhookHandler,
-  createStatusHandler,
+  // Zero-config route handlers
+  createSessionRoute,
   createSignOutHandler,
+  createStatusHandler,
+  createStatusRoute,
+  // JWT utilities
+  createToken,
+  createWebhookHandler,
+  createWebhookRoute,
   // Cookie utilities
   getCookieName,
   getCookieValue,
   getSessionFromCookie,
-  setSessionCookie,
-  clearSessionCookie,
-  // JWT utilities
-  createToken,
-  verifyToken,
   getSessionFromToken,
+  type ProtectedRouteConfig,
   // Configuration
   parseConfig,
-  checkRequirements,
-  calculateAge,
-  // Types
-  type AuthboundConfig,
-  type AuthboundClaims,
-  type AuthboundSession,
-  type ProtectedRouteConfig,
-  type VerificationRequirements,
   type RoutesConfig,
-  type CookieOptions,
+  type SessionRouteOptions,
+  type StatusRouteOptions,
+  setSessionCookie,
+  type VerificationRequirements,
+  verifyToken,
+  type WebhookRouteOptions,
 } from "./server";
 
 // ============================================================================
@@ -111,19 +111,19 @@ export {
 // Note: Client components need 'use client' directive
 // Re-export types only from main entry to avoid bundling issues
 export type {
-  AuthboundProviderProps,
-  AuthboundContextValue,
-  VerificationSession,
-  UseVerificationOptions,
-  UseVerificationReturn,
-  QRCodeProps,
-  VerificationStatusProps,
-  StatusBadgeProps,
-  VerificationWallProps,
   AuthboundAppearance,
-  AuthboundVariables,
+  AuthboundContextValue,
   AuthboundElements,
   AuthboundLayout,
+  AuthboundProviderProps,
+  AuthboundVariables,
+  QRCodeProps,
+  StatusBadgeProps,
+  UseVerificationOptions,
+  UseVerificationReturn,
+  VerificationSession,
+  VerificationStatusProps,
+  VerificationWallProps,
 } from "./client";
 
 // ============================================================================
@@ -131,16 +131,16 @@ export type {
 // ============================================================================
 
 export {
-  type PolicyId,
-  type SessionId,
-  type PublishableKey,
-  type EudiVerificationStatus,
-  type VerificationResult,
-  type VerificationClaims,
-  type StatusEvent,
   AuthboundError,
   type AuthboundErrorCode,
+  type EudiVerificationStatus,
   isAuthboundError,
-  PolicyPresets,
   isTerminalStatus,
+  type PolicyId,
+  PolicyPresets,
+  type PublishableKey,
+  type SessionId,
+  type StatusEvent,
+  type VerificationClaims,
+  type VerificationResult,
 } from "@authbound/core";

@@ -15,13 +15,13 @@
  * ```
  */
 
-import type { Request, Response, NextFunction, RequestHandler } from "express";
+import type { NextFunction, Request, RequestHandler, Response } from "express";
 import type {
   AuthboundConfig,
   AuthboundSession,
   MiddlewareResult,
-  VerificationRequirements,
   ProtectedRouteConfig,
+  VerificationRequirements,
 } from "../core/types";
 import { checkRequirements, parseConfig } from "../core/types";
 import { getSessionFromCookie } from "./cookies";

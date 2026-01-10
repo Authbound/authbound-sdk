@@ -4,9 +4,9 @@
  * Handles webhook events from Authbound.
  */
 
-import { defineEventHandler, readRawBody, getHeader, createError } from "h3";
-import { useRuntimeConfig } from "#imports";
 import crypto from "crypto";
+import { createError, defineEventHandler, getHeader, readRawBody } from "h3";
+import { useRuntimeConfig } from "#imports";
 
 // ============================================================================
 // Webhook Signature Verification
@@ -16,7 +16,9 @@ import crypto from "crypto";
  * Parse the Authbound webhook signature header.
  * Format: "t=<timestamp>,v1=<signature>"
  */
-function parseSignatureHeader(header: string): { timestamp: number; signatures: string[] } | null {
+function parseSignatureHeader(
+  header: string
+): { timestamp: number; signatures: string[] } | null {
   const parts = header.split(",");
   let timestamp = 0;
   const signatures: string[] = [];
@@ -24,7 +26,7 @@ function parseSignatureHeader(header: string): { timestamp: number; signatures: 
   for (const part of parts) {
     const [key, value] = part.split("=");
     if (key === "t") {
-      timestamp = parseInt(value, 10);
+      timestamp = Number.parseInt(value, 10);
       if (isNaN(timestamp)) {
         return null;
       }
@@ -44,9 +46,16 @@ function parseSignatureHeader(header: string): { timestamp: number; signatures: 
  * Compute the expected signature for a webhook payload.
  * Uses HMAC-SHA256 with format: "timestamp.payload"
  */
-function computeSignature(payload: string, timestamp: number, secret: string): string {
+function computeSignature(
+  payload: string,
+  timestamp: number,
+  secret: string
+): string {
   const signedPayload = `${timestamp}.${payload}`;
-  return crypto.createHmac("sha256", secret).update(signedPayload).digest("hex");
+  return crypto
+    .createHmac("sha256", secret)
+    .update(signedPayload)
+    .digest("hex");
 }
 
 /**
@@ -79,7 +88,10 @@ function verifyWebhookSignature(
   // Check timestamp tolerance (both past AND future to prevent replay attacks)
   const now = Math.floor(Date.now() / 1000);
   if (Math.abs(now - timestamp) > tolerance) {
-    return { isValid: false, error: "Timestamp outside tolerance window (possible replay attack)" };
+    return {
+      isValid: false,
+      error: "Timestamp outside tolerance window (possible replay attack)",
+    };
   }
 
   // Compute expected signature
@@ -101,7 +113,8 @@ function verifyWebhookSignature(
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig();
-  const webhookSecret = config.authbound?.webhookSecret ?? process.env.AUTHBOUND_WEBHOOK_SECRET;
+  const webhookSecret =
+    config.authbound?.webhookSecret ?? process.env.AUTHBOUND_WEBHOOK_SECRET;
   const tolerance = config.authbound?.webhookTolerance ?? 300;
   const debug = config.public.authbound?.debug ?? false;
 
@@ -128,10 +141,18 @@ export default defineEventHandler(async (event) => {
     }
 
     // Verify HMAC signature with timestamp tolerance
-    const verification = verifyWebhookSignature(rawBody, signature, webhookSecret, tolerance);
+    const verification = verifyWebhookSignature(
+      rawBody,
+      signature,
+      webhookSecret,
+      tolerance
+    );
     if (!verification.isValid) {
       if (debug) {
-        console.error("[Authbound] Webhook signature verification failed:", verification.error);
+        console.error(
+          "[Authbound] Webhook signature verification failed:",
+          verification.error
+        );
       }
       throw createError({
         statusCode: 401,

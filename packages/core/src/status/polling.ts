@@ -4,11 +4,14 @@
  * Uses exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
  */
 
-import type { SessionId, ClientToken } from "../types/branded";
-import type { EudiVerificationStatus, StatusEvent } from "../types/verification";
-import { isTerminalStatus } from "../types/verification";
-import { AuthboundError } from "../types/errors";
 import type { ResolvedConfig } from "../client/config";
+import type { ClientToken, SessionId } from "../types/branded";
+import { AuthboundError } from "../types/errors";
+import type {
+  EudiVerificationStatus,
+  StatusEvent,
+} from "../types/verification";
+import { isTerminalStatus } from "../types/verification";
 
 // ============================================================================
 // Polling Configuration
@@ -30,7 +33,7 @@ export interface PollingConfig {
 
 export const DEFAULT_POLLING_CONFIG: PollingConfig = {
   initialInterval: 1000,
-  maxInterval: 30000,
+  maxInterval: 30_000,
   backoffMultiplier: 2,
   maxDuration: 5 * 60 * 1000, // 5 minutes
 };
@@ -72,10 +75,7 @@ export function createPollingSubscription(
   let lastStatus: EudiVerificationStatus = "idle";
   const startTime = Date.now();
 
-  const url = new URL(
-    `/v1/sessions/${sessionId}/status`,
-    config.gatewayUrl
-  );
+  const url = new URL(`/v1/sessions/${sessionId}/status`, config.gatewayUrl);
 
   async function poll(): Promise<void> {
     if (isCleanedUp) return;
@@ -101,7 +101,7 @@ export function createPollingSubscription(
     const abortController = new AbortController();
     const requestTimeoutId = setTimeout(
       () => abortController.abort(),
-      Math.min(remainingTime, 30000) // Cap individual request at 30s
+      Math.min(remainingTime, 30_000) // Cap individual request at 30s
     );
 
     try {
@@ -119,7 +119,7 @@ export function createPollingSubscription(
         throw AuthboundError.fromResponse(response);
       }
 
-      const data = await response.json() as {
+      const data = (await response.json()) as {
         status: EudiVerificationStatus;
         result?: unknown;
         error?: { code: string; message: string };
@@ -251,10 +251,7 @@ export async function pollOnce(
   error?: { code: string; message: string };
   timeRemaining?: number;
 }> {
-  const url = new URL(
-    `/v1/sessions/${sessionId}/status`,
-    config.gatewayUrl
-  );
+  const url = new URL(`/v1/sessions/${sessionId}/status`, config.gatewayUrl);
 
   const response = await fetch(url.toString(), {
     headers: {

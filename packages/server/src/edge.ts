@@ -12,23 +12,22 @@
 
 // Re-export edge-compatible JWT utilities
 export {
-  createToken,
-  verifyToken,
-  getSessionFromToken,
-  refreshToken,
-  isTokenExpired,
-  claimsToSession,
   type CreateTokenOptions,
+  claimsToSession,
+  createToken,
+  getSessionFromToken,
+  isTokenExpired,
+  refreshToken,
+  verifyToken,
 } from "./core/jwt";
 
 // Re-export types
 export type {
+  AssuranceLevel,
   AuthboundClaims,
   AuthboundSession,
   VerificationStatus,
-  AssuranceLevel,
 } from "./core/types";
 
 // Re-export utilities
 export { calculateAge, checkRequirements } from "./core/types";
-

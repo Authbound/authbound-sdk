@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 
 :root {
   --color-bg: #0a0a0f;
@@ -24,15 +24,19 @@
 html,
 body {
   min-height: 100vh;
-  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--color-bg);
   color: var(--color-text);
 }
 
 body {
-  background-image: 
+  background-image:
     radial-gradient(ellipse at top, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
-    radial-gradient(ellipse at bottom right, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
+    radial-gradient(
+      ellipse at bottom right,
+      rgba(16, 185, 129, 0.05) 0%,
+      transparent 50%
+    );
 }
 
 a {
@@ -150,7 +154,7 @@ p {
 }
 
 code {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 0.9em;
   background: var(--color-bg-elevated);
   padding: 0.2em 0.4em;
@@ -204,10 +208,14 @@ code {
 }
 
 .feature-card::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, transparent 50%);
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.1) 0%,
+    transparent 50%
+  );
   opacity: 0;
   transition: opacity 0.3s;
 }
@@ -238,4 +246,3 @@ code {
   background: var(--color-danger);
   box-shadow: 0 0 8px var(--color-danger);
 }
-

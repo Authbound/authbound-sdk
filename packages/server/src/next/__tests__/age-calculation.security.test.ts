@@ -6,7 +6,7 @@
  *          Date constructor silently rolls over (e.g., Feb 31 → Mar 2/3)
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { calculateAgeFromDob } from "../../core/types";
 
 describe("calculateAgeFromDob - Date Validation", () => {
@@ -22,91 +22,95 @@ describe("calculateAgeFromDob - Date Validation", () => {
 
   describe("Impossible Dates - Must Throw", () => {
     it("rejects February 30th (never exists)", () => {
-      expect(() => calculateAgeFromDob({ day: 30, month: 2, year: 2000 })).toThrow(
-        "Invalid date"
-      );
+      expect(() =>
+        calculateAgeFromDob({ day: 30, month: 2, year: 2000 })
+      ).toThrow("Invalid date");
     });
 
     it("rejects February 31st (never exists)", () => {
-      expect(() => calculateAgeFromDob({ day: 31, month: 2, year: 2000 })).toThrow(
-        "Invalid date"
-      );
+      expect(() =>
+        calculateAgeFromDob({ day: 31, month: 2, year: 2000 })
+      ).toThrow("Invalid date");
     });
 
     it("rejects April 31st (April has 30 days)", () => {
-      expect(() => calculateAgeFromDob({ day: 31, month: 4, year: 2000 })).toThrow(
-        "Invalid date"
-      );
+      expect(() =>
+        calculateAgeFromDob({ day: 31, month: 4, year: 2000 })
+      ).toThrow("Invalid date");
     });
 
     it("rejects June 31st (June has 30 days)", () => {
-      expect(() => calculateAgeFromDob({ day: 31, month: 6, year: 2000 })).toThrow(
-        "Invalid date"
-      );
+      expect(() =>
+        calculateAgeFromDob({ day: 31, month: 6, year: 2000 })
+      ).toThrow("Invalid date");
     });
 
     it("rejects September 31st (September has 30 days)", () => {
-      expect(() => calculateAgeFromDob({ day: 31, month: 9, year: 2000 })).toThrow(
-        "Invalid date"
-      );
+      expect(() =>
+        calculateAgeFromDob({ day: 31, month: 9, year: 2000 })
+      ).toThrow("Invalid date");
     });
 
     it("rejects November 31st (November has 30 days)", () => {
-      expect(() => calculateAgeFromDob({ day: 31, month: 11, year: 2000 })).toThrow(
-        "Invalid date"
-      );
+      expect(() =>
+        calculateAgeFromDob({ day: 31, month: 11, year: 2000 })
+      ).toThrow("Invalid date");
     });
   });
 
   describe("Invalid Ranges - Must Throw", () => {
     it("rejects month 0 (out of range)", () => {
-      expect(() => calculateAgeFromDob({ day: 1, month: 0, year: 2000 })).toThrow(
-        "Invalid month: 0"
-      );
+      expect(() =>
+        calculateAgeFromDob({ day: 1, month: 0, year: 2000 })
+      ).toThrow("Invalid month: 0");
     });
 
     it("rejects month 13 (out of range)", () => {
-      expect(() => calculateAgeFromDob({ day: 1, month: 13, year: 2000 })).toThrow(
-        "Invalid month: 13"
-      );
+      expect(() =>
+        calculateAgeFromDob({ day: 1, month: 13, year: 2000 })
+      ).toThrow("Invalid month: 13");
     });
 
     it("rejects day 0 (out of range)", () => {
-      expect(() => calculateAgeFromDob({ day: 0, month: 1, year: 2000 })).toThrow(
-        "Invalid day: 0"
-      );
+      expect(() =>
+        calculateAgeFromDob({ day: 0, month: 1, year: 2000 })
+      ).toThrow("Invalid day: 0");
     });
 
     it("rejects day 32 (out of range)", () => {
-      expect(() => calculateAgeFromDob({ day: 32, month: 1, year: 2000 })).toThrow(
-        "Invalid day: 32"
-      );
+      expect(() =>
+        calculateAgeFromDob({ day: 32, month: 1, year: 2000 })
+      ).toThrow("Invalid day: 32");
     });
   });
 
   describe("Leap Year Edge Cases", () => {
     it("accepts February 29th on leap year (2000)", () => {
       // 2000 is a leap year (divisible by 400)
-      expect(() => calculateAgeFromDob({ day: 29, month: 2, year: 2000 })).not.toThrow();
+      expect(() =>
+        calculateAgeFromDob({ day: 29, month: 2, year: 2000 })
+      ).not.toThrow();
     });
 
     it("accepts February 29th on leap year (2004)", () => {
       // 2004 is a leap year (divisible by 4, not by 100)
-      expect(() => calculateAgeFromDob({ day: 29, month: 2, year: 2004 })).not.toThrow();
+      expect(() =>
+        calculateAgeFromDob({ day: 29, month: 2, year: 2004 })
+      ).not.toThrow();
     });
 
     it("rejects February 29th on non-leap year (2001)", () => {
       // 2001 is not a leap year
-      expect(() => calculateAgeFromDob({ day: 29, month: 2, year: 2001 })).toThrow(
-        "Invalid date"
-      );
+      expect(() =>
+        calculateAgeFromDob({ day: 29, month: 2, year: 2001 })
+      ).toThrow("Invalid date");
     });
 
     it("rejects February 29th on century non-leap year (1900)", () => {
       // 1900 is NOT a leap year (divisible by 100 but not 400)
-      expect(() => calculateAgeFromDob({ day: 29, month: 2, year: 1900 })).toThrow(
-        "Invalid date"
-      );
+      expect(() =>
+        calculateAgeFromDob({ day: 29, month: 2, year: 1900 })
+      ).toThrow("Invalid date");
     });
   });
 

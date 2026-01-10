@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 type VerificationStatus = "idle" | "loading" | "verified" | "error";
 
@@ -23,7 +23,9 @@ export default function VerifyPage() {
   const returnTo = searchParams.get("returnTo") || "/dashboard";
 
   const [status, setStatus] = useState<VerificationStatus>("idle");
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus | null>(null);
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus | null>(
+    null
+  );
   const [error, setError] = useState<string | null>(null);
 
   // Check current session status on mount
@@ -133,7 +135,10 @@ export default function VerifyPage() {
         <Link href="/verify">Verify Identity</Link>
       </nav>
 
-      <div className="container" style={{ maxWidth: "600px", marginTop: "2rem" }}>
+      <div
+        className="container"
+        style={{ maxWidth: "600px", marginTop: "2rem" }}
+      >
         <div className="card">
           <h2>Identity Verification</h2>
           <p style={{ marginBottom: "2rem" }}>
@@ -144,10 +149,10 @@ export default function VerifyPage() {
             <div>
               <p style={{ marginBottom: "1.5rem" }}>
                 This demo simulates the verification process. In production,
-                you&apos;d use the <code>@authbound/quickid-react</code> components
-                to capture documents and selfie.
+                you&apos;d use the <code>@authbound/quickid-react</code>{" "}
+                components to capture documents and selfie.
               </p>
-              <button onClick={startVerification} className="btn btn-primary">
+              <button className="btn btn-primary" onClick={startVerification}>
                 Start Verification
               </button>
             </div>
@@ -232,10 +237,10 @@ export default function VerifyPage() {
               </div>
 
               <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-                <Link href={returnTo} className="btn btn-primary">
+                <Link className="btn btn-primary" href={returnTo}>
                   Continue to {returnTo} →
                 </Link>
-                <button onClick={signOut} className="btn btn-secondary">
+                <button className="btn btn-secondary" onClick={signOut}>
                   Sign Out
                 </button>
               </div>
@@ -251,7 +256,7 @@ export default function VerifyPage() {
                 Verification Failed
               </div>
               <p style={{ marginBottom: "1.5rem" }}>{error}</p>
-              <button onClick={startVerification} className="btn btn-primary">
+              <button className="btn btn-primary" onClick={startVerification}>
                 Try Again
               </button>
             </div>
@@ -266,11 +271,11 @@ export default function VerifyPage() {
               fontSize: "0.9rem",
             }}
           >
-            You&apos;ll be redirected to <code>{returnTo}</code> after verification.
+            You&apos;ll be redirected to <code>{returnTo}</code> after
+            verification.
           </p>
         )}
       </div>
     </>
   );
 }
-

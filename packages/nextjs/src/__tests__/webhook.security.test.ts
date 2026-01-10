@@ -6,8 +6,8 @@
  *          (attacker sends webhook with future timestamp, replays later)
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import crypto from "crypto";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { verifyWebhookSignature } from "../server";
 
 // Test constants
@@ -17,9 +17,16 @@ const PAYLOAD = JSON.stringify({ type: "test.event", data: { id: "123" } });
 /**
  * Generate a valid signature for a payload at a specific timestamp.
  */
-function generateSignature(payload: string, timestamp: number, secret: string): string {
+function generateSignature(
+  payload: string,
+  timestamp: number,
+  secret: string
+): string {
   const signedPayload = `${timestamp}.${payload}`;
-  return crypto.createHmac("sha256", secret).update(signedPayload).digest("hex");
+  return crypto
+    .createHmac("sha256", secret)
+    .update(signedPayload)
+    .digest("hex");
 }
 
 /**
@@ -31,7 +38,7 @@ function createSignatureHeader(timestamp: number, signature: string): string {
 
 describe("verifyWebhookSignature - Replay Attack Prevention", () => {
   // Fix "now" to a known timestamp for predictable testing
-  const NOW_SECONDS = 1718452800; // June 15, 2024 12:00:00 UTC
+  const NOW_SECONDS = 1_718_452_800; // June 15, 2024 12:00:00 UTC
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -162,7 +169,11 @@ describe("verifyWebhookSignature - Replay Attack Prevention", () => {
     });
 
     it("rejects missing signature", () => {
-      const result = verifyWebhookSignature(PAYLOAD, `t=${NOW_SECONDS}`, SECRET);
+      const result = verifyWebhookSignature(
+        PAYLOAD,
+        `t=${NOW_SECONDS}`,
+        SECRET
+      );
 
       expect(result.isValid).toBe(false);
       expect(result.error).toBe("Invalid signature header format");

@@ -54,9 +54,7 @@ export interface Policy {
 }
 
 export const PolicySchema = z.object({
-  id: z.custom<PolicyId>((val) =>
-    typeof val === "string" && val.includes("@")
-  ),
+  id: z.custom<PolicyId>((val) => typeof val === "string" && val.includes("@")),
   name: z.string(),
   description: z.string().optional(),
   credentials: z.array(CredentialRequirementSchema),

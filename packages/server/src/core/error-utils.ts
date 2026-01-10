@@ -14,10 +14,7 @@ export interface SanitizedError {
  * In production, only returns safe error messages.
  * In debug mode, includes more details.
  */
-export function sanitizeError(
-  error: unknown,
-  debug: boolean = false
-): SanitizedError {
+export function sanitizeError(error: unknown, debug = false): SanitizedError {
   // Default error
   const defaultError: SanitizedError = {
     message: "An error occurred",
@@ -108,11 +105,7 @@ export function sanitizeError(
  * Log error with appropriate detail level.
  * In production, logs minimal info. In debug mode, logs full details.
  */
-export function logError(
-  error: unknown,
-  context: string,
-  debug: boolean = false
-): void {
+export function logError(error: unknown, context: string, debug = false): void {
   if (debug) {
     console.error(`[Authbound] ${context}:`, error);
     if (error instanceof Error && error.stack) {
@@ -134,8 +127,8 @@ export function logError(
  */
 export function createSafeErrorResponse(
   error: unknown,
-  status: number = 500,
-  debug: boolean = false
+  status = 500,
+  debug = false
 ): { message: string; code: string } {
   const sanitized = sanitizeError(error, debug);
   return {
@@ -143,4 +136,3 @@ export function createSafeErrorResponse(
     code: sanitized.code,
   };
 }
-

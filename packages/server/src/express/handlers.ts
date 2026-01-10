@@ -18,8 +18,10 @@
  * ```
  */
 
-import { Router, type Request, type Response } from "express";
+import { type Request, type Response, Router } from "express";
 import { z } from "zod";
+import { AuthboundClient, AuthboundClientError } from "../core/client";
+import { createSafeErrorResponse, logError } from "../core/error-utils";
 import type {
   AuthboundConfig,
   CreateSessionResponse,
@@ -27,20 +29,15 @@ import type {
   WebhookEvent,
 } from "../core/types";
 import {
-  WebhookEventSchema,
-  parseConfig,
   calculateAgeFromDob,
   mapSessionStatusToVerificationStatus,
+  parseConfig,
+  WebhookEventSchema,
 } from "../core/types";
-import { logError, createSafeErrorResponse } from "../core/error-utils";
 import {
-  AuthboundClient,
-  AuthboundClientError,
-} from "../core/client";
-import {
+  clearSessionCookie,
   getSessionFromCookie,
   setSessionCookie,
-  clearSessionCookie,
 } from "./cookies";
 
 // ============================================================================

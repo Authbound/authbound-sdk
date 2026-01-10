@@ -4,7 +4,7 @@
  * Creates verification sessions by proxying to the Authbound gateway.
  */
 
-import { defineEventHandler, readBody, createError } from "h3";
+import { createError, defineEventHandler, readBody } from "h3";
 import { useRuntimeConfig } from "#imports";
 
 export default defineEventHandler(async (event) => {

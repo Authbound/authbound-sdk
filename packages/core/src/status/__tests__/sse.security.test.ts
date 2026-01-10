@@ -6,12 +6,12 @@
  *          unbounded data without proper SSE event delimiters (\n\n)
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { createStatusSubscription, MAX_BUFFER_SIZE } from "../sse";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ResolvedConfig } from "../../client/config";
+import { asClientToken, asSessionId } from "../../types/branded";
 import { AuthboundError } from "../../types/errors";
 import type { StatusEvent } from "../../types/verification";
-import type { ResolvedConfig } from "../../client/config";
-import { asSessionId, asClientToken } from "../../types/branded";
+import { createStatusSubscription, MAX_BUFFER_SIZE } from "../sse";
 
 // Test fixtures
 const TEST_CONFIG: ResolvedConfig = {
@@ -173,7 +173,10 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
     it("handles data under the limit without errors", async () => {
       // Just under the limit
       const safeSize = MAX_BUFFER_SIZE - 1000;
-      const chunk = 'data: {"status":"pending","payload":"' + "a".repeat(safeSize) + '"}\n\n';
+      const chunk =
+        'data: {"status":"pending","payload":"' +
+        "a".repeat(safeSize) +
+        '"}\n\n';
 
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
@@ -194,14 +197,18 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Should not error
-      expect(errors.filter((e) => e.message.includes("overflow")).length).toBe(0);
+      expect(errors.filter((e) => e.message.includes("overflow")).length).toBe(
+        0
+      );
     });
 
     it("clears buffer when complete events are received", async () => {
       // Send multiple events - buffer should clear after each \n\n
       const events_data: string[] = [];
       for (let i = 0; i < 20; i++) {
-        events_data.push(`event: status\ndata: {"status":"pending","i":${i}}\n\n`);
+        events_data.push(
+          `event: status\ndata: {"status":"pending","i":${i}}\n\n`
+        );
       }
 
       global.fetch = vi.fn().mockResolvedValue({
@@ -223,7 +230,9 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Should process many events without overflow (buffer clears)
-      expect(errors.filter((e) => e.message.includes("overflow")).length).toBe(0);
+      expect(errors.filter((e) => e.message.includes("overflow")).length).toBe(
+        0
+      );
       expect(events.length).toBeGreaterThan(0);
     });
   });

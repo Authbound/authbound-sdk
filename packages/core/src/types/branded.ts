@@ -61,7 +61,7 @@ export function isPolicyId(value: string): value is PolicyId {
   if (parts.length !== 2) return false;
 
   const [name, version] = parts;
-  if (!name || !version) return false;
+  if (!(name && version)) return false;
 
   // Basic semver validation (allows v prefix)
   const semverPattern = /^v?\d+\.\d+\.\d+(?:-[\w.]+)?(?:\+[\w.]+)?$/;

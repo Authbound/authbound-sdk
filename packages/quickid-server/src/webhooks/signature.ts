@@ -22,12 +22,12 @@ const DEFAULT_TOLERANCE_SECONDS = 300;
  * @returns Hex-encoded HMAC-SHA256 signature
  */
 export function signPayload(
-	secret: string,
-	timestamp: number,
-	rawBody: string,
+  secret: string,
+  timestamp: number,
+  rawBody: string
 ): string {
-	const signedPayload = `${timestamp}.${rawBody}`;
-	return createHmac("sha256", secret).update(signedPayload).digest("hex");
+  const signedPayload = `${timestamp}.${rawBody}`;
+  return createHmac("sha256", secret).update(signedPayload).digest("hex");
 }
 
 /**
@@ -39,13 +39,13 @@ export function signPayload(
  * @returns Complete signature header value (e.g., "t=1700000000,v1=abc123...")
  */
 export function generateSignatureHeader(
-	secret: string,
-	rawBody: string,
-	timestamp?: number,
+  secret: string,
+  rawBody: string,
+  timestamp?: number
 ): string {
-	const ts = timestamp ?? Math.floor(Date.now() / 1000);
-	const signature = signPayload(secret, ts, rawBody);
-	return `t=${ts},v1=${signature}`;
+  const ts = timestamp ?? Math.floor(Date.now() / 1000);
+  const signature = signPayload(secret, ts, rawBody);
+  return `t=${ts},v1=${signature}`;
 }
 
 /**
@@ -58,36 +58,36 @@ export function generateSignatureHeader(
  * @returns Parsed timestamp and signatures, or null if invalid
  */
 export function parseSignatureHeader(
-	header: string,
+  header: string
 ): ParsedSignatureHeader | null {
-	const parts = header.split(",");
-	let timestamp: number | null = null;
-	const signatures: string[] = [];
+  const parts = header.split(",");
+  let timestamp: number | null = null;
+  const signatures: string[] = [];
 
-	for (const part of parts) {
-		const eqIdx = part.indexOf("=");
-		if (eqIdx === -1) continue;
+  for (const part of parts) {
+    const eqIdx = part.indexOf("=");
+    if (eqIdx === -1) continue;
 
-		const key = part.slice(0, eqIdx).trim();
-		const value = part.slice(eqIdx + 1).trim();
-		if (!key || !value) continue;
+    const key = part.slice(0, eqIdx).trim();
+    const value = part.slice(eqIdx + 1).trim();
+    if (!(key && value)) continue;
 
-		if (key === "t") {
-			const t = Number.parseInt(value, 10);
-			if (Number.isFinite(t)) {
-				timestamp = t;
-			}
-		} else if (key === "v1" && value.length <= 256) {
-			// DoS guard: ignore absurdly long signatures
-			signatures.push(value);
-		}
-	}
+    if (key === "t") {
+      const t = Number.parseInt(value, 10);
+      if (Number.isFinite(t)) {
+        timestamp = t;
+      }
+    } else if (key === "v1" && value.length <= 256) {
+      // DoS guard: ignore absurdly long signatures
+      signatures.push(value);
+    }
+  }
 
-	if (timestamp === null || signatures.length === 0) {
-		return null;
-	}
+  if (timestamp === null || signatures.length === 0) {
+    return null;
+  }
 
-	return { timestamp, signatures };
+  return { timestamp, signatures };
 }
 
 /**
@@ -100,55 +100,55 @@ export function parseSignatureHeader(
  * @returns true if signature is valid
  */
 export function verifySignature(
-	secret: string,
-	rawBody: string | Buffer,
-	signatureHeader: string,
-	toleranceSeconds = DEFAULT_TOLERANCE_SECONDS,
+  secret: string,
+  rawBody: string | Buffer,
+  signatureHeader: string,
+  toleranceSeconds = DEFAULT_TOLERANCE_SECONDS
 ): boolean {
-	const body = typeof rawBody === "string" ? rawBody : rawBody.toString("utf8");
+  const body = typeof rawBody === "string" ? rawBody : rawBody.toString("utf8");
 
-	const parsed = parseSignatureHeader(signatureHeader);
-	if (!parsed) {
-		return false;
-	}
+  const parsed = parseSignatureHeader(signatureHeader);
+  if (!parsed) {
+    return false;
+  }
 
-	const { timestamp, signatures } = parsed;
+  const { timestamp, signatures } = parsed;
 
-	// Validate timestamp is finite and non-negative
-	if (!Number.isFinite(timestamp) || timestamp < 0) {
-		return false;
-	}
+  // Validate timestamp is finite and non-negative
+  if (!Number.isFinite(timestamp) || timestamp < 0) {
+    return false;
+  }
 
-	// Check timestamp tolerance (prevent replay attacks)
-	const now = Math.floor(Date.now() / 1000);
-	if (Math.abs(now - timestamp) > toleranceSeconds) {
-		return false;
-	}
+  // Check timestamp tolerance (prevent replay attacks)
+  const now = Math.floor(Date.now() / 1000);
+  if (Math.abs(now - timestamp) > toleranceSeconds) {
+    return false;
+  }
 
-	// Compute expected signature
-	const expectedSig = signPayload(secret, timestamp, body);
-	const expectedBuffer = Buffer.from(expectedSig, "hex");
+  // Compute expected signature
+  const expectedSig = signPayload(secret, timestamp, body);
+  const expectedBuffer = Buffer.from(expectedSig, "hex");
 
-	// Verify against ANY candidate signature (supports key rotation)
-	for (const sig of signatures) {
-		try {
-			const sigBuffer = Buffer.from(sig, "hex");
+  // Verify against ANY candidate signature (supports key rotation)
+  for (const sig of signatures) {
+    try {
+      const sigBuffer = Buffer.from(sig, "hex");
 
-			// Length mismatch: can't be equal
-			if (sigBuffer.length !== expectedBuffer.length) {
-				continue;
-			}
+      // Length mismatch: can't be equal
+      if (sigBuffer.length !== expectedBuffer.length) {
+        continue;
+      }
 
-			// Constant-time comparison to prevent timing attacks
-			if (timingSafeEqual(sigBuffer, expectedBuffer)) {
-				return true;
-			}
-		} catch {
-			// Invalid hex → ignore and try next signature
-		}
-	}
+      // Constant-time comparison to prevent timing attacks
+      if (timingSafeEqual(sigBuffer, expectedBuffer)) {
+        return true;
+      }
+    } catch {
+      // Invalid hex → ignore and try next signature
+    }
+  }
 
-	return false;
+  return false;
 }
 
 /**
@@ -163,16 +163,16 @@ export function verifySignature(
  * @throws QuickIDSignatureVerificationError if signature is invalid
  */
 export function constructEvent<T>(
-	rawBody: string | Buffer,
-	signatureHeader: string,
-	secret: string,
-	parse: (body: string) => T,
-	toleranceSeconds = DEFAULT_TOLERANCE_SECONDS,
+  rawBody: string | Buffer,
+  signatureHeader: string,
+  secret: string,
+  parse: (body: string) => T,
+  toleranceSeconds = DEFAULT_TOLERANCE_SECONDS
 ): T {
-	if (!verifySignature(secret, rawBody, signatureHeader, toleranceSeconds)) {
-		throw new QuickIDSignatureVerificationError();
-	}
+  if (!verifySignature(secret, rawBody, signatureHeader, toleranceSeconds)) {
+    throw new QuickIDSignatureVerificationError();
+  }
 
-	const body = typeof rawBody === "string" ? rawBody : rawBody.toString("utf8");
-	return parse(body);
+  const body = typeof rawBody === "string" ? rawBody : rawBody.toString("utf8");
+  return parse(body);
 }

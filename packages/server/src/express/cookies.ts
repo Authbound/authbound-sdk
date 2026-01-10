@@ -8,10 +8,14 @@
  * ```
  */
 
-import type { Request, Response, CookieOptions as ExpressCookieOptions } from "express";
+import type {
+  CookieOptions as ExpressCookieOptions,
+  Request,
+  Response,
+} from "express";
+import { createToken, getSessionFromToken } from "../core/jwt";
 import type { AuthboundConfig, AuthboundSession } from "../core/types";
 import { getDefaultCookieOptions } from "../core/types";
-import { createToken, getSessionFromToken } from "../core/jwt";
 
 // ============================================================================
 // Cookie Name Helper
@@ -31,7 +35,9 @@ export function getCookieName(config: AuthboundConfig): string {
 /**
  * Build Express-compatible cookie options from Authbound config.
  */
-export function buildCookieOptions(config: AuthboundConfig): ExpressCookieOptions {
+export function buildCookieOptions(
+  config: AuthboundConfig
+): ExpressCookieOptions {
   const defaults = getDefaultCookieOptions();
   const userOptions = config.cookie ?? {};
 

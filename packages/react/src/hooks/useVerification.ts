@@ -4,14 +4,14 @@
  * Provides a simple, Clerk-style API for starting and monitoring verification.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import type {
+  EudiVerificationStatus,
   PolicyId,
   SessionId,
-  EudiVerificationStatus,
   VerificationResult,
 } from "@authbound/core";
 import { AuthboundError } from "@authbound/core";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthbound } from "../context/authbound-context";
 
 // ============================================================================
@@ -138,12 +138,14 @@ export function useVerification(
 
   // Derive state from session
   const status = session?.status ?? "idle";
-  const isLoading = isStarting || status === "pending" || status === "processing";
+  const isLoading =
+    isStarting || status === "pending" || status === "processing";
   const isVerified = status === "verified";
   const isFailed = status === "failed" || status === "error";
   const sessionId = session?.sessionId ?? null;
   const authorizationRequestUrl = session?.authorizationRequestUrl ?? null;
-  const deepLink = session?.deepLink ?? client.getDeepLink(authorizationRequestUrl ?? "");
+  const deepLink =
+    session?.deepLink ?? client.getDeepLink(authorizationRequestUrl ?? "");
   const error = session?.error ?? null;
   const result = session?.result ?? null;
 
@@ -233,9 +235,8 @@ export function useVerification(
           timerRef.current = null;
         }
       };
-    } else {
-      setTimeRemaining(null);
     }
+    setTimeRemaining(null);
   }, [session?.expiresAt, status]);
 
   // Auto-start on mount

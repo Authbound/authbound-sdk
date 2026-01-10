@@ -1,20 +1,13 @@
-import {
-  VerificationStatusSchema,
-  AssuranceLevelSchema,
-  DocumentDataSchema,
-  BiometricDataSchema,
-  ErrorDetailSchema,
-} from "@authbound/core";
-import { VerificationResultSchema } from "./schemas";
-import { z } from "zod";
+import type { z } from "zod";
+import type { VerificationResultSchema } from "./schemas";
 
 // Re-export types from core
 export type {
-  VerificationStatus,
   AssuranceLevel,
-  DocumentData,
   BiometricData,
+  DocumentData,
   ErrorDetail,
+  VerificationStatus,
 } from "@authbound/core";
 
 // Re-export VerificationResult type inferred from schema

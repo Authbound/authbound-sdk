@@ -3,9 +3,9 @@
  */
 
 export {
-	signPayload,
-	generateSignatureHeader,
-	parseSignatureHeader,
-	verifySignature,
-	constructEvent,
+  constructEvent,
+  generateSignatureHeader,
+  parseSignatureHeader,
+  signPayload,
+  verifySignature,
 } from "./signature";

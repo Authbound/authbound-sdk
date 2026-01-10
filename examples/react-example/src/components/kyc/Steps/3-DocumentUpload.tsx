@@ -1,13 +1,14 @@
-import React, { useCallback } from "react";
-import {
-  UploadCloud,
-  Trash2,
-  ArrowRight,
-  FileText,
-  CheckCircle,
-} from "lucide-react";
-import { useDropzone } from "react-dropzone";
 import { motion } from "framer-motion";
+import {
+  ArrowRight,
+  CheckCircle,
+  FileText,
+  Trash2,
+  UploadCloud,
+} from "lucide-react";
+import type React from "react";
+import { useCallback } from "react";
+import { useDropzone } from "react-dropzone";
 import type { StepProps } from "../types";
 
 interface UploadBoxProps {
@@ -48,7 +49,7 @@ const UploadBox: React.FC<UploadBoxProps> = ({
         style={{ height: 160, marginBottom: "1rem" }}
       >
         {file.type.startsWith("image/") ? (
-          <img src={URL.createObjectURL(file)} alt="Preview" />
+          <img alt="Preview" src={URL.createObjectURL(file)} />
         ) : (
           <div
             style={{
@@ -90,6 +91,11 @@ const UploadBox: React.FC<UploadBoxProps> = ({
         </div>
         <button
           className="btn-icon-only"
+          disabled={disabled}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
           style={{
             position: "absolute",
             top: 8,
@@ -99,11 +105,6 @@ const UploadBox: React.FC<UploadBoxProps> = ({
             width: 32,
             height: 32,
           }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          disabled={disabled}
         >
           <Trash2 size={16} />
         </button>
@@ -199,10 +200,10 @@ export const DocumentUploadStep: React.FC<StepProps> = ({
 
   return (
     <motion.div
-      className="kyc-content"
-      initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
+      className="kyc-content"
       exit={{ opacity: 0, x: -20 }}
+      initial={{ opacity: 0, x: 20 }}
     >
       <h2 className="kyc-title">Upload Document</h2>
       <p className="kyc-description">
@@ -229,20 +230,20 @@ export const DocumentUploadStep: React.FC<StepProps> = ({
 
       <div style={{ width: "100%" }}>
         <UploadBox
-          label={isPassport ? "Passport Photo Page" : "Front of License"}
-          file={uiState.documentFront}
-          onUpload={(file) => handleUpload(file, "front")}
-          onRemove={() => updateUIState({ documentFront: null })}
           disabled={isBusy}
+          file={uiState.documentFront}
+          label={isPassport ? "Passport Photo Page" : "Front of License"}
+          onRemove={() => updateUIState({ documentFront: null })}
+          onUpload={(file) => handleUpload(file, "front")}
         />
 
         {!isPassport && (
           <UploadBox
-            label="Back of License"
-            file={uiState.documentBack}
-            onUpload={(file) => handleUpload(file, "back")}
-            onRemove={() => updateUIState({ documentBack: null })}
             disabled={isBusy}
+            file={uiState.documentBack}
+            label="Back of License"
+            onRemove={() => updateUIState({ documentBack: null })}
+            onUpload={(file) => handleUpload(file, "back")}
           />
         )}
       </div>
@@ -253,8 +254,8 @@ export const DocumentUploadStep: React.FC<StepProps> = ({
       >
         <button
           className="btn-primary btn-full"
-          onClick={onNext}
           disabled={!isReady || isBusy}
+          onClick={onNext}
           style={{ opacity: !isReady || isBusy ? 0.5 : 1 }}
         >
           {isBusy ? "Uploading..." : "Continue"} <ArrowRight size={18} />

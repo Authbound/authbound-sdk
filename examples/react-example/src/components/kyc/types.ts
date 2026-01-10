@@ -1,5 +1,4 @@
-import type { QuickIDPhase } from "@authbound/quickid-core";
-import type { VerificationResult } from "@authbound/quickid-core";
+import type { QuickIDPhase, VerificationResult } from "@authbound/quickid-core";
 
 // Extended state for UI-specific data not managed by SDK
 export interface KYCUIState {

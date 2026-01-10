@@ -5,17 +5,17 @@
  * the user successfully verifies their identity.
  */
 
+import type { VerificationResult } from "@authbound/core";
+import { type AuthboundError, asPolicyId } from "@authbound/core";
+import type { CSSProperties } from "vue";
 import {
-  defineComponent,
-  h,
   computed,
+  defineComponent,
+  Fragment,
+  h,
   type PropType,
   type VNode,
-  Fragment,
 } from "vue";
-import type { CSSProperties } from "vue";
-import type { PolicyId, VerificationResult } from "@authbound/core";
-import { AuthboundError, asPolicyId } from "@authbound/core";
 import { useVerification } from "../composables/useVerification";
 import { QRCodeWithLoading } from "./QRCode";
 import { VerificationStatus } from "./VerificationStatus";
@@ -44,7 +44,8 @@ export const VerificationWall = defineComponent({
     /** Subtitle text */
     subtitle: {
       type: String,
-      default: "Scan the QR code with your EU Digital Identity Wallet to continue",
+      default:
+        "Scan the QR code with your EU Digital Identity Wallet to continue",
     },
     /** Auto-start verification on mount */
     autoStart: {
@@ -97,29 +98,34 @@ export const VerificationWall = defineComponent({
     });
 
     // Card styles
-    const cardStyle = computed((): CSSProperties => ({
-      backgroundColor: "var(--ab-color-background, #ffffff)",
-      borderRadius: "var(--ab-radius-lg, 0.75rem)",
-      padding: "var(--ab-card-padding, 1.5rem)",
-      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)",
-      maxWidth: "400px",
-      width: "100%",
-      textAlign: "center",
-    }));
+    const cardStyle = computed(
+      (): CSSProperties => ({
+        backgroundColor: "var(--ab-color-background, #ffffff)",
+        borderRadius: "var(--ab-radius-lg, 0.75rem)",
+        padding: "var(--ab-card-padding, 1.5rem)",
+        boxShadow:
+          "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)",
+        maxWidth: "400px",
+        width: "100%",
+        textAlign: "center",
+      })
+    );
 
-    const buttonStyle = computed((): CSSProperties => ({
-      backgroundColor: "var(--ab-color-primary, #0058cc)",
-      color: "#ffffff",
-      border: "none",
-      borderRadius: "var(--ab-radius-md, 0.5rem)",
-      padding: "0.75rem 1.5rem",
-      fontSize: "var(--ab-font-size-base, 1rem)",
-      fontWeight: "var(--ab-font-weight-medium, 500)",
-      cursor: "pointer",
-      transition: "background-color 0.2s ease",
-      width: "100%",
-      marginTop: "var(--ab-space-4, 1rem)",
-    }));
+    const buttonStyle = computed(
+      (): CSSProperties => ({
+        backgroundColor: "var(--ab-color-primary, #0058cc)",
+        color: "#ffffff",
+        border: "none",
+        borderRadius: "var(--ab-radius-md, 0.5rem)",
+        padding: "0.75rem 1.5rem",
+        fontSize: "var(--ab-font-size-base, 1rem)",
+        fontWeight: "var(--ab-font-weight-medium, 500)",
+        cursor: "pointer",
+        transition: "background-color 0.2s ease",
+        width: "100%",
+        marginTop: "var(--ab-space-4, 1rem)",
+      })
+    );
 
     // Helper to normalize slot content to array
     const normalizeSlot = (slot: VNode | VNode[] | undefined): VNode[] => {
@@ -288,4 +294,6 @@ export const VerificationWall = defineComponent({
   },
 });
 
-export type VerificationWallProps = InstanceType<typeof VerificationWall>["$props"];
+export type VerificationWallProps = InstanceType<
+  typeof VerificationWall
+>["$props"];

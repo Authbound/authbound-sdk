@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { Shield, CheckCircle, User, FileText } from "lucide-react";
-import { KYCModal } from "./components/kyc/KYCModal";
 import type { QuickIDConfig } from "@authbound/quickid-core";
+import { CheckCircle, FileText, Shield, User } from "lucide-react";
+import { useState } from "react";
+import { KYCModal } from "./components/kyc/KYCModal";
 import { useCreateSession } from "./hooks/useCreateSession";
 import "./App.css";
 
@@ -82,10 +82,10 @@ function App() {
             ) : (
               <button
                 className="btn-primary"
-                onClick={handleOpenKYC}
                 disabled={createSessionMutation.isPending}
+                onClick={handleOpenKYC}
               >
-                <Shield size={18} className="btn-icon" />
+                <Shield className="btn-icon" size={18} />
                 {createSessionMutation.isPending
                   ? "Starting..."
                   : "Verify Identity to Start"}
@@ -122,14 +122,14 @@ function App() {
 
       {/* The SDK Integration */}
       <KYCModal
+        clientToken={clientToken}
+        config={quickIDConfig}
         isOpen={isKYCOpen}
         onClose={() => setIsKYCOpen(false)}
         onComplete={() => {
           setIsKYCOpen(false);
           setKycStatus("completed");
         }}
-        config={quickIDConfig}
-        clientToken={clientToken}
       />
     </div>
   );

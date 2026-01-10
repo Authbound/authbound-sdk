@@ -14,9 +14,9 @@
  * ```
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import type { PolicyId } from "@authbound/core";
 import crypto from "crypto";
+import { type NextRequest, NextResponse } from "next/server";
 
 // ============================================================================
 // Types
@@ -120,7 +120,7 @@ interface WebhookEvent {
 
 function getEnvVar(name: string, fallback?: string): string {
   const value = process.env[name];
-  if (!value && !fallback) {
+  if (!(value || fallback)) {
     throw new Error(`Missing required environment variable: ${name}`);
   }
   return value ?? fallback!;
@@ -134,7 +134,9 @@ function getEnvVar(name: string, fallback?: string): string {
  * Parse the Authbound webhook signature header.
  * Format: "t=<timestamp>,v1=<signature>"
  */
-function parseSignatureHeader(header: string): { timestamp: number; signatures: string[] } | null {
+function parseSignatureHeader(
+  header: string
+): { timestamp: number; signatures: string[] } | null {
   const parts = header.split(",");
   let timestamp = 0;
   const signatures: string[] = [];
@@ -142,7 +144,7 @@ function parseSignatureHeader(header: string): { timestamp: number; signatures: 
   for (const part of parts) {
     const [key, value] = part.split("=");
     if (key === "t") {
-      timestamp = parseInt(value, 10);
+      timestamp = Number.parseInt(value, 10);
       if (isNaN(timestamp)) {
         return null;
       }
@@ -162,9 +164,16 @@ function parseSignatureHeader(header: string): { timestamp: number; signatures: 
  * Compute the expected signature for a webhook payload.
  * Uses HMAC-SHA256 with format: "timestamp.payload"
  */
-function computeSignature(payload: string, timestamp: number, secret: string): string {
+function computeSignature(
+  payload: string,
+  timestamp: number,
+  secret: string
+): string {
   const signedPayload = `${timestamp}.${payload}`;
-  return crypto.createHmac("sha256", secret).update(signedPayload).digest("hex");
+  return crypto
+    .createHmac("sha256", secret)
+    .update(signedPayload)
+    .digest("hex");
 }
 
 /**
@@ -198,7 +207,10 @@ export function verifyWebhookSignature(
   // Check timestamp tolerance (both past AND future to prevent replay attacks)
   const now = Math.floor(Date.now() / 1000);
   if (Math.abs(now - timestamp) > tolerance) {
-    return { isValid: false, error: "Timestamp outside tolerance window (possible replay attack)" };
+    return {
+      isValid: false,
+      error: "Timestamp outside tolerance window (possible replay attack)",
+    };
   }
 
   // Compute expected signature
@@ -254,7 +266,10 @@ export function createSessionRoute(
 ): (request: NextRequest) => Promise<NextResponse> {
   const {
     policyId,
-    gatewayUrl = getEnvVar("AUTHBOUND_GATEWAY_URL", "https://gateway.authbound.io"),
+    gatewayUrl = getEnvVar(
+      "AUTHBOUND_GATEWAY_URL",
+      "https://gateway.authbound.io"
+    ),
     secret = getEnvVar("AUTHBOUND_SECRET"),
     debug = false,
     transformRequest,
@@ -382,10 +397,18 @@ export function createWebhookRoute(
         }
 
         // Verify HMAC signature with timestamp tolerance
-        const verification = verifyWebhookSignature(rawBody, signature, webhookSecret, tolerance);
+        const verification = verifyWebhookSignature(
+          rawBody,
+          signature,
+          webhookSecret,
+          tolerance
+        );
         if (!verification.isValid) {
           if (debug) {
-            console.error("[Authbound] Webhook signature verification failed:", verification.error);
+            console.error(
+              "[Authbound] Webhook signature verification failed:",
+              verification.error
+            );
           }
           return NextResponse.json(
             { error: verification.error || "Invalid signature" },
@@ -479,7 +502,10 @@ export function createStatusRoute(
   context: { params: { sessionId: string } | Promise<{ sessionId: string }> }
 ) => Promise<NextResponse> {
   const {
-    gatewayUrl = getEnvVar("AUTHBOUND_GATEWAY_URL", "https://gateway.authbound.io"),
+    gatewayUrl = getEnvVar(
+      "AUTHBOUND_GATEWAY_URL",
+      "https://gateway.authbound.io"
+    ),
     secret = getEnvVar("AUTHBOUND_SECRET"),
     debug = false,
   } = options;
@@ -568,7 +594,10 @@ export async function createSession(options: {
 }> {
   const {
     policyId,
-    gatewayUrl = getEnvVar("AUTHBOUND_GATEWAY_URL", "https://gateway.authbound.io"),
+    gatewayUrl = getEnvVar(
+      "AUTHBOUND_GATEWAY_URL",
+      "https://gateway.authbound.io"
+    ),
     secret = getEnvVar("AUTHBOUND_SECRET"),
     customerUserRef,
     metadata,
@@ -599,36 +628,36 @@ export async function createSession(options: {
 // ============================================================================
 
 export {
+  type AuthboundClaims,
   // Core types
   type AuthboundConfig,
-  type AuthboundClaims,
   type AuthboundSession,
-  type ProtectedRouteConfig,
-  type VerificationRequirements,
-  type RoutesConfig,
   type CookieOptions,
-  type VerificationStatus,
-  // Utilities
-  parseConfig,
-  checkRequirements,
   calculateAge,
+  checkRequirements,
   // JWT
   createToken,
-  verifyToken,
   getSessionFromToken,
+  type ProtectedRouteConfig,
+  // Utilities
+  parseConfig,
+  type RoutesConfig,
+  type VerificationRequirements,
+  type VerificationStatus,
+  verifyToken,
 } from "@authbound/server";
 
 export {
+  clearSessionCookie,
   // Next.js specific
   createAuthboundHandlers,
   createSessionHandler,
-  createWebhookHandler,
-  createStatusHandler,
   createSignOutHandler,
+  createStatusHandler,
+  createWebhookHandler,
   // Cookies
   getCookieName,
   getCookieValue,
   getSessionFromCookie,
   setSessionCookie,
-  clearSessionCookie,
 } from "@authbound/server/next";

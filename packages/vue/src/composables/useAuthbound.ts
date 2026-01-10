@@ -3,7 +3,7 @@
  */
 
 import { inject } from "vue";
-import { AuthboundKey, type AuthboundContext } from "../plugin";
+import { type AuthboundContext, AuthboundKey } from "../plugin";
 
 /**
  * Access Authbound context.

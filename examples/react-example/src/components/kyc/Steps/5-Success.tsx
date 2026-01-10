@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
-import { CheckCircle, Loader2, XCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import { CheckCircle, Loader2, XCircle } from "lucide-react";
+import type React from "react";
+import { useEffect } from "react";
 import type { StepProps } from "../types";
 
 export const SuccessStep: React.FC<StepProps & { onNext: () => void }> = ({
@@ -23,18 +24,18 @@ export const SuccessStep: React.FC<StepProps & { onNext: () => void }> = ({
 
   return (
     <motion.div
+      animate={{ opacity: 1, scale: 1 }}
       className="kyc-content"
       initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
       style={{ padding: "4rem 2rem" }}
     >
       {isProcessing ? (
         <>
           <motion.div
-            initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 200, damping: 10 }}
+            initial={{ scale: 0 }}
             style={{ marginBottom: "2rem" }}
+            transition={{ type: "spring", stiffness: 200, damping: 10 }}
           >
             <div
               className="icon-box bg-blue"
@@ -57,10 +58,10 @@ export const SuccessStep: React.FC<StepProps & { onNext: () => void }> = ({
       ) : isSuccess ? (
         <>
           <motion.div
-            initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 200, damping: 10 }}
+            initial={{ scale: 0 }}
             style={{ marginBottom: "2rem" }}
+            transition={{ type: "spring", stiffness: 200, damping: 10 }}
           >
             <div
               className="icon-box bg-green"
@@ -107,10 +108,10 @@ export const SuccessStep: React.FC<StepProps & { onNext: () => void }> = ({
       ) : (
         <>
           <motion.div
-            initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 200, damping: 10 }}
+            initial={{ scale: 0 }}
             style={{ marginBottom: "2rem" }}
+            transition={{ type: "spring", stiffness: 200, damping: 10 }}
           >
             <div
               className="icon-box bg-red"

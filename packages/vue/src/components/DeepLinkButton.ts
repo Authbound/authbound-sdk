@@ -5,14 +5,14 @@
  * directly for verification.
  */
 
-import { defineComponent, h, ref, onMounted, type PropType } from "vue";
 import {
   buildDeepLink,
   buildOpenID4VPDeepLink,
-  supportsDeepLinks,
   detectMobilePlatform,
+  supportsDeepLinks,
   type WalletScheme,
 } from "@authbound/core";
+import { defineComponent, h, onMounted, type PropType, ref } from "vue";
 
 // ============================================================================
 // Types

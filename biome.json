@@ -1,6 +1,7 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-  "extends": ["ultracite"],
+  "root": false,
+  "$schema": "https://biomejs.dev/schemas/2.3.11/schema.json",
+  "extends": ["ultracite/core"],
   "javascript": {
     "globals": ["React"]
   },
@@ -13,10 +14,7 @@
         "useMediaCaption": "error"
       },
       "nursery": {
-        "useSortedClasses": "off",
-        "noNestedTernary": "off",
-        "noExportedImports": "off",
-        "noEnum": "off"
+        "useSortedClasses": "off"
       },
       "complexity": {
         "noForEach": "off",
@@ -29,9 +27,6 @@
       "suspicious": {
         "useAwait": "off",
         "noConsole": "off",
-        "noConsoleLog": {
-          "level": "warn"
-        },
         "noExplicitAny": "off",
         "noEmptyBlockStatements": "off",
         "noEmptyBlock": "off",
@@ -51,10 +46,13 @@
         "noNonNullAssertion": "error",
         "noParameterAssign": "error",
         "useBlockStatements": "off",
-        "useShorthandArrayType": "error",
         "useTemplate": "error",
         "noParameterProperties": "off",
-        "noUnusedTemplateLiteral": "off"
+        "noUnusedTemplateLiteral": "off",
+        "noNestedTernary": "off",
+        "noExportedImports": "off",
+        "noEnum": "off",
+        "useConsistentArrayType": { "level": "error", "options": { "syntax": "shorthand" } }
       },
       "performance": {
         "useTopLevelRegex": "off",
@@ -62,9 +60,7 @@
       }
     }
   },
-  "organizeImports": {
-    "enabled": true
-  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "json": {
     "parser": {
       "allowComments": true

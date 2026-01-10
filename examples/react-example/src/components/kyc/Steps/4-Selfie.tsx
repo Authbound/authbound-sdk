@@ -1,7 +1,8 @@
-import React, { useRef, useState, useCallback } from "react";
-import Webcam from "react-webcam";
-import { Camera, RefreshCw, Check } from "lucide-react";
 import { motion } from "framer-motion";
+import { Camera, Check, RefreshCw } from "lucide-react";
+import type React from "react";
+import { useCallback, useRef, useState } from "react";
+import Webcam from "react-webcam";
 import type { StepProps } from "../types";
 
 export const SelfieStep: React.FC<StepProps> = ({
@@ -44,10 +45,10 @@ export const SelfieStep: React.FC<StepProps> = ({
 
   return (
     <motion.div
-      className="kyc-content"
-      initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
+      className="kyc-content"
       exit={{ opacity: 0, x: -20 }}
+      initial={{ opacity: 0, x: 20 }}
     >
       <h2 className="kyc-title">Take a Selfie</h2>
       <p className="kyc-description">
@@ -73,8 +74,8 @@ export const SelfieStep: React.FC<StepProps> = ({
       <div className="camera-container">
         {imgSrc ? (
           <img
-            src={imgSrc}
             alt="Selfie"
+            src={imgSrc}
             style={{
               width: "100%",
               height: "100%",
@@ -86,17 +87,17 @@ export const SelfieStep: React.FC<StepProps> = ({
           <>
             <Webcam
               audio={false}
+              height="100%"
               ref={webcamRef}
               screenshotFormat="image/jpeg"
-              width="100%"
-              height="100%"
-              videoConstraints={{ facingMode: "user" }}
               style={{
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
                 transform: "scaleX(-1)",
               }}
+              videoConstraints={{ facingMode: "user" }}
+              width="100%"
             />
             <div className="camera-overlay" />
           </>
@@ -107,31 +108,31 @@ export const SelfieStep: React.FC<StepProps> = ({
         className="kyc-footer"
         style={{ width: "100%", border: "none", padding: 0 }}
       >
-        {!imgSrc ? (
-          <button
-            className="btn-primary btn-full"
-            onClick={capture}
-            disabled={isBusy}
-          >
-            <Camera size={18} /> Capture Photo
-          </button>
-        ) : (
+        {imgSrc ? (
           <div style={{ display: "flex", gap: "1rem", width: "100%" }}>
             <button
               className="btn-secondary btn-full"
-              onClick={retake}
               disabled={isBusy}
+              onClick={retake}
             >
               <RefreshCw size={18} /> Retake
             </button>
             <button
               className="btn-primary btn-full"
-              onClick={handleConfirm}
               disabled={isBusy || !uiState.selfieFile}
+              onClick={handleConfirm}
             >
               {isBusy ? "Verifying..." : "Confirm"} <Check size={18} />
             </button>
           </div>
+        ) : (
+          <button
+            className="btn-primary btn-full"
+            disabled={isBusy}
+            onClick={capture}
+          >
+            <Camera size={18} /> Capture Photo
+          </button>
         )}
       </div>
     </motion.div>

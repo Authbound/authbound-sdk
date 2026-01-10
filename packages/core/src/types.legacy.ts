@@ -146,7 +146,11 @@ export const LastErrorSchema = z.object({
 /**
  * Status of an individual verification check
  */
-export const CheckStatusSchema = z.enum(["verified", "unverified", "not_performed"]);
+export const CheckStatusSchema = z.enum([
+  "verified",
+  "unverified",
+  "not_performed",
+]);
 export type CheckStatus = z.infer<typeof CheckStatusSchema>;
 
 /**
@@ -165,7 +169,12 @@ export type ErrorDetail = CheckError;
 /**
  * Document type enum for verification reports
  */
-export const DocumentTypeSchema = z.enum(["passport", "id_card", "driver_license", "other"]);
+export const DocumentTypeSchema = z.enum([
+  "passport",
+  "id_card",
+  "driver_license",
+  "other",
+]);
 export type DocumentType = z.infer<typeof DocumentTypeSchema>;
 
 /**
@@ -221,7 +230,9 @@ export const VerificationReportObjectSchema = z.object({
   selfie: SelfieCheckSchema.optional(),
   id_number: IdNumberCheckSchema.optional(),
 });
-export type VerificationReportObject = z.infer<typeof VerificationReportObjectSchema>;
+export type VerificationReportObject = z.infer<
+  typeof VerificationReportObjectSchema
+>;
 
 // ============================================================================
 // Webhook Types (Stripe Identity-compatible)
@@ -399,4 +410,3 @@ export function calculateAge(dateOfBirth: string): number {
 
   return age;
 }
-

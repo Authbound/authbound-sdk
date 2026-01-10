@@ -5,7 +5,10 @@
  * the appropriate app or web fallback.
  */
 
-import { detectPlatform as detectPlatformUtil, type Platform } from "../utils/platform";
+import {
+  detectPlatform as detectPlatformUtil,
+  type Platform,
+} from "../utils/platform";
 
 // ============================================================================
 // Universal Link Configuration
@@ -176,12 +179,13 @@ export function buildSmartLink(
   appStoreLink: string | null;
 } {
   const platform = detectPlatformUtil();
-  const appStoreLink = platform === "desktop" ? null : getAppStoreLink(platform);
+  const appStoreLink =
+    platform === "desktop" ? null : getAppStoreLink(platform);
 
   // For mobile, use universal link with store fallback
   if (platform === "ios" || platform === "android") {
     const fallbackUrl = options.includeStoreFallback
-      ? appStoreLink ?? options.fallbackUrl
+      ? (appStoreLink ?? options.fallbackUrl)
       : options.fallbackUrl;
 
     return {

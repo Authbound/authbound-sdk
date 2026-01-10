@@ -45,13 +45,13 @@
 // ============================================================================
 
 export {
-  AuthboundProvider,
+  type AuthboundContextValue,
   AuthboundErrorBoundary,
+  type AuthboundErrorBoundaryProps,
+  AuthboundProvider,
+  type AuthboundProviderProps,
   useAuthbound,
   useAuthboundOptional,
-  type AuthboundProviderProps,
-  type AuthboundErrorBoundaryProps,
-  type AuthboundContextValue,
   type VerificationSession,
 } from "./context/authbound-context";
 
@@ -60,9 +60,9 @@ export {
 // ============================================================================
 
 export {
-  useVerification,
   type UseVerificationOptions,
   type UseVerificationReturn,
+  useVerification,
 } from "./hooks/useVerification";
 
 // ============================================================================
@@ -70,28 +70,25 @@ export {
 // ============================================================================
 
 export {
-  QRCode,
-  QRCodeWithLoading,
-  type QRCodeProps,
-} from "./components/qr-code";
-
+  DeepLinkButton,
+  type DeepLinkButtonProps,
+  useDeepLinkSupport,
+} from "./components/deep-link-button";
 export {
-  VerificationStatus,
+  QRCode,
+  type QRCodeProps,
+  QRCodeWithLoading,
+} from "./components/qr-code";
+export {
   StatusBadge,
-  type VerificationStatusProps,
   type StatusBadgeProps,
+  VerificationStatus,
+  type VerificationStatusProps,
 } from "./components/verification-status";
-
 export {
   VerificationWall,
   type VerificationWallProps,
 } from "./components/verification-wall";
-
-export {
-  DeepLinkButton,
-  useDeepLinkSupport,
-  type DeepLinkButtonProps,
-} from "./components/deep-link-button";
 
 // ============================================================================
 // Appearance Types
@@ -99,13 +96,13 @@ export {
 
 export {
   type AuthboundAppearance,
-  type AuthboundVariables,
   type AuthboundElements,
   type AuthboundLayout,
-  DEFAULT_VARIABLES,
+  type AuthboundVariables,
   DARK_THEME_VARIABLES,
-  variablesToCSSProperties,
+  DEFAULT_VARIABLES,
   mergeAppearance,
+  variablesToCSSProperties,
 } from "./types/appearance";
 
 // ============================================================================
@@ -113,20 +110,20 @@ export {
 // ============================================================================
 
 export {
-  // Types
-  type PolicyId,
-  type SessionId,
-  type PublishableKey,
-  type EudiVerificationStatus,
-  type VerificationResult,
-  type VerificationClaims,
-  type StatusEvent,
   // Error handling
   AuthboundError,
   type AuthboundErrorCode,
+  type EudiVerificationStatus,
   isAuthboundError,
-  // Policy presets
-  PolicyPresets,
   // Utilities
   isTerminalStatus,
+  // Types
+  type PolicyId,
+  // Policy presets
+  PolicyPresets,
+  type PublishableKey,
+  type SessionId,
+  type StatusEvent,
+  type VerificationClaims,
+  type VerificationResult,
 } from "@authbound/core";

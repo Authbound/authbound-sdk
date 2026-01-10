@@ -4,4 +4,4 @@
  * Re-exports from @authbound/vue
  */
 
-export { VerificationStatus, StatusBadge } from "@authbound/vue";
+export { StatusBadge, VerificationStatus } from "@authbound/vue";

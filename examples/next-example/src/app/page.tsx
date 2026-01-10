@@ -18,10 +18,10 @@ export default function HomePage() {
           verification using the Authbound Server SDK for Next.js.
         </p>
         <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
-          <Link href="/verify" className="btn btn-primary">
+          <Link className="btn btn-primary" href="/verify">
             Start Verification
           </Link>
-          <Link href="/dashboard" className="btn btn-secondary">
+          <Link className="btn btn-secondary" href="/dashboard">
             Try Protected Route
           </Link>
         </div>
@@ -30,8 +30,9 @@ export default function HomePage() {
       <div className="container">
         <h2>Protected Routes</h2>
         <p style={{ marginBottom: "2rem" }}>
-          Try accessing these routes to see the middleware in action. You&apos;ll be
-          redirected to the verification page if requirements aren&apos;t met.
+          Try accessing these routes to see the middleware in action.
+          You&apos;ll be redirected to the verification page if requirements
+          aren&apos;t met.
         </p>
 
         <div className="grid">
@@ -43,8 +44,8 @@ export default function HomePage() {
               access.
             </p>
             <Link
-              href="/dashboard"
               className="btn btn-secondary"
+              href="/dashboard"
               style={{ marginTop: "1rem" }}
             >
               Go to Dashboard →
@@ -58,8 +59,8 @@ export default function HomePage() {
               Requires SUBSTANTIAL assurance level with document verification.
             </p>
             <Link
-              href="/premium"
               className="btn btn-secondary"
+              href="/premium"
               style={{ marginTop: "1rem" }}
             >
               Go to Premium →
@@ -69,12 +70,10 @@ export default function HomePage() {
           <div className="card feature-card">
             <span className="badge badge-danger">18+ Only</span>
             <h3 style={{ marginTop: "1rem" }}>Adult Content</h3>
-            <p>
-              Age-gated content requiring verified age of 18 or older.
-            </p>
+            <p>Age-gated content requiring verified age of 18 or older.</p>
             <Link
-              href="/adult"
               className="btn btn-secondary"
+              href="/adult"
               style={{ marginTop: "1rem" }}
             >
               Go to Adult →
@@ -92,21 +91,29 @@ export default function HomePage() {
             }}
           >
             <li style={{ marginBottom: "0.75rem" }}>
-              <strong style={{ color: "var(--color-text)" }}>Middleware checks</strong>{" "}
+              <strong style={{ color: "var(--color-text)" }}>
+                Middleware checks
+              </strong>{" "}
               - Every request to protected routes goes through the Authbound
               middleware
             </li>
             <li style={{ marginBottom: "0.75rem" }}>
-              <strong style={{ color: "var(--color-text)" }}>Session validation</strong>{" "}
+              <strong style={{ color: "var(--color-text)" }}>
+                Session validation
+              </strong>{" "}
               - The middleware reads and validates the encrypted JWT cookie
             </li>
             <li style={{ marginBottom: "0.75rem" }}>
-              <strong style={{ color: "var(--color-text)" }}>Requirements check</strong>{" "}
+              <strong style={{ color: "var(--color-text)" }}>
+                Requirements check
+              </strong>{" "}
               - Route requirements (verified, minAge, assuranceLevel) are
               evaluated
             </li>
             <li style={{ marginBottom: "0.75rem" }}>
-              <strong style={{ color: "var(--color-text)" }}>Redirect or allow</strong>{" "}
+              <strong style={{ color: "var(--color-text)" }}>
+                Redirect or allow
+              </strong>{" "}
               - Users are redirected to /verify if requirements aren&apos;t met
             </li>
           </ol>
@@ -115,4 +122,3 @@ export default function HomePage() {
     </>
   );
 }
-

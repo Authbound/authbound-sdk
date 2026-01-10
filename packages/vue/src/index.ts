@@ -41,10 +41,10 @@
 // ============================================================================
 
 export {
-  AuthboundPlugin,
-  AuthboundKey,
-  type AuthboundPluginOptions,
   type AuthboundContext,
+  AuthboundKey,
+  AuthboundPlugin,
+  type AuthboundPluginOptions,
   type VerificationSession,
 } from "./plugin";
 
@@ -55,9 +55,9 @@ export {
 export { useAuthbound, useAuthboundOptional } from "./composables/useAuthbound";
 
 export {
-  useVerification,
   type UseVerificationOptions,
   type UseVerificationReturn,
+  useVerification,
 } from "./composables/useVerification";
 
 // ============================================================================
@@ -65,28 +65,25 @@ export {
 // ============================================================================
 
 export {
+  DeepLinkButton,
+  type DeepLinkButtonProps,
+} from "./components/DeepLinkButton";
+export {
   QRCode,
-  QRCodeWithLoading,
   type QRCodeProps,
+  QRCodeWithLoading,
   type QRCodeWithLoadingProps,
 } from "./components/QRCode";
-
 export {
-  VerificationStatus,
   StatusBadge,
-  type VerificationStatusProps,
   type StatusBadgeProps,
+  VerificationStatus,
+  type VerificationStatusProps,
 } from "./components/VerificationStatus";
-
 export {
   VerificationWall,
   type VerificationWallProps,
 } from "./components/VerificationWall";
-
-export {
-  DeepLinkButton,
-  type DeepLinkButtonProps,
-} from "./components/DeepLinkButton";
 
 // ============================================================================
 // Appearance Types
@@ -94,13 +91,13 @@ export {
 
 export {
   type AuthboundAppearance,
-  type AuthboundVariables,
   type AuthboundElements,
   type AuthboundLayout,
-  DEFAULT_VARIABLES,
+  type AuthboundVariables,
   DARK_THEME_VARIABLES,
-  variablesToCSSProperties,
+  DEFAULT_VARIABLES,
   mergeAppearance,
+  variablesToCSSProperties,
 } from "./types/appearance";
 
 // ============================================================================
@@ -108,20 +105,20 @@ export {
 // ============================================================================
 
 export {
-  // Types
-  type PolicyId,
-  type SessionId,
-  type PublishableKey,
-  type EudiVerificationStatus,
-  type VerificationResult,
-  type VerificationClaims,
-  type StatusEvent,
   // Error handling
   AuthboundError,
   type AuthboundErrorCode,
+  type EudiVerificationStatus,
   isAuthboundError,
-  // Policy presets
-  PolicyPresets,
   // Utilities
   isTerminalStatus,
+  // Types
+  type PolicyId,
+  // Policy presets
+  PolicyPresets,
+  type PublishableKey,
+  type SessionId,
+  type StatusEvent,
+  type VerificationClaims,
+  type VerificationResult,
 } from "@authbound/core";

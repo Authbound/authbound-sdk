@@ -4,16 +4,9 @@
  * Uses the 'qrcode' library to generate real, scannable QR codes.
  */
 
-import {
-  defineComponent,
-  h,
-  ref,
-  watch,
-  onMounted,
-  type PropType,
-} from "vue";
-import type { CSSProperties } from "vue";
 import QRCodeLib from "qrcode";
+import type { CSSProperties } from "vue";
+import { defineComponent, h, onMounted, type PropType, ref, watch } from "vue";
 
 // ============================================================================
 // Component
@@ -107,7 +100,14 @@ export const QRCode = defineComponent({
     // Generate on mount and when props change
     onMounted(generateQRCode);
     watch(
-      () => [props.value, props.size, props.fgColor, props.bgColor, props.level, props.includeMargin],
+      () => [
+        props.value,
+        props.size,
+        props.fgColor,
+        props.bgColor,
+        props.level,
+        props.includeMargin,
+      ],
       generateQRCode
     );
 
@@ -137,7 +137,9 @@ export const QRCode = defineComponent({
         return h(
           "div",
           {
-            class: ["ab-qr-code", "ab-qr-code--error", props.class].filter(Boolean).join(" "),
+            class: ["ab-qr-code", "ab-qr-code--error", props.class]
+              .filter(Boolean)
+              .join(" "),
             style: errorStyle,
             role: "img",
             "aria-label": "QR code generation failed",
@@ -161,7 +163,9 @@ export const QRCode = defineComponent({
         return h(
           "div",
           {
-            class: ["ab-qr-code", "ab-qr-code--loading", props.class].filter(Boolean).join(" "),
+            class: ["ab-qr-code", "ab-qr-code--loading", props.class]
+              .filter(Boolean)
+              .join(" "),
             style: loadingStyle,
             role: "img",
             "aria-label": "Generating QR code...",
@@ -338,4 +342,6 @@ export const QRCodeWithLoading = defineComponent({
 });
 
 export type QRCodeProps = InstanceType<typeof QRCode>["$props"];
-export type QRCodeWithLoadingProps = InstanceType<typeof QRCodeWithLoading>["$props"];
+export type QRCodeWithLoadingProps = InstanceType<
+  typeof QRCodeWithLoading
+>["$props"];

@@ -6,7 +6,7 @@
  */
 
 import { z } from "zod";
-import type { PolicyId, SessionId, ClientToken } from "./branded";
+import type { ClientToken, PolicyId, SessionId } from "./branded";
 
 // ============================================================================
 // Verification Status

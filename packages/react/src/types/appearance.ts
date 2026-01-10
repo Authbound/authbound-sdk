@@ -163,7 +163,8 @@ export const DEFAULT_VARIABLES: Required<AuthboundVariables> = {
 
   qrSize: "256px",
   cardPadding: "1.5rem",
-  cardShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+  cardShadow:
+    "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
 };
 
 /**
@@ -174,7 +175,8 @@ export const DARK_THEME_VARIABLES: Partial<AuthboundVariables> = {
   colorForeground: "#fafafa",
   colorMuted: "#a1a1aa",
   colorBorder: "#27272a",
-  cardShadow: "0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2)",
+  cardShadow:
+    "0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2)",
 };
 
 /**
@@ -185,28 +187,45 @@ export function variablesToCSSProperties(
 ): Record<string, string> {
   const properties: Record<string, string> = {};
 
-  if (variables.colorPrimary) properties["--ab-color-primary"] = variables.colorPrimary;
-  if (variables.colorSuccess) properties["--ab-color-success"] = variables.colorSuccess;
-  if (variables.colorError) properties["--ab-color-error"] = variables.colorError;
-  if (variables.colorWarning) properties["--ab-color-warning"] = variables.colorWarning;
-  if (variables.colorBackground) properties["--ab-color-background"] = variables.colorBackground;
-  if (variables.colorForeground) properties["--ab-color-foreground"] = variables.colorForeground;
-  if (variables.colorMuted) properties["--ab-color-muted"] = variables.colorMuted;
-  if (variables.colorBorder) properties["--ab-color-border"] = variables.colorBorder;
+  if (variables.colorPrimary)
+    properties["--ab-color-primary"] = variables.colorPrimary;
+  if (variables.colorSuccess)
+    properties["--ab-color-success"] = variables.colorSuccess;
+  if (variables.colorError)
+    properties["--ab-color-error"] = variables.colorError;
+  if (variables.colorWarning)
+    properties["--ab-color-warning"] = variables.colorWarning;
+  if (variables.colorBackground)
+    properties["--ab-color-background"] = variables.colorBackground;
+  if (variables.colorForeground)
+    properties["--ab-color-foreground"] = variables.colorForeground;
+  if (variables.colorMuted)
+    properties["--ab-color-muted"] = variables.colorMuted;
+  if (variables.colorBorder)
+    properties["--ab-color-border"] = variables.colorBorder;
 
-  if (variables.fontFamily) properties["--ab-font-family"] = variables.fontFamily;
-  if (variables.fontSizeBase) properties["--ab-font-size-base"] = variables.fontSizeBase;
-  if (variables.fontSizeSmall) properties["--ab-font-size-small"] = variables.fontSizeSmall;
-  if (variables.fontSizeLarge) properties["--ab-font-size-large"] = variables.fontSizeLarge;
+  if (variables.fontFamily)
+    properties["--ab-font-family"] = variables.fontFamily;
+  if (variables.fontSizeBase)
+    properties["--ab-font-size-base"] = variables.fontSizeBase;
+  if (variables.fontSizeSmall)
+    properties["--ab-font-size-small"] = variables.fontSizeSmall;
+  if (variables.fontSizeLarge)
+    properties["--ab-font-size-large"] = variables.fontSizeLarge;
 
   if (variables.spaceUnit) properties["--ab-space-unit"] = variables.spaceUnit;
-  if (variables.radiusCard) properties["--ab-radius-card"] = variables.radiusCard;
-  if (variables.radiusButton) properties["--ab-radius-button"] = variables.radiusButton;
-  if (variables.radiusInput) properties["--ab-radius-input"] = variables.radiusInput;
+  if (variables.radiusCard)
+    properties["--ab-radius-card"] = variables.radiusCard;
+  if (variables.radiusButton)
+    properties["--ab-radius-button"] = variables.radiusButton;
+  if (variables.radiusInput)
+    properties["--ab-radius-input"] = variables.radiusInput;
 
   if (variables.qrSize) properties["--ab-qr-size"] = variables.qrSize;
-  if (variables.cardPadding) properties["--ab-card-padding"] = variables.cardPadding;
-  if (variables.cardShadow) properties["--ab-card-shadow"] = variables.cardShadow;
+  if (variables.cardPadding)
+    properties["--ab-card-padding"] = variables.cardPadding;
+  if (variables.cardShadow)
+    properties["--ab-card-shadow"] = variables.cardShadow;
 
   return properties;
 }

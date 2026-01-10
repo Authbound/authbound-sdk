@@ -18,11 +18,11 @@
  */
 
 import type { Context } from "hono";
-import { getCookie, setCookie, deleteCookie } from "hono/cookie";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { CookieOptions as HonoCookieOptions } from "hono/utils/cookie";
+import { createToken, getSessionFromToken } from "../core/jwt";
 import type { AuthboundConfig, AuthboundSession } from "../core/types";
 import { getDefaultCookieOptions } from "../core/types";
-import { createToken, getSessionFromToken } from "../core/jwt";
 
 // ============================================================================
 // Cookie Name Helper
@@ -51,7 +51,10 @@ export function buildCookieOptions(config: AuthboundConfig): HonoCookieOptions {
     path: userOptions.path ?? defaults.path,
     domain: userOptions.domain || undefined,
     secure: userOptions.secure ?? defaults.secure,
-    sameSite: (userOptions.sameSite ?? defaults.sameSite) as "Strict" | "Lax" | "None",
+    sameSite: (userOptions.sameSite ?? defaults.sameSite) as
+      | "Strict"
+      | "Lax"
+      | "None",
     httpOnly: userOptions.httpOnly ?? defaults.httpOnly,
   };
 }

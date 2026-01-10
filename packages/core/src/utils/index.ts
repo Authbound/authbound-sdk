@@ -3,19 +3,19 @@
  */
 
 export {
-  type MobilePlatform,
-  type Platform,
+  canOpenDeepLink,
   type DeviceType,
   detectMobilePlatform,
   detectPlatform,
-  isMobile,
-  isIOS,
   isAndroid,
-  isDesktop,
-  supportsDeepLinks,
-  canOpenDeepLink,
   isBrowser,
-  isServer,
+  isDesktop,
+  isIOS,
+  isMobile,
   isSafari,
+  isServer,
   isWebView,
+  type MobilePlatform,
+  type Platform,
+  supportsDeepLinks,
 } from "./platform";

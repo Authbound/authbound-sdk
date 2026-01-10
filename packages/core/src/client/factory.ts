@@ -21,19 +21,22 @@
  * ```
  */
 
-import type { PolicyId, SessionId, ClientToken } from "../types/branded";
+import { buildDeepLink, buildUniversalLink } from "../links";
+import { createPollingSubscription, createStatusSubscription } from "../status";
+import type { ClientToken, PolicyId, SessionId } from "../types/branded";
+import { AuthboundError } from "../types/errors";
 import type {
-  EudiVerificationStatus,
   CreateSessionResponse,
+  EudiVerificationStatus,
   StatusEvent,
 } from "../types/verification";
-import { CreateSessionResponseSchema, StatusEventSchema } from "../types/verification";
-import { AuthboundError } from "../types/errors";
+import {
+  CreateSessionResponseSchema,
+  StatusEventSchema,
+} from "../types/verification";
 import type { AuthboundClientConfig, ResolvedConfig } from "./config";
 import { resolveConfig } from "./config";
 import { createHttpClient, createSessionClient } from "./http";
-import { createStatusSubscription, createPollingSubscription } from "../status";
-import { buildDeepLink, buildUniversalLink } from "../links";
 
 // ============================================================================
 // Client Interface
