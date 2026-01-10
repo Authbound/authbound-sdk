@@ -79,7 +79,8 @@ const CreateSessionRequestSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
-const CreateSessionResponseSchema = z.object({
+// Response schema for legacy /sessions endpoint
+const LegacyCreateSessionResponseSchema = z.object({
   session_id: z.string(),
   client_token: z.string(),
   expires_at: z.string().optional(),
@@ -87,40 +88,45 @@ const CreateSessionResponseSchema = z.object({
   sse_token: z.string().optional(),
 });
 
-const SessionStatusResponseSchema = z.object({
+// Response schema for new /v1/verifications endpoint (Stripe-style)
+const CreateVerificationResponseSchema = z.object({
+  object: z.literal("verification"),
+  id: z.string(),
+  status: z.string(),
+  policy_id: z.string().optional(),
+  provider: z.string().optional(),
+  env_mode: z.enum(["test", "live"]).optional(),
+  created_at: z.string().optional(),
+  expires_at: z.string().optional(),
+  client_token: z.string(),
+  client_action: z
+    .object({
+      kind: z.enum(["qr", "link", "request_blob"]),
+      data: z.string(),
+      expires_at: z.string().optional(),
+    })
+    .optional(),
+  verification_url: z.string().optional(),
+});
+
+// Response schema for new /v1/verifications/:id/status endpoint
+const VerificationStatusResponseSchema = z.object({
+  object: z.literal("verification_status"),
   id: z.string(),
   status: z.enum([
-    "created",
     "pending",
     "processing",
-    "requires_input",
     "verified",
     "failed",
     "canceled",
     "expired",
   ]),
-  client_reference_id: z.string().optional(),
-  verified_outputs: z
+  result: z
     .object({
-      dob: z
-        .object({
-          day: z.number(),
-          month: z.number(),
-          year: z.number(),
-        })
-        .optional(),
-      first_name: z.string().optional(),
-      last_name: z.string().optional(),
+      verified: z.boolean(),
+      attributes: z.record(z.string(), z.unknown()).optional(),
     })
     .optional(),
-  last_error: z
-    .object({
-      code: z.string(),
-      reason: z.string().optional(),
-    })
-    .optional(),
-  created_at: z.string().optional(),
-  updated_at: z.string().optional(),
 });
 
 // ============================================================================
@@ -182,7 +188,7 @@ export interface CreateSessionResult {
 
 export interface GetSessionResult {
   /**
-   * Session ID.
+   * Verification ID.
    */
   id: string;
 
@@ -190,50 +196,20 @@ export interface GetSessionResult {
    * Current verification status.
    */
   status:
-    | "created"
     | "pending"
     | "processing"
-    | "requires_input"
     | "verified"
     | "failed"
     | "canceled"
     | "expired";
 
   /**
-   * Customer reference ID (your user ID).
+   * Verification result (only present after successful verification).
    */
-  clientReferenceId?: string;
-
-  /**
-   * Verified outputs (only present after successful verification).
-   */
-  verifiedOutputs?: {
-    dob?: {
-      day: number;
-      month: number;
-      year: number;
-    };
-    firstName?: string;
-    lastName?: string;
+  result?: {
+    verified: boolean;
+    attributes?: Record<string, unknown>;
   };
-
-  /**
-   * Last error (if verification failed).
-   */
-  lastError?: {
-    code: string;
-    reason?: string;
-  };
-
-  /**
-   * Session creation time (ISO 8601).
-   */
-  createdAt?: string;
-
-  /**
-   * Last update time (ISO 8601).
-   */
-  updatedAt?: string;
 }
 
 export class AuthboundClientError extends Error {
@@ -408,19 +384,18 @@ class SessionsApi {
    */
   async create(options: CreateSessionOptions): Promise<CreateSessionResult> {
     const requestBody = {
-      customer_user_ref: options.userRef,
-      ...(options.callbackUrl && { callback_url: options.callbackUrl }),
-      ...(options.policyId && { policy_id: options.policyId }),
+      policyId: options.policyId ?? "default",
+      ...(options.userRef && { customerId: options.userRef }),
       ...(options.metadata && { metadata: options.metadata }),
     };
 
     const response = await this.client.request<unknown>(
       "POST",
-      "/sessions",
+      "/v1/verifications",
       requestBody
     );
 
-    const parsed = CreateSessionResponseSchema.safeParse(response);
+    const parsed = CreateVerificationResponseSchema.safeParse(response);
     if (!parsed.success) {
       throw new AuthboundClientError(
         "Invalid response from API",
@@ -431,11 +406,10 @@ class SessionsApi {
     }
 
     return {
-      sessionId: parsed.data.session_id,
+      sessionId: parsed.data.id,
       clientToken: parsed.data.client_token,
       expiresAt: parsed.data.expires_at,
       verificationUrl: parsed.data.verification_url,
-      sseToken: parsed.data.sse_token,
     };
   }
 
@@ -444,20 +418,20 @@ class SessionsApi {
    *
    * @example
    * ```ts
-   * const status = await client.sessions.get('sess_abc123');
+   * const status = await client.sessions.get('vrf_abc123');
    *
    * if (status.status === 'verified') {
-   *   console.log('Age verified:', status.verifiedOutputs?.dob);
+   *   console.log('Verified:', status.result);
    * }
    * ```
    */
   async get(sessionId: string): Promise<GetSessionResult> {
     const response = await this.client.request<unknown>(
       "GET",
-      `/sessions/${sessionId}/status`
+      `/v1/verifications/${sessionId}/status`
     );
 
-    const parsed = SessionStatusResponseSchema.safeParse(response);
+    const parsed = VerificationStatusResponseSchema.safeParse(response);
     if (!parsed.success) {
       throw new AuthboundClientError(
         "Invalid response from API",
@@ -470,17 +444,7 @@ class SessionsApi {
     return {
       id: parsed.data.id,
       status: parsed.data.status,
-      clientReferenceId: parsed.data.client_reference_id,
-      verifiedOutputs: parsed.data.verified_outputs
-        ? {
-            dob: parsed.data.verified_outputs.dob,
-            firstName: parsed.data.verified_outputs.first_name,
-            lastName: parsed.data.verified_outputs.last_name,
-          }
-        : undefined,
-      lastError: parsed.data.last_error,
-      createdAt: parsed.data.created_at,
-      updatedAt: parsed.data.updated_at,
+      result: parsed.data.result,
     };
   }
 }

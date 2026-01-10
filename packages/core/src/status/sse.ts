@@ -66,6 +66,30 @@ function parseSSEChunk(chunk: string): Array<{ event?: string; data: string }> {
 }
 
 /**
+ * Map gateway status to SDK-friendly EudiVerificationStatus.
+ * - "expired" → "timeout" (session timed out)
+ * - "canceled" → "error" (user/system canceled)
+ */
+function mapGatewayStatus(status: string): StatusEvent["status"] {
+  switch (status) {
+    case "pending":
+      return "pending";
+    case "processing":
+      return "processing";
+    case "verified":
+      return "verified";
+    case "failed":
+      return "failed";
+    case "expired":
+      return "timeout";
+    case "canceled":
+      return "error";
+    default:
+      return "pending";
+  }
+}
+
+/**
  * Check if a status is terminal (session complete).
  */
 function isTerminalStatus(status: string): boolean {
@@ -73,7 +97,9 @@ function isTerminalStatus(status: string): boolean {
     status === "verified" ||
     status === "failed" ||
     status === "timeout" ||
-    status === "error"
+    status === "error" ||
+    status === "expired" ||
+    status === "canceled"
   );
 }
 
@@ -100,7 +126,7 @@ export function createStatusSubscription(
   let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 
   const url = new URL(
-    `/v1/sessions/${sessionId}/status/sse`,
+    `/v1/verifications/${sessionId}/events/sse`,
     config.gatewayUrl
   );
 
@@ -192,14 +218,16 @@ export function createStatusSubscription(
 
           try {
             const parsed = JSON.parse(data) as StatusEvent;
+            // Map gateway status to SDK-friendly status
+            const mappedStatus = mapGatewayStatus(parsed.status);
             const eventWithType = event
-              ? { ...parsed, type: event as StatusEvent["type"] }
-              : parsed;
+              ? { ...parsed, status: mappedStatus, type: event as StatusEvent["type"] }
+              : { ...parsed, status: mappedStatus };
 
             onEvent(eventWithType);
 
-            // Stop on terminal status
-            if (isTerminalStatus(eventWithType.status)) {
+            // Stop on terminal status (check raw status for terminal detection)
+            if (isTerminalStatus(parsed.status)) {
               cleanup();
               return;
             }

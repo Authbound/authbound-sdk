@@ -14,6 +14,46 @@ import type {
 import { isTerminalStatus } from "../types/verification";
 
 // ============================================================================
+// Status Mapping
+// ============================================================================
+
+/**
+ * Gateway status values returned by the API.
+ * These are mapped to SDK-friendly statuses for consumers.
+ */
+type GatewayStatus =
+  | "pending"
+  | "processing"
+  | "verified"
+  | "failed"
+  | "canceled"
+  | "expired";
+
+/**
+ * Map gateway status to SDK-friendly EudiVerificationStatus.
+ * - "expired" → "timeout" (session timed out)
+ * - "canceled" → "error" (user/system canceled)
+ */
+function mapGatewayStatus(status: string): EudiVerificationStatus {
+  switch (status) {
+    case "pending":
+      return "pending";
+    case "processing":
+      return "processing";
+    case "verified":
+      return "verified";
+    case "failed":
+      return "failed";
+    case "expired":
+      return "timeout";
+    case "canceled":
+      return "error";
+    default:
+      return "pending";
+  }
+}
+
+// ============================================================================
 // Polling Configuration
 // ============================================================================
 
@@ -75,7 +115,7 @@ export function createPollingSubscription(
   let lastStatus: EudiVerificationStatus = "idle";
   const startTime = Date.now();
 
-  const url = new URL(`/v1/sessions/${sessionId}/status`, config.gatewayUrl);
+  const url = new URL(`/v1/verifications/${sessionId}/status`, config.gatewayUrl);
 
   async function poll(): Promise<void> {
     if (isCleanedUp) return;
@@ -120,29 +160,32 @@ export function createPollingSubscription(
       }
 
       const data = (await response.json()) as {
-        status: EudiVerificationStatus;
+        status: string;
         result?: unknown;
         error?: { code: string; message: string };
         timeRemaining?: number;
       };
 
+      // Map gateway status to SDK-friendly status
+      const mappedStatus = mapGatewayStatus(data.status);
+
       // Create event based on response
       const event: StatusEvent = {
         type: data.result ? "result" : data.error ? "error" : "status",
-        status: data.status,
+        status: mappedStatus,
         result: data.result as StatusEvent["result"],
         error: data.error,
         timestamp: new Date().toISOString(),
       };
 
       // Emit event if status changed or if it's a terminal state
-      if (data.status !== lastStatus || isTerminalStatus(data.status)) {
-        lastStatus = data.status;
+      if (mappedStatus !== lastStatus || isTerminalStatus(mappedStatus)) {
+        lastStatus = mappedStatus;
         onEvent(event);
       }
 
       // Stop polling if terminal state
-      if (isTerminalStatus(data.status)) {
+      if (isTerminalStatus(mappedStatus)) {
         cleanup();
         return;
       }
@@ -251,7 +294,7 @@ export async function pollOnce(
   error?: { code: string; message: string };
   timeRemaining?: number;
 }> {
-  const url = new URL(`/v1/sessions/${sessionId}/status`, config.gatewayUrl);
+  const url = new URL(`/v1/verifications/${sessionId}/status`, config.gatewayUrl);
 
   const response = await fetch(url.toString(), {
     headers: {
@@ -264,5 +307,15 @@ export async function pollOnce(
     throw AuthboundError.fromResponse(response);
   }
 
-  return response.json();
+  const data = (await response.json()) as {
+    status: string;
+    result?: unknown;
+    error?: { code: string; message: string };
+    timeRemaining?: number;
+  };
+
+  return {
+    ...data,
+    status: mapGatewayStatus(data.status),
+  };
 }
