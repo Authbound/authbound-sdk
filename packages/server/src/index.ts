@@ -4,20 +4,41 @@
  * Server-side SDK for Authbound identity and age verification.
  *
  * This package provides:
- * - Framework-agnostic core utilities
+ * - AuthboundClient for API calls (session creation, status querying)
  * - JWT token management for verification sessions
- * - Configuration types and validation
+ * - Webhook signature verification
+ * - Framework-agnostic core utilities
  *
  * For framework-specific integrations, import from the appropriate subpath:
  * - `@authbound/server/next` - Next.js middleware and handlers
+ * - `@authbound/server/express` - Express.js middleware and handlers
+ * - `@authbound/server/hono` - Hono middleware and handlers
  *
  * @example
  * ```ts
- * // Core utilities
- * import { createToken, verifyToken } from '@authbound/server';
+ * // API Client (manual orchestration)
+ * import { AuthboundClient } from '@authbound/server';
  *
- * // Next.js specific
- * import { authboundMiddleware, createAuthboundHandlers } from '@authbound/server/next';
+ * const client = new AuthboundClient({
+ *   apiKey: process.env.AUTHBOUND_API_KEY!,
+ * });
+ *
+ * const session = await client.sessions.create({
+ *   userRef: 'user_123',
+ *   callbackUrl: 'https://example.com/webhook',
+ * });
+ *
+ * // Webhook verification
+ * import { verifyWebhookSignature } from '@authbound/server';
+ *
+ * const isValid = verifyWebhookSignature({
+ *   payload: rawBody,
+ *   signature: req.headers['x-authbound-signature'],
+ *   secret: process.env.AUTHBOUND_WEBHOOK_SECRET!,
+ * });
+ *
+ * // Framework-specific
+ * import { authboundMiddleware } from '@authbound/server/express';
  * ```
  */
 
@@ -35,7 +56,7 @@ export type {
   CreateSessionResponse,
   SessionStatusResponse,
   MiddlewareResult,
-  // Webhook types (Stripe Identity-compatible)
+  // Webhook types
   WebhookEvent,
   WebhookEventType,
   VerificationSessionObject,
@@ -51,6 +72,8 @@ export {
   parseConfig,
   checkRequirements,
   calculateAge,
+  calculateAgeFromDob,
+  mapSessionStatusToVerificationStatus,
   getDefaultCookieOptions,
   VerificationStatusSchema,
   AssuranceLevelSchema,
@@ -60,7 +83,7 @@ export {
   RoutesConfigSchema,
   AuthboundConfigSchema,
   AuthboundClaimsSchema,
-  // Webhook schemas (Stripe Identity-compatible)
+  // Webhook schemas
   WebhookEventSchema,
   WebhookEventTypeSchema,
   VerificationSessionObjectSchema,
@@ -89,3 +112,34 @@ export {
   createSafeErrorResponse,
   type SanitizedError,
 } from "./core/error-utils";
+
+// ============================================================================
+// API Client (Manual Orchestration)
+// ============================================================================
+
+export {
+  // Client class
+  AuthboundClient,
+  AuthboundClientError,
+  // Standalone functions
+  createSession,
+  getSessionStatus,
+  // Types
+  type AuthboundClientConfig,
+  type CreateSessionOptions,
+  type CreateSessionResult,
+  type GetSessionResult,
+  type VerifySignatureOptions,
+} from "./core/client";
+
+// ============================================================================
+// Webhook Verification
+// ============================================================================
+
+export {
+  verifyWebhookSignature,
+  verifyWebhookSignatureDetailed,
+  generateWebhookSignature,
+  type WebhookSignatureOptions,
+  type WebhookSignatureResult,
+} from "./core/webhooks";

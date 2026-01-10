@@ -24,6 +24,33 @@ export default defineConfig([
       "jose",
     ],
   },
+  // Express.js specific entry point
+  {
+    entry: ["src/express/index.ts"],
+    format: ["esm", "cjs"],
+    dts: true,
+    outDir: "dist/express",
+    external: [
+      "express",
+      "@authbound/core",
+      "@authbound/shared",
+      "jose",
+    ],
+  },
+  // Hono specific entry point
+  {
+    entry: ["src/hono/index.ts"],
+    format: ["esm", "cjs"],
+    dts: true,
+    outDir: "dist/hono",
+    external: [
+      "hono",
+      "hono/cookie",
+      "@authbound/core",
+      "@authbound/shared",
+      "jose",
+    ],
+  },
   // Edge runtime entry point
   {
     entry: ["src/edge.ts"],

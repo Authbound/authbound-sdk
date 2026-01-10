@@ -1,54 +1,55 @@
 /**
- * @authbound/server/next
+ * @authbound/server/express
  *
- * Next.js specific exports for the Authbound Server SDK.
+ * Express.js specific exports for the Authbound Server SDK.
  * Provides middleware, API handlers, and utilities for identity/age verification.
  *
  * @example
  * ```ts
- * // middleware.ts
- * import { authboundMiddleware } from '@authbound/server/next';
+ * import express from 'express';
+ * import cookieParser from 'cookie-parser';
+ * import { authboundMiddleware, createAuthboundRouter } from '@authbound/server/express';
  *
- * export default authboundMiddleware({
+ * const app = express();
+ * app.use(express.json());
+ * app.use(cookieParser());
+ *
+ * // Protect routes with age verification
+ * app.use('/adult-content', authboundMiddleware({
  *   apiKey: process.env.AUTHBOUND_API_KEY!,
  *   secret: process.env.AUTHBOUND_SECRET!,
  *   routes: {
  *     protected: [
- *       { path: '/dashboard', requirements: { verified: true } },
- *       { path: '/adult-content', requirements: { minAge: 18 } },
+ *       { path: '/', requirements: { minAge: 18 } },
  *     ],
  *     verify: '/verify',
  *   },
- * });
- * ```
+ * }));
  *
- * @example
- * ```ts
- * // app/api/authbound/[...authbound]/route.ts
- * import { createAuthboundHandlers } from '@authbound/server/next';
- * import { authboundConfig } from '@/authbound.config';
- *
- * export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig);
+ * // Mount API routes
+ * app.use('/api/authbound', createAuthboundRouter(config, {
+ *   onWebhook: async (event) => {
+ *     console.log('Webhook received:', event);
+ *   },
+ * }));
  * ```
  */
 
 // Middleware
 export {
   authboundMiddleware,
-  chainMiddleware,
-  createMatcherConfig,
+  withAuthbound,
+  type ExpressMiddlewareOptions,
   type AuthboundMiddleware,
-  type MiddlewareOptions,
 } from "./middleware";
 
-// API Handlers
+// API Router & Handlers
 export {
-  createAuthboundHandlers,
+  createAuthboundRouter,
   createSessionHandler,
   createWebhookHandler,
   createStatusHandler,
   createSignOutHandler,
-  type AuthboundHandlers,
   type HandlersOptions,
 } from "./handlers";
 
@@ -59,9 +60,7 @@ export {
   getSessionFromCookie,
   setSessionCookie,
   clearSessionCookie,
-  createRedirectResponse,
-  createJsonResponse,
-  createErrorResponse,
+  buildCookieOptions,
   type SetSessionCookieOptions,
 } from "./cookies";
 

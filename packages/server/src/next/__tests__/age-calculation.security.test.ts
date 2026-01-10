@@ -1,13 +1,13 @@
 /**
  * Security tests for age calculation date validation.
  *
- * Target: calculateAgeFromDob() in handlers.ts:307-338
+ * Target: calculateAgeFromDob() in core/types.ts
  * Purpose: Prevent age verification bypass via invalid dates that JavaScript
  *          Date constructor silently rolls over (e.g., Feb 31 → Mar 2/3)
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { calculateAgeFromDob } from "../handlers";
+import { calculateAgeFromDob } from "../../core/types";
 
 describe("calculateAgeFromDob - Date Validation", () => {
   beforeEach(() => {
