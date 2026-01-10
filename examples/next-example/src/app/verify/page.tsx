@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 type VerificationStatus = "idle" | "loading" | "verified" | "error";
 
@@ -18,7 +18,7 @@ interface SessionStatus {
   } | null;
 }
 
-export default function VerifyPage() {
+function VerifyContent() {
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo") || "/dashboard";
 
@@ -277,5 +277,23 @@ export default function VerifyPage() {
         )}
       </div>
     </>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <div className="container" style={{ maxWidth: "600px", marginTop: "2rem" }}>
+      <div className="card" style={{ textAlign: "center", padding: "2rem" }}>
+        <p>Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <VerifyContent />
+    </Suspense>
   );
 }

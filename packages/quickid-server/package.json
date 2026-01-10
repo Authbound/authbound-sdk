@@ -38,7 +38,7 @@
     "@authbound/quickid-core": "workspace:*"
   },
   "peerDependencies": {
-    "next": ">=14.0.0"
+    "next": ">=16.1.0"
   },
   "peerDependenciesMeta": {
     "next": {
@@ -48,7 +48,7 @@
   "devDependencies": {
     "@authbound/sdk-tsconfig": "workspace:*",
     "@types/node": "catalog:",
-    "next": "^15.0.0",
+    "next": "^16.1.0",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
