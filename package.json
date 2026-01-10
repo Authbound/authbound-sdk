@@ -13,7 +13,7 @@
     "@types/node": "catalog:",
     "changesets": "^1.0.2",
     "tsup": "catalog:",
-    "turbo": "^2.6.1",
+    "turbo": "^2.7.3",
     "typescript": "catalog:",
     "ultracite": "^6.3.2",
     "vitest": "catalog:"
