@@ -49,6 +49,10 @@ export {
   type StatusBadgeProps,
   VerificationWall,
   type VerificationWallProps,
+  // Deep Link Support (for mobile wallet opening)
+  DeepLinkButton,
+  useDeepLinkSupport,
+  type DeepLinkButtonProps,
   // Appearance
   type AuthboundAppearance,
   type AuthboundVariables,

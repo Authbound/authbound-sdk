@@ -83,6 +83,11 @@ export {
   type VerificationWallProps,
 } from "./components/VerificationWall";
 
+export {
+  DeepLinkButton,
+  type DeepLinkButtonProps,
+} from "./components/DeepLinkButton";
+
 // ============================================================================
 // Appearance Types
 // ============================================================================

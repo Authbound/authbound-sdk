@@ -2,11 +2,11 @@
   "name": "@authbound",
   "private": true,
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
+    "build": "pnpm -r --filter './packages/*' run build",
+    "dev": "pnpm -r --filter './packages/*' run dev",
     "lint": "ultracite lint",
     "format": "ultracite format",
-    "check-types": "turbo run check-types"
+    "check-types": "pnpm -r --filter './packages/*' run check-types"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.5",
