@@ -41,6 +41,7 @@
     "@nuxt/module-builder": "^0.8.4",
     "@nuxt/schema": "^3.17.4",
     "nuxt": "^3.17.4",
+    "sass": "catalog:",
     "typescript": "catalog:",
     "unbuild": "^3.5.0"
   },
