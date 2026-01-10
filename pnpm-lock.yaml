@@ -425,7 +425,7 @@ importers:
         specifier: ^5.0.1
         version: 5.2.1
       hono:
-        specifier: ^4.6.0
+        specifier: 4.11.3
         version: 4.11.3
       next:
         specifier: ^15.5.9
