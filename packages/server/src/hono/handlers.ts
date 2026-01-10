@@ -4,7 +4,7 @@
  * @example
  * ```ts
  * import { Hono } from 'hono';
- * import { createAuthboundApp } from '@authbound/server/hono';
+ * import { createAuthboundApp } from '@authbound-sdk/server/hono';
  *
  * const app = new Hono();
  *
@@ -314,7 +314,7 @@ async function handleSignOut(
  * @example
  * ```ts
  * import { Hono } from 'hono';
- * import { createAuthboundApp } from '@authbound/server/hono';
+ * import { createAuthboundApp } from '@authbound-sdk/server/hono';
  *
  * const app = new Hono();
  *

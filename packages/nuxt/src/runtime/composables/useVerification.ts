@@ -8,8 +8,8 @@ import type {
   PolicyId,
   SessionId,
   VerificationResult,
-} from "@authbound/core";
-import { AuthboundError, isTerminalStatus } from "@authbound/core";
+} from "@authbound-sdk/core";
+import { AuthboundError, isTerminalStatus } from "@authbound-sdk/core";
 import { computed, onUnmounted, ref, watch } from "vue";
 import { useRouter, useRuntimeConfig } from "#app";
 import { useAuthbound } from "./useAuthbound";

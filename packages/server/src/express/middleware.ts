@@ -5,7 +5,7 @@
  * ```ts
  * import express from 'express';
  * import cookieParser from 'cookie-parser';
- * import { authboundMiddleware } from '@authbound/server/express';
+ * import { authboundMiddleware } from '@authbound-sdk/server/express';
  *
  * const app = express();
  * app.use(cookieParser());
@@ -149,7 +149,7 @@ function buildVerifyUrl(req: Request, verifyPath: string): string {
  * ```ts
  * import express from 'express';
  * import cookieParser from 'cookie-parser';
- * import { authboundMiddleware } from '@authbound/server/express';
+ * import { authboundMiddleware } from '@authbound-sdk/server/express';
  *
  * const app = express();
  * app.use(cookieParser());

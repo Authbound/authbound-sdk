@@ -1,4 +1,4 @@
-import type { AuthboundConfig } from "@authbound/server/next";
+import type { AuthboundConfig } from "@authbound-sdk/server/next";
 
 /**
  * Authbound SDK configuration.

@@ -72,13 +72,13 @@ importers:
 
   examples/next-example:
     dependencies:
-      '@authbound/core':
+      '@authbound-sdk/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@authbound/quickid-react':
+      '@authbound-sdk/quickid-react':
         specifier: workspace:*
         version: link:../../packages/quickid-react
-      '@authbound/server':
+      '@authbound-sdk/server':
         specifier: workspace:*
         version: link:../../packages/server
       next:
@@ -106,10 +106,10 @@ importers:
 
   examples/react-example:
     dependencies:
-      '@authbound/quickid-core':
+      '@authbound-sdk/quickid-core':
         specifier: workspace:*
         version: link:../../packages/quickid-core
-      '@authbound/quickid-react':
+      '@authbound-sdk/quickid-react':
         specifier: workspace:*
         version: link:../../packages/quickid-react
       '@tailwindcss/vite':
@@ -188,14 +188,14 @@ importers:
 
   packages/core:
     dependencies:
-      '@authbound/shared':
+      '@authbound-sdk/shared':
         specifier: workspace:*
         version: link:../shared
       zod:
         specifier: 'catalog:'
         version: 4.1.12
     devDependencies:
-      '@authbound/sdk-tsconfig':
+      '@authbound-sdk/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       tsup:
@@ -210,13 +210,13 @@ importers:
 
   packages/nextjs:
     dependencies:
-      '@authbound/core':
+      '@authbound-sdk/core':
         specifier: workspace:*
         version: link:../core
-      '@authbound/react':
+      '@authbound-sdk/react':
         specifier: workspace:*
         version: link:../react
-      '@authbound/server':
+      '@authbound-sdk/server':
         specifier: workspace:*
         version: link:../server
       react:
@@ -226,7 +226,7 @@ importers:
         specifier: catalog:react
         version: 19.2.0(react@19.2.0)
     devDependencies:
-      '@authbound/sdk-tsconfig':
+      '@authbound-sdk/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/react':
@@ -250,20 +250,20 @@ importers:
 
   packages/nuxt:
     dependencies:
-      '@authbound/core':
+      '@authbound-sdk/core':
         specifier: workspace:*
         version: link:../core
-      '@authbound/server':
+      '@authbound-sdk/server':
         specifier: workspace:*
         version: link:../server
-      '@authbound/vue':
+      '@authbound-sdk/vue':
         specifier: workspace:*
         version: link:../vue
       '@nuxt/kit':
         specifier: ^3.17.4
         version: 3.20.2(magicast@0.5.1)
     devDependencies:
-      '@authbound/sdk-tsconfig':
+      '@authbound-sdk/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@nuxt/module-builder':
@@ -284,17 +284,17 @@ importers:
 
   packages/quickid-core:
     dependencies:
-      '@authbound/core':
+      '@authbound-sdk/core':
         specifier: workspace:*
         version: link:../core
-      '@authbound/shared':
+      '@authbound-sdk/shared':
         specifier: workspace:*
         version: link:../shared
       zod:
         specifier: 'catalog:'
         version: 4.1.12
     devDependencies:
-      '@authbound/sdk-tsconfig':
+      '@authbound-sdk/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       openapi-typescript-codegen:
@@ -312,14 +312,14 @@ importers:
 
   packages/quickid-react:
     dependencies:
-      '@authbound/quickid-core':
+      '@authbound-sdk/quickid-core':
         specifier: workspace:*
         version: link:../quickid-core
       react:
         specifier: '>=18'
         version: 19.2.0
     devDependencies:
-      '@authbound/sdk-tsconfig':
+      '@authbound-sdk/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/react':
@@ -337,11 +337,11 @@ importers:
 
   packages/quickid-server:
     dependencies:
-      '@authbound/quickid-core':
+      '@authbound-sdk/quickid-core':
         specifier: workspace:*
         version: link:../quickid-core
     devDependencies:
-      '@authbound/sdk-tsconfig':
+      '@authbound-sdk/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -365,7 +365,7 @@ importers:
 
   packages/react:
     dependencies:
-      '@authbound/core':
+      '@authbound-sdk/core':
         specifier: workspace:*
         version: link:../core
       qrcode:
@@ -378,7 +378,7 @@ importers:
         specifier: catalog:react
         version: 19.2.0(react@19.2.0)
     devDependencies:
-      '@authbound/sdk-tsconfig':
+      '@authbound-sdk/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@testing-library/react':
@@ -405,10 +405,10 @@ importers:
 
   packages/server:
     dependencies:
-      '@authbound/core':
+      '@authbound-sdk/core':
         specifier: workspace:*
         version: link:../core
-      '@authbound/shared':
+      '@authbound-sdk/shared':
         specifier: workspace:*
         version: link:../shared
       jose:
@@ -445,7 +445,7 @@ importers:
 
   packages/shared:
     devDependencies:
-      '@authbound/sdk-tsconfig':
+      '@authbound-sdk/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       tsup:
@@ -465,7 +465,7 @@ importers:
 
   packages/vue:
     dependencies:
-      '@authbound/core':
+      '@authbound-sdk/core':
         specifier: workspace:*
         version: link:../core
       qrcode:
@@ -475,7 +475,7 @@ importers:
         specifier: 'catalog:'
         version: 3.5.24(typescript@5.9.2)
     devDependencies:
-      '@authbound/sdk-tsconfig':
+      '@authbound-sdk/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/qrcode':

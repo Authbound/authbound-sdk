@@ -1,5 +1,5 @@
 /**
- * @authbound/server/next
+ * @authbound-sdk/server/next
  *
  * Next.js specific exports for the Authbound Server SDK.
  * Provides middleware, API handlers, and utilities for identity/age verification.
@@ -7,7 +7,7 @@
  * @example
  * ```ts
  * // middleware.ts
- * import { authboundMiddleware } from '@authbound/server/next';
+ * import { authboundMiddleware } from '@authbound-sdk/server/next';
  *
  * export default authboundMiddleware({
  *   apiKey: process.env.AUTHBOUND_API_KEY!,
@@ -25,7 +25,7 @@
  * @example
  * ```ts
  * // app/api/authbound/[...authbound]/route.ts
- * import { createAuthboundHandlers } from '@authbound/server/next';
+ * import { createAuthboundHandlers } from '@authbound-sdk/server/next';
  * import { authboundConfig } from '@/authbound.config';
  *
  * export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig);

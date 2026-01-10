@@ -8,7 +8,7 @@ import type {
   AuthboundError,
   PolicyId,
   VerificationResult,
-} from "@authbound/core";
+} from "@authbound-sdk/core";
 import type { CSSProperties, ReactNode } from "react";
 import { useAuthbound } from "../context/authbound-context";
 import { useVerification } from "../hooks/useVerification";

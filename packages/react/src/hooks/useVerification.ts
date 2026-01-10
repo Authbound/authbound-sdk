@@ -9,8 +9,8 @@ import type {
   PolicyId,
   SessionId,
   VerificationResult,
-} from "@authbound/core";
-import { AuthboundError } from "@authbound/core";
+} from "@authbound-sdk/core";
+import { AuthboundError } from "@authbound-sdk/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthbound } from "../context/authbound-context";
 

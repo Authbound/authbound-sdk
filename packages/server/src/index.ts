@@ -1,5 +1,5 @@
 /**
- * @authbound/server
+ * @authbound-sdk/server
  *
  * Server-side SDK for Authbound identity and age verification.
  *
@@ -10,14 +10,14 @@
  * - Framework-agnostic core utilities
  *
  * For framework-specific integrations, import from the appropriate subpath:
- * - `@authbound/server/next` - Next.js middleware and handlers
- * - `@authbound/server/express` - Express.js middleware and handlers
- * - `@authbound/server/hono` - Hono middleware and handlers
+ * - `@authbound-sdk/server/next` - Next.js middleware and handlers
+ * - `@authbound-sdk/server/express` - Express.js middleware and handlers
+ * - `@authbound-sdk/server/hono` - Hono middleware and handlers
  *
  * @example
  * ```ts
  * // API Client (manual orchestration)
- * import { AuthboundClient } from '@authbound/server';
+ * import { AuthboundClient } from '@authbound-sdk/server';
  *
  * const client = new AuthboundClient({
  *   apiKey: process.env.AUTHBOUND_API_KEY!,
@@ -29,7 +29,7 @@
  * });
  *
  * // Webhook verification
- * import { verifyWebhookSignature } from '@authbound/server';
+ * import { verifyWebhookSignature } from '@authbound-sdk/server';
  *
  * const isValid = verifyWebhookSignature({
  *   payload: rawBody,
@@ -38,7 +38,7 @@
  * });
  *
  * // Framework-specific
- * import { authboundMiddleware } from '@authbound/server/express';
+ * import { authboundMiddleware } from '@authbound-sdk/server/express';
  * ```
  */
 

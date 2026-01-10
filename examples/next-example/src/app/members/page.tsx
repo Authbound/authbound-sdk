@@ -1,4 +1,4 @@
-import { getSessionFromToken } from "@authbound/server/next";
+import { getSessionFromToken } from "@authbound-sdk/server/next";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { authboundConfig } from "@/authbound.config";

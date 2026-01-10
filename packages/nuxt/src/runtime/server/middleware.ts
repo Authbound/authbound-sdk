@@ -4,7 +4,7 @@
  * Protects routes that require verification.
  */
 
-import { verifyToken } from "@authbound/server";
+import { verifyToken } from "@authbound-sdk/server";
 import { defineEventHandler, getCookie, getRequestURL, sendRedirect } from "h3";
 import { useRuntimeConfig } from "#imports";
 

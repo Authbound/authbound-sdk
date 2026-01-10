@@ -9,8 +9,8 @@ import type {
   PolicyId,
   SessionId,
   VerificationResult,
-} from "@authbound/core";
-import { AuthboundError, isTerminalStatus } from "@authbound/core";
+} from "@authbound-sdk/core";
+import { AuthboundError, isTerminalStatus } from "@authbound-sdk/core";
 import {
   type ComputedRef,
   computed,
@@ -88,7 +88,7 @@ export interface UseVerificationReturn {
  * @example
  * ```vue
  * <script setup>
- * import { useVerification } from '@authbound/vue';
+ * import { useVerification } from '@authbound-sdk/vue';
  *
  * const {
  *   status,

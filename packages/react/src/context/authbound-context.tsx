@@ -16,7 +16,7 @@ import {
   type SessionId,
   type StatusEvent,
   type VerificationResult,
-} from "@authbound/core";
+} from "@authbound-sdk/core";
 import {
   Component,
   createContext,
@@ -137,7 +137,7 @@ export interface AuthboundProviderProps {
  * @example
  * ```tsx
  * // app/layout.tsx
- * import { AuthboundProvider } from '@authbound/react';
+ * import { AuthboundProvider } from '@authbound-sdk/react';
  *
  * export default function RootLayout({ children }) {
  *   return (
@@ -397,7 +397,7 @@ interface ErrorBoundaryState {
  *
  * @example
  * ```tsx
- * import { AuthboundErrorBoundary, AuthboundProvider } from '@authbound/react';
+ * import { AuthboundErrorBoundary, AuthboundProvider } from '@authbound-sdk/react';
  *
  * function App() {
  *   return (

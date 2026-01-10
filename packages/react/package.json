@@ -1,5 +1,5 @@
 {
-  "name": "@authbound/react",
+  "name": "@authbound-sdk/react",
   "version": "0.1.0",
   "description": "Authbound React 18 bindings (hooks + headless components) for verification flows.",
   "type": "module",
@@ -40,11 +40,11 @@
     "react-dom": "catalog:react"
   },
   "dependencies": {
-    "@authbound/core": "workspace:*",
+    "@authbound-sdk/core": "workspace:*",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
-    "@authbound/sdk-tsconfig": "workspace:*",
+    "@authbound-sdk/tsconfig": "workspace:*",
     "@types/qrcode": "^1.5.5",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",

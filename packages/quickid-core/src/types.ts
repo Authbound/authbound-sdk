@@ -8,7 +8,7 @@ export type {
   DocumentData,
   ErrorDetail,
   VerificationStatus,
-} from "@authbound/core";
+} from "@authbound-sdk/core";
 
 // Re-export VerificationResult type inferred from schema
 export type VerificationResult = z.infer<typeof VerificationResultSchema>;

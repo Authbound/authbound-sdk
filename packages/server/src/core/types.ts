@@ -4,8 +4,8 @@ import type {
   Dob,
   VerificationSessionStatus,
   VerificationStatus,
-} from "@authbound/core";
-import { AssuranceLevelSchema } from "@authbound/core";
+} from "@authbound-sdk/core";
+import { AssuranceLevelSchema } from "@authbound-sdk/core";
 import { z } from "zod";
 
 // Re-export core types for convenience
@@ -22,7 +22,7 @@ export type {
   VerifiedOutputs,
   WebhookEvent,
   WebhookEventType,
-} from "@authbound/core";
+} from "@authbound-sdk/core";
 
 export {
   AssuranceLevelSchema,
@@ -37,7 +37,7 @@ export {
   VerifiedOutputsSchema,
   WebhookEventSchema,
   WebhookEventTypeSchema,
-} from "@authbound/core";
+} from "@authbound-sdk/core";
 
 // ============================================================================
 // Route Protection Configuration
@@ -127,7 +127,7 @@ export type AuthboundConfig = z.infer<typeof AuthboundConfigSchema>;
 // ============================================================================
 // JWT Claims & Session (re-exported from core)
 // ============================================================================
-// AuthboundClaims, AuthboundSession, and WebhookPayload are now imported from @authbound/core above
+// AuthboundClaims, AuthboundSession, and WebhookPayload are now imported from @authbound-sdk/core above
 
 // ============================================================================
 // API Response Types
@@ -162,7 +162,7 @@ export interface MiddlewareResult {
 // ============================================================================
 // Helper Functions
 // ============================================================================
-// calculateAge is now imported from @authbound/core above
+// calculateAge is now imported from @authbound-sdk/core above
 
 /**
  * Check if verification requirements are met

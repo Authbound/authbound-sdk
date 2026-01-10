@@ -1,12 +1,12 @@
 /**
- * @authbound/server/edge
+ * @authbound-sdk/server/edge
  *
  * Edge-compatible exports for the Authbound Server SDK.
  * These utilities can run in Edge Runtime environments (Cloudflare Workers, Vercel Edge, etc.)
  *
  * @example
  * ```ts
- * import { verifyToken, createToken } from '@authbound/server/edge';
+ * import { verifyToken, createToken } from '@authbound-sdk/server/edge';
  * ```
  */
 

@@ -1,13 +1,13 @@
-# @authbound/server
+# @authbound-sdk/server
 
 > Server-side SDK for Authbound identity and age verification with Next.js middleware support.
 
-[![npm version](https://img.shields.io/npm/v/@authbound/server)](https://www.npmjs.com/package/@authbound/server)
+[![npm version](https://img.shields.io/npm/v/@authbound-sdk/server)](https://www.npmjs.com/package/@authbound-sdk/server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
 
-`@authbound/server` provides a complete server-side solution for protecting Next.js routes with identity and age verification. It includes:
+`@authbound-sdk/server` provides a complete server-side solution for protecting Next.js routes with identity and age verification. It includes:
 
 - **Middleware-based route protection** - Automatically redirect unverified users
 - **Encrypted JWT session management** - Stateless, secure cookie-based sessions
@@ -18,11 +18,11 @@
 ## Installation
 
 ```bash
-npm install @authbound/server
+npm install @authbound-sdk/server
 # or
-pnpm add @authbound/server
+pnpm add @authbound-sdk/server
 # or
-yarn add @authbound/server
+yarn add @authbound-sdk/server
 ```
 
 **Peer Dependencies:**
@@ -37,7 +37,7 @@ yarn add @authbound/server
 Create `authbound.config.ts`:
 
 ```typescript
-import type { AuthboundConfig } from "@authbound/server/next";
+import type { AuthboundConfig } from "@authbound-sdk/server/next";
 
 export const authboundConfig: AuthboundConfig = {
   apiKey: process.env.AUTHBOUND_API_KEY!,
@@ -58,7 +58,7 @@ export const authboundConfig: AuthboundConfig = {
 Create `middleware.ts`:
 
 ```typescript
-import { authboundMiddleware } from "@authbound/server/next";
+import { authboundMiddleware } from "@authbound-sdk/server/next";
 import { authboundConfig } from "./authbound.config";
 
 export default authboundMiddleware(authboundConfig);
@@ -73,7 +73,7 @@ export const config = {
 Create `app/api/authbound/[...authbound]/route.ts`:
 
 ```typescript
-import { createAuthboundHandlers } from "@authbound/server/next";
+import { createAuthboundHandlers } from "@authbound-sdk/server/next";
 import { authboundConfig } from "@/authbound.config";
 
 export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig);
@@ -83,7 +83,7 @@ export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig);
 
 ```typescript
 import { cookies } from "next/headers";
-import { getSessionFromToken } from "@authbound/server/next";
+import { getSessionFromToken } from "@authbound-sdk/server/next";
 import { authboundConfig } from "@/authbound.config";
 
 export default async function DashboardPage() {
@@ -364,7 +364,7 @@ secret: process.env.AUTHBOUND_SECRET || generateSecret(),
 
 ```typescript
 import crypto from "crypto";
-import type { WebhookPayload } from "@authbound/server/next";
+import type { WebhookPayload } from "@authbound-sdk/server/next";
 
 async function verifyWebhookSignature(
   request: NextRequest,
@@ -456,7 +456,7 @@ npm install @upstash/ratelimit @upstash/redis
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { NextRequest, NextResponse } from "next/server";
-import { createAuthboundHandlers } from "@authbound/server/next";
+import { createAuthboundHandlers } from "@authbound-sdk/server/next";
 import { authboundConfig } from "@/authbound.config";
 
 // Create rate limiter
@@ -591,8 +591,8 @@ routes: {
 Combine with other middleware:
 
 ```typescript
-import { chainMiddleware } from "@authbound/server/next";
-import { authboundMiddleware } from "@authbound/server/next";
+import { chainMiddleware } from "@authbound-sdk/server/next";
+import { authboundMiddleware } from "@authbound-sdk/server/next";
 import { myOtherMiddleware } from "@/middleware";
 
 export default chainMiddleware(
@@ -608,7 +608,7 @@ Create reusable server component utilities:
 ```typescript
 // lib/authbound.ts
 import { cookies } from "next/headers";
-import { getSessionFromToken } from "@authbound/server/next";
+import { getSessionFromToken } from "@authbound-sdk/server/next";
 import { authboundConfig } from "@/authbound.config";
 
 export async function getAuthboundSession() {
@@ -706,7 +706,7 @@ export const config = {
 3. Check Zod schema validation errors
 
 ```typescript
-import { parseConfig } from "@authbound/server/next";
+import { parseConfig } from "@authbound-sdk/server/next";
 
 const config = parseConfig({
   // ... config

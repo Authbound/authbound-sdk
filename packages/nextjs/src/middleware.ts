@@ -1,12 +1,12 @@
 /**
- * @authbound/nextjs/middleware
+ * @authbound-sdk/nextjs/middleware
  *
  * Simplified Next.js middleware for Authbound verification.
  *
  * @example
  * ```ts
  * // middleware.ts
- * import { withAuthbound } from '@authbound/nextjs/middleware';
+ * import { withAuthbound } from '@authbound-sdk/nextjs/middleware';
  *
  * export default withAuthbound({
  *   publicRoutes: ['/', '/about', '/pricing'],
@@ -18,8 +18,8 @@
  * ```
  */
 
-import type { PolicyId } from "@authbound/core";
-import { type AuthboundClaims, verifyToken } from "@authbound/server";
+import type { PolicyId } from "@authbound-sdk/core";
+import { type AuthboundClaims, verifyToken } from "@authbound-sdk/server";
 import { type NextRequest, NextResponse } from "next/server";
 
 // ============================================================================
@@ -188,13 +188,13 @@ const STATIC_EXTENSIONS =
 /**
  * Create a simplified Authbound middleware for Next.js.
  *
- * This is a higher-level API than `authboundMiddleware` from `@authbound/server`.
+ * This is a higher-level API than `authboundMiddleware` from `@authbound-sdk/server`.
  * It provides sensible defaults and a simpler configuration.
  *
  * @example
  * ```ts
  * // middleware.ts - 3 lines!
- * import { withAuthbound } from '@authbound/nextjs';
+ * import { withAuthbound } from '@authbound-sdk/nextjs';
  *
  * export default withAuthbound({
  *   publicRoutes: ['/', '/about', '/api/*'],
@@ -206,7 +206,7 @@ const STATIC_EXTENSIONS =
  * @example
  * ```ts
  * // With custom verification check
- * import { withAuthbound } from '@authbound/nextjs';
+ * import { withAuthbound } from '@authbound-sdk/nextjs';
  *
  * export default withAuthbound({
  *   publicRoutes: ['/', '/about'],
@@ -367,7 +367,7 @@ export function withAuthbound(
 }
 
 // ============================================================================
-// Re-exports from @authbound/server/next
+// Re-exports from @authbound-sdk/server/next
 // ============================================================================
 
 export {
@@ -376,4 +376,4 @@ export {
   chainMiddleware,
   createMatcherConfig,
   type MiddlewareOptions,
-} from "@authbound/server/next";
+} from "@authbound-sdk/server/next";

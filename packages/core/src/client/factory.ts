@@ -3,7 +3,7 @@
  *
  * @example
  * ```ts
- * import { createClient } from '@authbound/core';
+ * import { createClient } from '@authbound-sdk/core';
  *
  * const client = createClient({
  *   publishableKey: 'pk_live_...',

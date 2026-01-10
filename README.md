@@ -18,9 +18,9 @@ This Turborepo includes the following packages/apps:
 
 - `docs`: a [Next.js](https://nextjs.org/) app
 - `web`: another [Next.js](https://nextjs.org/) app
-- `@authbound/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@authbound/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@authbound/typescript-config`: `tsconfig.json`s used throughout the monorepo
+- `@authbound-sdk/ui`: a stub React component library shared by both `web` and `docs` applications
+- `@authbound-sdk/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
+- `@authbound-sdk/typescript-config`: `tsconfig.json`s used throughout the monorepo
 
 Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
 

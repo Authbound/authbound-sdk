@@ -1,7 +1,7 @@
 /**
  * VerificationStatus Component for Nuxt
  *
- * Re-exports from @authbound/vue
+ * Re-exports from @authbound-sdk/vue
  */
 
-export { StatusBadge, VerificationStatus } from "@authbound/vue";
+export { StatusBadge, VerificationStatus } from "@authbound-sdk/vue";

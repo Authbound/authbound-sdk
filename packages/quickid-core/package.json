@@ -1,5 +1,5 @@
 {
-  "name": "@authbound/quickid-core",
+  "name": "@authbound-sdk/quickid-core",
   "version": "0.1.0",
   "description": "Authbound QuickID core SDK: framework-agnostic client for document + selfie verification.",
   "type": "module",
@@ -30,12 +30,12 @@
     "src"
   ],
   "dependencies": {
-    "@authbound/core": "workspace:*",
-    "@authbound/shared": "workspace:*",
+    "@authbound-sdk/core": "workspace:*",
+    "@authbound-sdk/shared": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@authbound/sdk-tsconfig": "workspace:*",
+    "@authbound-sdk/tsconfig": "workspace:*",
     "openapi-typescript-codegen": "^0.29.0",
     "tsup": "catalog:",
     "typescript": "catalog:",

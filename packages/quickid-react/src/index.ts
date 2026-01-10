@@ -7,7 +7,7 @@ export type {
   QuickIDConfig,
   VerificationResult,
   VerificationStatus,
-} from "@authbound/quickid-core";
+} from "@authbound-sdk/quickid-core";
 export * from "./components/documentUpload";
 export * from "./components/quickIdFlow";
 export * from "./components/selfieCapture";

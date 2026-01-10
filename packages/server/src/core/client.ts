@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { AuthboundClient } from '@authbound/server';
+ * import { AuthboundClient } from '@authbound-sdk/server';
  *
  * const client = new AuthboundClient({
  *   apiKey: process.env.AUTHBOUND_API_KEY!,
@@ -587,7 +587,7 @@ class WebhooksApi {
  *
  * @example
  * ```ts
- * import { createSession } from '@authbound/server';
+ * import { createSession } from '@authbound-sdk/server';
  *
  * const session = await createSession({
  *   apiKey: process.env.AUTHBOUND_API_KEY!,

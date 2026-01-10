@@ -7,7 +7,7 @@
  */
 
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { ParsedSignatureHeader } from "@authbound/quickid-core";
+import type { ParsedSignatureHeader } from "@authbound-sdk/quickid-core";
 import { QuickIDSignatureVerificationError } from "../errors";
 
 /** Default tolerance for timestamp verification (5 minutes) */

@@ -1,5 +1,5 @@
 {
-  "extends": "@authbound/sdk-tsconfig/base.json",
+  "extends": "@authbound-sdk/tsconfig/base.json",
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",

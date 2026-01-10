@@ -1,5 +1,5 @@
 {
-  "name": "@authbound/vue",
+  "name": "@authbound-sdk/vue",
   "version": "0.1.0",
   "description": "Authbound Vue 3 bindings (composables + headless components) for the verification flows.",
   "type": "module",
@@ -34,11 +34,11 @@
     "vue": "catalog:"
   },
   "dependencies": {
-    "@authbound/core": "workspace:*",
+    "@authbound-sdk/core": "workspace:*",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
-    "@authbound/sdk-tsconfig": "workspace:*",
+    "@authbound-sdk/tsconfig": "workspace:*",
     "@types/qrcode": "^1.5.5",
     "typescript": "catalog:",
     "tsup": "catalog:",

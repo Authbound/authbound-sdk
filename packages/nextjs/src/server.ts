@@ -1,12 +1,12 @@
 /**
- * @authbound/nextjs/server
+ * @authbound-sdk/nextjs/server
  *
  * Server-side utilities for Next.js App Router.
  *
  * @example
  * ```ts
  * // app/api/authbound/session/route.ts
- * import { createSessionRoute } from '@authbound/nextjs/server';
+ * import { createSessionRoute } from '@authbound-sdk/nextjs/server';
  *
  * export const POST = createSessionRoute({
  *   policyId: 'age-gate-18@1.0.0',
@@ -14,7 +14,7 @@
  * ```
  */
 
-import type { PolicyId } from "@authbound/core";
+import type { PolicyId } from "@authbound-sdk/core";
 import crypto from "crypto";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -239,7 +239,7 @@ export function verifyWebhookSignature(
  * @example
  * ```ts
  * // app/api/authbound/session/route.ts
- * import { createSessionRoute } from '@authbound/nextjs/server';
+ * import { createSessionRoute } from '@authbound-sdk/nextjs/server';
  *
  * export const POST = createSessionRoute({
  *   policyId: 'age-gate-18@1.0.0',
@@ -353,7 +353,7 @@ export function createSessionRoute(
  * @example
  * ```ts
  * // app/api/authbound/webhook/route.ts
- * import { createWebhookRoute } from '@authbound/nextjs/server';
+ * import { createWebhookRoute } from '@authbound-sdk/nextjs/server';
  *
  * export const POST = createWebhookRoute({
  *   onVerified: async (event) => {
@@ -490,7 +490,7 @@ export interface StatusRouteOptions {
  * @example
  * ```ts
  * // app/api/authbound/status/[sessionId]/route.ts
- * import { createStatusRoute } from '@authbound/nextjs/server';
+ * import { createStatusRoute } from '@authbound-sdk/nextjs/server';
  *
  * export const GET = createStatusRoute();
  * ```
@@ -568,7 +568,7 @@ export function createStatusRoute(
  * @example
  * ```ts
  * // In a server action
- * import { createSession } from '@authbound/nextjs/server';
+ * import { createSession } from '@authbound-sdk/nextjs/server';
  *
  * export async function startVerification() {
  *   'use server';
@@ -624,7 +624,7 @@ export async function createSession(options: {
 }
 
 // ============================================================================
-// Re-exports from @authbound/server
+// Re-exports from @authbound-sdk/server
 // ============================================================================
 
 export {
@@ -645,7 +645,7 @@ export {
   type VerificationRequirements,
   type VerificationStatus,
   verifyToken,
-} from "@authbound/server";
+} from "@authbound-sdk/server";
 
 export {
   clearSessionCookie,
@@ -660,4 +660,4 @@ export {
   getCookieValue,
   getSessionFromCookie,
   setSessionCookie,
-} from "@authbound/server/next";
+} from "@authbound-sdk/server/next";

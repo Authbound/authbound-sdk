@@ -1,5 +1,5 @@
 {
-  "name": "@authbound/quickid-react",
+  "name": "@authbound-sdk/quickid-react",
   "version": "0.1.0",
   "description": "Authbound QuickID React bindings: hooks and components for document + selfie verification.",
   "type": "module",
@@ -33,14 +33,14 @@
     "react": ">=18"
   },
   "dependencies": {
-    "@authbound/quickid-core": "workspace:*"
+    "@authbound-sdk/quickid-core": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "catalog:react",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "@authbound/sdk-tsconfig": "workspace:*"
+    "@authbound-sdk/tsconfig": "workspace:*"
   },
   "scripts": {
     "build": "tsup src/index.ts --dts --format esm,cjs --clean",

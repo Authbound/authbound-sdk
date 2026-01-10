@@ -1,15 +1,15 @@
 /**
- * @authbound/nextjs/client
+ * @authbound-sdk/nextjs/client
  *
  * Client-side components and hooks for Next.js.
- * These are re-exports from @authbound/react with Next.js optimizations.
+ * These are re-exports from @authbound-sdk/react with Next.js optimizations.
  *
  * @example
  * ```tsx
  * // app/verify/page.tsx
  * 'use client';
  *
- * import { VerificationWall } from '@authbound/nextjs/client';
+ * import { VerificationWall } from '@authbound-sdk/nextjs/client';
  *
  * export default function VerifyPage() {
  *   return (
@@ -78,4 +78,4 @@ export {
   VerificationWall,
   type VerificationWallProps,
   variablesToCSSProperties,
-} from "@authbound/react";
+} from "@authbound-sdk/react";

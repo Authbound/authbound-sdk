@@ -65,7 +65,7 @@ function VerifyContent() {
       console.log("Session created:", data);
 
       // In a real app, you would:
-      // 1. Use the clientToken with @authbound/quickid-react
+      // 1. Use the clientToken with @authbound-sdk/quickid-react
       // 2. Show the KYC flow modal
       // 3. Wait for the webhook to update the session
 
@@ -149,7 +149,7 @@ function VerifyContent() {
             <div>
               <p style={{ marginBottom: "1.5rem" }}>
                 This demo simulates the verification process. In production,
-                you&apos;d use the <code>@authbound/quickid-react</code>{" "}
+                you&apos;d use the <code>@authbound-sdk/quickid-react</code>{" "}
                 components to capture documents and selfie.
               </p>
               <button className="btn btn-primary" onClick={startVerification}>

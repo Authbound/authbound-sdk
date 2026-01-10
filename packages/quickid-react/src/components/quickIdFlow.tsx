@@ -1,4 +1,4 @@
-import type { VerificationResult } from "@authbound/quickid-core";
+import type { VerificationResult } from "@authbound-sdk/quickid-core";
 import type React from "react";
 import { useEffect } from "react";
 import { type UseQuickIDConfig, useQuickID } from "../useQuickID";

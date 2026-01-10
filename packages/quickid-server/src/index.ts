@@ -1,12 +1,12 @@
 /**
- * @authbound/quickid-server
+ * @authbound-sdk/quickid-server
  *
  * Server-side SDK for Authbound QuickID identity verification.
  * Provides session management, polling, and webhook verification.
  *
  * @example
  * ```typescript
- * import { QuickIDServer } from "@authbound/quickid-server";
+ * import { QuickIDServer } from "@authbound-sdk/quickid-server";
  *
  * const quickid = new QuickIDServer({
  *   apiKey: process.env.QUICKID_SECRET_KEY!,
@@ -54,7 +54,7 @@ export type {
   WebhookEventHandlers,
   WebhookEventType,
   WebhookVerifyOptions,
-} from "@authbound/quickid-core";
+} from "@authbound-sdk/quickid-core";
 // Re-export helper functions from quickid-core
 export {
   ALL_WEBHOOK_EVENT_TYPES,
@@ -69,7 +69,7 @@ export {
   isTerminalStatus,
   TERMINAL_STATUSES,
   WEBHOOK_API_VERSION,
-} from "@authbound/quickid-core";
+} from "@authbound-sdk/quickid-core";
 
 // Error classes
 export {

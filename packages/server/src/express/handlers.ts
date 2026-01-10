@@ -4,7 +4,7 @@
  * @example
  * ```ts
  * import express from 'express';
- * import { createAuthboundRouter } from '@authbound/server/express';
+ * import { createAuthboundRouter } from '@authbound-sdk/server/express';
  *
  * const app = express();
  * app.use(express.json());
@@ -303,7 +303,7 @@ async function handleSignOut(
  * ```ts
  * import express from 'express';
  * import cookieParser from 'cookie-parser';
- * import { createAuthboundRouter } from '@authbound/server/express';
+ * import { createAuthboundRouter } from '@authbound-sdk/server/express';
  *
  * const app = express();
  * app.use(express.json());

@@ -1,5 +1,5 @@
 {
-  "name": "@authbound/nextjs",
+  "name": "@authbound-sdk/nextjs",
   "version": "0.1.0",
   "description": "Authbound Next.js SDK - Complete verification for Next.js with middleware, handlers, and React components.",
   "type": "module",
@@ -46,9 +46,9 @@
     "src"
   ],
   "dependencies": {
-    "@authbound/core": "workspace:*",
-    "@authbound/react": "workspace:*",
-    "@authbound/server": "workspace:*"
+    "@authbound-sdk/core": "workspace:*",
+    "@authbound-sdk/react": "workspace:*",
+    "@authbound-sdk/server": "workspace:*"
   },
   "peerDependencies": {
     "next": ">=16.1.0",
@@ -56,7 +56,7 @@
     "react-dom": "catalog:react"
   },
   "devDependencies": {
-    "@authbound/sdk-tsconfig": "workspace:*",
+    "@authbound-sdk/tsconfig": "workspace:*",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",
     "next": "^16.1.0",

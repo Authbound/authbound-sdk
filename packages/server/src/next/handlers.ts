@@ -131,7 +131,7 @@ function detectRouteAction(request: NextRequest): RouteAction {
  * @example
  * ```ts
  * // app/api/authbound/[...authbound]/route.ts
- * import { createAuthboundHandlers } from '@authbound/server/next';
+ * import { createAuthboundHandlers } from '@authbound-sdk/server/next';
  * import { authboundConfig } from '@/authbound.config';
  *
  * export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig);

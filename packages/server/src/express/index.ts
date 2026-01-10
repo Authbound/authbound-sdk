@@ -1,5 +1,5 @@
 /**
- * @authbound/server/express
+ * @authbound-sdk/server/express
  *
  * Express.js specific exports for the Authbound Server SDK.
  * Provides middleware, API handlers, and utilities for identity/age verification.
@@ -8,7 +8,7 @@
  * ```ts
  * import express from 'express';
  * import cookieParser from 'cookie-parser';
- * import { authboundMiddleware, createAuthboundRouter } from '@authbound/server/express';
+ * import { authboundMiddleware, createAuthboundRouter } from '@authbound-sdk/server/express';
  *
  * const app = express();
  * app.use(express.json());

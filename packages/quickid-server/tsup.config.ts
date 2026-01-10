@@ -9,6 +9,6 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: true,
-  external: ["next", "next/server", "@authbound/quickid-core"],
+  external: ["next", "next/server", "@authbound-sdk/quickid-core"],
   treeshake: true,
 });

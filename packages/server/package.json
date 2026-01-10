@@ -1,5 +1,5 @@
 {
-  "name": "@authbound/server",
+  "name": "@authbound-sdk/server",
   "version": "0.1.0",
   "description": "Authbound server SDK: middleware, API handlers, and JWT utilities for identity/age verification.",
   "type": "module",
@@ -49,8 +49,8 @@
     "src"
   ],
   "dependencies": {
-    "@authbound/core": "workspace:*",
-    "@authbound/shared": "workspace:*",
+    "@authbound-sdk/core": "workspace:*",
+    "@authbound-sdk/shared": "workspace:*",
     "jose": "^5.10.0"
   },
   "peerDependencies": {

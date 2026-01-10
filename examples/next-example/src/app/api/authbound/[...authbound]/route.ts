@@ -1,4 +1,4 @@
-import { createAuthboundHandlers } from "@authbound/server/next";
+import { createAuthboundHandlers } from "@authbound-sdk/server/next";
 import { authboundConfig } from "@/authbound.config";
 
 /**

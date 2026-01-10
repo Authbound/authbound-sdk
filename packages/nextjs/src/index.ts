@@ -1,5 +1,5 @@
 /**
- * @authbound/nextjs
+ * @authbound-sdk/nextjs
  *
  * Complete Authbound SDK for Next.js.
  *
@@ -14,7 +14,7 @@
  * @example Quick Start
  * ```tsx
  * // 1. middleware.ts
- * import { withAuthbound } from '@authbound/nextjs';
+ * import { withAuthbound } from '@authbound-sdk/nextjs';
  *
  * export default withAuthbound({
  *   publicRoutes: ['/', '/about'],
@@ -23,7 +23,7 @@
  * export const config = { matcher: ['/((?!_next|static).*)'] };
  *
  * // 2. app/api/authbound/session/route.ts
- * import { createSessionRoute } from '@authbound/nextjs';
+ * import { createSessionRoute } from '@authbound-sdk/nextjs';
  *
  * export const POST = createSessionRoute({
  *   policyId: 'age-gate-18@1.0.0',
@@ -31,7 +31,7 @@
  *
  * // 3. app/verify/page.tsx
  * 'use client';
- * import { AuthboundProvider, VerificationWall } from '@authbound/nextjs';
+ * import { AuthboundProvider, VerificationWall } from '@authbound-sdk/nextjs';
  *
  * export default function VerifyPage() {
  *   return (
@@ -46,7 +46,7 @@
  */
 
 // ============================================================================
-// Middleware (from @authbound/nextjs/middleware)
+// Middleware (from @authbound-sdk/nextjs/middleware)
 // ============================================================================
 
 export {
@@ -61,7 +61,7 @@ export {
 } from "./middleware";
 
 // ============================================================================
-// Server (from @authbound/nextjs/server)
+// Server (from @authbound-sdk/nextjs/server)
 // ============================================================================
 
 export {
@@ -105,7 +105,7 @@ export {
 } from "./server";
 
 // ============================================================================
-// Client (from @authbound/nextjs/client)
+// Client (from @authbound-sdk/nextjs/client)
 // ============================================================================
 
 // Note: Client components need 'use client' directive
@@ -127,7 +127,7 @@ export type {
 } from "./client";
 
 // ============================================================================
-// Core types (from @authbound/core)
+// Core types (from @authbound-sdk/core)
 // ============================================================================
 
 export {
@@ -143,4 +143,4 @@ export {
   type StatusEvent,
   type VerificationClaims,
   type VerificationResult,
-} from "@authbound/core";
+} from "@authbound-sdk/core";

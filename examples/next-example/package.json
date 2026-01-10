@@ -9,9 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@authbound/core": "workspace:*",
-    "@authbound/quickid-react": "workspace:*",
-    "@authbound/server": "workspace:*",
+    "@authbound-sdk/core": "workspace:*",
+    "@authbound-sdk/quickid-react": "workspace:*",
+    "@authbound-sdk/server": "workspace:*",
     "next": "^16.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

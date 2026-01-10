@@ -1,4 +1,4 @@
-import type { QuickIDConfig } from "@authbound/quickid-core";
+import type { QuickIDConfig } from "@authbound-sdk/quickid-core";
 import { CheckCircle, FileText, Shield, User } from "lucide-react";
 import { useState } from "react";
 import { KYCModal } from "./components/kyc/KYCModal";

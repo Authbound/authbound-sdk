@@ -1,5 +1,5 @@
 /**
- * Utility exports for @authbound/core.
+ * Utility exports for @authbound-sdk/core.
  */
 
 export {

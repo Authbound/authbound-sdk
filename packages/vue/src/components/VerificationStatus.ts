@@ -2,7 +2,7 @@
  * VerificationStatus Component - Displays current verification status.
  */
 
-import type { EudiVerificationStatus } from "@authbound/core";
+import type { EudiVerificationStatus } from "@authbound-sdk/core";
 import type { CSSProperties } from "vue";
 import { computed, defineComponent, h, type PropType } from "vue";
 

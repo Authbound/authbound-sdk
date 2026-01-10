@@ -3,7 +3,7 @@
  *
  * @example
  * ```typescript
- * import { QuickIDServer } from "@authbound/quickid-server";
+ * import { QuickIDServer } from "@authbound-sdk/quickid-server";
  *
  * const quickid = new QuickIDServer({
  *   apiKey: process.env.QUICKID_SECRET_KEY!,
@@ -31,7 +31,7 @@ import {
   type WebhookEvent,
   WebhookEventSchema,
   type WebhookVerifyOptions,
-} from "@authbound/quickid-core";
+} from "@authbound-sdk/quickid-core";
 
 import { QuickIDTimeoutError, QuickIDValidationError } from "./errors";
 import { HttpClient } from "./http/client";

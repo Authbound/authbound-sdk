@@ -4,7 +4,7 @@
  * @example
  * ```ts
  * import { Hono } from 'hono';
- * import { authboundMiddleware } from '@authbound/server/hono';
+ * import { authboundMiddleware } from '@authbound-sdk/server/hono';
  *
  * const app = new Hono();
  *
@@ -139,7 +139,7 @@ function buildVerifyUrl(c: Context, verifyPath: string): string {
  * @example
  * ```ts
  * import { Hono } from 'hono';
- * import { authboundMiddleware } from '@authbound/server/hono';
+ * import { authboundMiddleware } from '@authbound-sdk/server/hono';
  *
  * const app = new Hono();
  *
@@ -272,7 +272,7 @@ export function authboundMiddleware(
  * @example
  * ```ts
  * import { Hono } from 'hono';
- * import { withAuthbound } from '@authbound/server/hono';
+ * import { withAuthbound } from '@authbound-sdk/server/hono';
  *
  * const app = new Hono();
  *

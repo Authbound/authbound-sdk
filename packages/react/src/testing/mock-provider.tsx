@@ -13,8 +13,8 @@ import type {
   SessionId,
   VerificationClaims,
   VerificationResult,
-} from "@authbound/core";
-import { AuthboundError } from "@authbound/core";
+} from "@authbound-sdk/core";
+import { AuthboundError } from "@authbound-sdk/core";
 import {
   createContext,
   type ReactNode,
@@ -186,7 +186,7 @@ export interface MockAuthboundProviderProps {
  *
  * @example
  * ```tsx
- * import { MockAuthboundProvider, MockScenarios } from '@authbound/react/testing';
+ * import { MockAuthboundProvider, MockScenarios } from '@authbound-sdk/react/testing';
  *
  * // Test successful verification
  * <MockAuthboundProvider config={{ scenario: 'normalSuccess' }}>

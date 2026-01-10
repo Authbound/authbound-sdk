@@ -1,5 +1,5 @@
 {
-  "name": "@authbound/shared",
+  "name": "@authbound-sdk/shared",
   "version": "0.1.0",
   "description": "Shared types, schemas, constants, and small cross-runtime utilities for Authbound SDK.",
   "type": "module",
@@ -35,7 +35,7 @@
     "src"
   ],
   "devDependencies": {
-    "@authbound/sdk-tsconfig": "workspace:*",
+    "@authbound-sdk/tsconfig": "workspace:*",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",

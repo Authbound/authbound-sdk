@@ -2,7 +2,7 @@
  * Verification status display components.
  */
 
-import type { AuthboundError, EudiVerificationStatus } from "@authbound/core";
+import type { AuthboundError, EudiVerificationStatus } from "@authbound-sdk/core";
 import type { CSSProperties, ReactNode } from "react";
 
 // ============================================================================

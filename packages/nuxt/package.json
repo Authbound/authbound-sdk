@@ -1,5 +1,5 @@
 {
-  "name": "@authbound/nuxt",
+  "name": "@authbound-sdk/nuxt",
   "version": "0.1.0",
   "description": "Authbound Nuxt 3 module - Complete verification for Nuxt with auto-imports and server middleware.",
   "type": "module",
@@ -28,16 +28,16 @@
     "dist"
   ],
   "dependencies": {
-    "@authbound/core": "workspace:*",
-    "@authbound/server": "workspace:*",
-    "@authbound/vue": "workspace:*",
+    "@authbound-sdk/core": "workspace:*",
+    "@authbound-sdk/server": "workspace:*",
+    "@authbound-sdk/vue": "workspace:*",
     "@nuxt/kit": "^3.17.4"
   },
   "peerDependencies": {
     "nuxt": "^3.0.0"
   },
   "devDependencies": {
-    "@authbound/sdk-tsconfig": "workspace:*",
+    "@authbound-sdk/tsconfig": "workspace:*",
     "@nuxt/module-builder": "^0.8.4",
     "@nuxt/schema": "^3.17.4",
     "nuxt": "^3.17.4",

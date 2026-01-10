@@ -5,8 +5,8 @@
  * the user successfully verifies their identity.
  */
 
-import type { VerificationResult } from "@authbound/core";
-import { type AuthboundError, asPolicyId } from "@authbound/core";
+import type { VerificationResult } from "@authbound-sdk/core";
+import { type AuthboundError, asPolicyId } from "@authbound-sdk/core";
 import type { CSSProperties } from "vue";
 import {
   computed,

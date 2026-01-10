@@ -7,7 +7,7 @@
  *
  * @example
  * ```ts
- * import { asPolicyId, asSessionId, type PolicyId, type SessionId } from '@authbound/core';
+ * import { asPolicyId, asSessionId, type PolicyId, type SessionId } from '@authbound-sdk/core';
  *
  * const policyId = asPolicyId('age-gate-18@1.0.0');  // Creates PolicyId
  * const sessionId = asSessionId('ses_abc123');        // Creates SessionId

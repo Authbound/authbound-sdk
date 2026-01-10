@@ -1,5 +1,5 @@
 /**
- * @authbound/vue
+ * @authbound-sdk/vue
  *
  * Vue 3 SDK for Authbound EUDI wallet verification.
  *
@@ -7,7 +7,7 @@
  * ```ts
  * // main.ts
  * import { createApp } from 'vue';
- * import { AuthboundPlugin } from '@authbound/vue';
+ * import { AuthboundPlugin } from '@authbound-sdk/vue';
  * import App from './App.vue';
  *
  * const app = createApp(App);
@@ -23,7 +23,7 @@
  * @example
  * ```vue
  * <script setup>
- * import { useVerification, VerificationWall } from '@authbound/vue';
+ * import { useVerification, VerificationWall } from '@authbound-sdk/vue';
  *
  * const { status, startVerification, authorizationRequestUrl } = useVerification();
  * </script>
@@ -101,7 +101,7 @@ export {
 } from "./types/appearance";
 
 // ============================================================================
-// Re-exports from @authbound/core
+// Re-exports from @authbound-sdk/core
 // ============================================================================
 
 export {
@@ -121,4 +121,4 @@ export {
   type StatusEvent,
   type VerificationClaims,
   type VerificationResult,
-} from "@authbound/core";
+} from "@authbound-sdk/core";

@@ -71,7 +71,7 @@ export function createHttpClient(config: ResolvedConfig) {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Accept: "application/json",
-      "X-Authbound-Client": "@authbound/core",
+      "X-Authbound-Client": "@authbound-sdk/core",
       ...options.headers,
     };
 

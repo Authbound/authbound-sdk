@@ -6,8 +6,8 @@
  * @example
  * ```typescript
  * // app/api/webhooks/quickid/route.ts
- * import { QuickIDServer } from "@authbound/quickid-server";
- * import { createWebhookHandler } from "@authbound/quickid-server/nextjs";
+ * import { QuickIDServer } from "@authbound-sdk/quickid-server";
+ * import { createWebhookHandler } from "@authbound-sdk/quickid-server/nextjs";
  *
  * const quickid = new QuickIDServer({ apiKey: process.env.QUICKID_SECRET_KEY! });
  *
@@ -35,7 +35,7 @@ import type {
   WebhookEvent,
   WebhookEventHandlers,
   WebhookEventType,
-} from "@authbound/quickid-core";
+} from "@authbound-sdk/quickid-core";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {

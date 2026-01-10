@@ -1,5 +1,5 @@
 /**
- * Type exports for @authbound/core.
+ * Type exports for @authbound-sdk/core.
  *
  * This file aggregates all type definitions.
  */

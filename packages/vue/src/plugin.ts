@@ -16,7 +16,7 @@ import {
   type SessionId,
   type StatusEvent,
   type VerificationResult,
-} from "@authbound/core";
+} from "@authbound-sdk/core";
 import {
   type App,
   type ComputedRef,
@@ -129,7 +129,7 @@ export interface AuthboundPluginOptions {
  * ```ts
  * // main.ts
  * import { createApp } from 'vue';
- * import { AuthboundPlugin } from '@authbound/vue';
+ * import { AuthboundPlugin } from '@authbound-sdk/vue';
  *
  * const app = createApp(App);
  *

@@ -1,5 +1,5 @@
 {
-  "name": "@authbound/core",
+  "name": "@authbound-sdk/core",
   "version": "0.1.0",
   "description": "Authbound core SDK: framework-agnostic verification flows and protocol logic (OIDC4VP, SD-JWT VC).",
   "type": "module",
@@ -30,12 +30,12 @@
     "src"
   ],
   "dependencies": {
-    "@authbound/shared": "workspace:*",
+    "@authbound-sdk/shared": "workspace:*",
     "zod": "catalog:"
   },
   "peerDependencies": {},
   "devDependencies": {
-    "@authbound/sdk-tsconfig": "workspace:*",
+    "@authbound-sdk/tsconfig": "workspace:*",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

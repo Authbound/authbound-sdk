@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { verifyWebhookSignature } from '@authbound/server';
+ * import { verifyWebhookSignature } from '@authbound-sdk/server';
  *
  * app.post('/webhook', (req, res) => {
  *   const isValid = verifyWebhookSignature({

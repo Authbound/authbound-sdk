@@ -6,7 +6,7 @@
  * @example
  * ```ts
  * import { Hono } from 'hono';
- * import { getSessionFromCookie } from '@authbound/server/hono';
+ * import { getSessionFromCookie } from '@authbound-sdk/server/hono';
  *
  * const app = new Hono();
  *

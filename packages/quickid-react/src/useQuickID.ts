@@ -4,7 +4,7 @@ import {
   QuickIDError,
   type QuickIDPhase,
   type VerificationResult,
-} from "@authbound/quickid-core";
+} from "@authbound-sdk/quickid-core";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface UseQuickIDConfig extends QuickIDConfig {

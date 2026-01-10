@@ -3,7 +3,7 @@ import type {
   AuthboundClaims,
   AuthboundSession,
   VerificationStatus,
-} from "@authbound/core";
+} from "@authbound-sdk/core";
 import * as jose from "jose";
 
 // ============================================================================

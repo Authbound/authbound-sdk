@@ -149,7 +149,7 @@ function buildVerifyUrl(
  * @example
  * ```ts
  * // middleware.ts
- * import { authboundMiddleware } from '@authbound/server/next';
+ * import { authboundMiddleware } from '@authbound-sdk/server/next';
  *
  * export default authboundMiddleware({
  *   apiKey: process.env.AUTHBOUND_API_KEY!,

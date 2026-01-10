@@ -1,5 +1,5 @@
 /**
- * @authbound/nuxt
+ * @authbound-sdk/nuxt
  *
  * Nuxt 3 module for Authbound EUDI wallet verification.
  *
@@ -7,7 +7,7 @@
  * ```ts
  * // nuxt.config.ts
  * export default defineNuxtConfig({
- *   modules: ['@authbound/nuxt'],
+ *   modules: ['@authbound-sdk/nuxt'],
  *   authbound: {
  *     publicRoutes: ['/', '/about'],
  *     policyId: 'age-gate-18@1.0.0',
@@ -16,7 +16,7 @@
  * ```
  */
 
-import type { PolicyId } from "@authbound/core";
+import type { PolicyId } from "@authbound-sdk/core";
 import {
   addComponent,
   addImports,
@@ -80,7 +80,7 @@ export interface ModuleOptions {
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
-    name: "@authbound/nuxt",
+    name: "@authbound-sdk/nuxt",
     configKey: "authbound",
     compatibility: {
       nuxt: "^3.0.0",

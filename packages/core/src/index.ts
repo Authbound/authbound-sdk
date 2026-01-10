@@ -1,11 +1,11 @@
 /**
- * @authbound/core
+ * @authbound-sdk/core
  *
  * Framework-agnostic SDK for Authbound EUDI wallet verification.
  *
  * @example
  * ```ts
- * import { createClient, PolicyPresets } from '@authbound/core';
+ * import { createClient, PolicyPresets } from '@authbound-sdk/core';
  *
  * const client = createClient({
  *   publishableKey: process.env.NEXT_PUBLIC_AUTHBOUND_PK,

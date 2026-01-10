@@ -4,7 +4,7 @@ import {
   DocumentDataSchema,
   ErrorDetailSchema,
   VerificationStatusSchema,
-} from "@authbound/core";
+} from "@authbound-sdk/core";
 import { z } from "zod";
 
 // Re-export schemas from core

@@ -1,5 +1,5 @@
 /**
- * @authbound/react
+ * @authbound-sdk/react
  *
  * React SDK for Authbound EUDI wallet verification.
  *
@@ -9,7 +9,7 @@
  *   AuthboundProvider,
  *   useVerification,
  *   VerificationWall,
- * } from '@authbound/react';
+ * } from '@authbound-sdk/react';
  *
  * // Wrap your app
  * function App() {
@@ -106,7 +106,7 @@ export {
 } from "./types/appearance";
 
 // ============================================================================
-// Re-exports from @authbound/core
+// Re-exports from @authbound-sdk/core
 // ============================================================================
 
 export {
@@ -126,4 +126,4 @@ export {
   type StatusEvent,
   type VerificationClaims,
   type VerificationResult,
-} from "@authbound/core";
+} from "@authbound-sdk/core";

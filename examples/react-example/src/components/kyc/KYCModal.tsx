@@ -1,5 +1,5 @@
-import type { QuickIDConfig } from "@authbound/quickid-core";
-import { useQuickID } from "@authbound/quickid-react";
+import type { QuickIDConfig } from "@authbound-sdk/quickid-core";
+import { useQuickID } from "@authbound-sdk/quickid-react";
 import { AnimatePresence } from "framer-motion";
 import { ChevronLeft, X } from "lucide-react";
 import type React from "react";

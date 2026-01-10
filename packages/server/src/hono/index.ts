@@ -1,5 +1,5 @@
 /**
- * @authbound/server/hono
+ * @authbound-sdk/server/hono
  *
  * Hono specific exports for the Authbound Server SDK.
  * Provides middleware, API handlers, and utilities for identity/age verification.
@@ -9,7 +9,7 @@
  * @example
  * ```ts
  * import { Hono } from 'hono';
- * import { authboundMiddleware, createAuthboundApp } from '@authbound/server/hono';
+ * import { authboundMiddleware, createAuthboundApp } from '@authbound-sdk/server/hono';
  *
  * const app = new Hono();
  *
