@@ -4,7 +4,13 @@
  * Initializes the Authbound client on the client side.
  */
 
-import { type AuthboundClient, createClient } from "@authbound-sdk/core";
+import {
+  type AuthboundClient,
+  createClient,
+  isPublishableKey,
+  asPublishableKey,
+  type PolicyId,
+} from "@authbound-sdk/core";
 import { defineNuxtPlugin, useRuntimeConfig } from "#app";
 
 export default defineNuxtPlugin({
@@ -13,12 +19,12 @@ export default defineNuxtPlugin({
     const config = useRuntimeConfig();
 
     // Get publishable key from environment
-    const publishableKey =
+    const rawPublishableKey =
       (import.meta.env.NUXT_PUBLIC_AUTHBOUND_PK as string) ||
       (import.meta.env.VITE_AUTHBOUND_PK as string) ||
       "";
 
-    if (!publishableKey) {
+    if (!rawPublishableKey) {
       console.warn(
         "[Authbound] Missing publishable key. Set NUXT_PUBLIC_AUTHBOUND_PK in your environment."
       );
@@ -27,16 +33,20 @@ export default defineNuxtPlugin({
     // Create client instance
     let client: AuthboundClient | null = null;
 
-    if (publishableKey) {
+    if (rawPublishableKey && isPublishableKey(rawPublishableKey)) {
       try {
         client = createClient({
-          publishableKey: publishableKey as any,
-          policyId: config.public.authbound?.policyId,
+          publishableKey: asPublishableKey(rawPublishableKey),
+          policyId: config.public.authbound?.policyId as PolicyId | undefined,
           debug: config.public.authbound?.debug,
         });
       } catch (error) {
         console.error("[Authbound] Failed to create client:", error);
       }
+    } else if (rawPublishableKey) {
+      console.error(
+        "[Authbound] Invalid publishable key format. Expected pk_live_... or pk_test_..."
+      );
     }
 
     return {

@@ -4,6 +4,8 @@
 
 // Re-export presets from types
 export { PolicyPresets, PRESET_POLICIES } from "../types/policy";
+
+// Re-export resolver functions
 export {
   compareSemVer,
   findLatestVersion,
@@ -14,3 +16,13 @@ export {
   resolvePolicy,
   type SemVer,
 } from "./resolver";
+
+// Re-export registry functions (runtime fetching)
+export {
+  clearPresetCache,
+  fetchPresetRegistry,
+  getPresetBySlug,
+  getPresetPolicyId,
+  type PresetFromRegistry,
+  type PresetRegistry,
+} from "./registry";

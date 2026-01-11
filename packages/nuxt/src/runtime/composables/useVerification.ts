@@ -4,12 +4,17 @@
 
 import type {
   AuthboundErrorCode,
+  ClientToken,
   EudiVerificationStatus,
   PolicyId,
   SessionId,
   VerificationResult,
 } from "@authbound-sdk/core";
-import { AuthboundError, isTerminalStatus } from "@authbound-sdk/core";
+import {
+  AuthboundError,
+  isTerminalStatus,
+  asClientToken,
+} from "@authbound-sdk/core";
 import { computed, onUnmounted, ref, watch } from "vue";
 import { useRouter, useRuntimeConfig } from "#app";
 import { useAuthbound } from "./useAuthbound";
@@ -77,7 +82,7 @@ export function useVerification(options: UseVerificationOptions = {}) {
   const sessionId = ref<SessionId | null>(null);
   const authorizationRequestUrl = ref<string | null>(null);
   const deepLink = ref<string | null>(null);
-  const clientToken = ref<string | null>(null);
+  const clientToken = ref<ClientToken | null>(null);
   const error = ref<AuthboundError | null>(null);
   const result = ref<VerificationResult | null>(null);
   const timeRemaining = ref<number | null>(null);
@@ -185,7 +190,7 @@ export function useVerification(options: UseVerificationOptions = {}) {
 
       sessionId.value = response.sessionId as SessionId;
       authorizationRequestUrl.value = response.authorizationRequestUrl;
-      clientToken.value = response.clientToken;
+      clientToken.value = asClientToken(response.clientToken);
       deepLink.value = response.deepLink ?? null;
       expiresAt.value = new Date(response.expiresAt);
 
@@ -195,7 +200,7 @@ export function useVerification(options: UseVerificationOptions = {}) {
       if (client && sessionId.value && clientToken.value) {
         client.subscribeToStatus(
           sessionId.value,
-          clientToken.value as any,
+          clientToken.value,
           (event) => {
             status.value = event.status;
             if (event.result) {

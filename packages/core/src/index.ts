@@ -174,6 +174,19 @@ export {
 } from "./policy";
 
 // ============================================================================
+// Preset Registry (Runtime Fetching)
+// ============================================================================
+
+export {
+  clearPresetCache,
+  fetchPresetRegistry,
+  getPresetBySlug,
+  getPresetPolicyId,
+  type PresetFromRegistry,
+  type PresetRegistry,
+} from "./policy";
+
+// ============================================================================
 // Legacy Exports (from original types.ts)
 // Keep for backwards compatibility
 // ============================================================================
