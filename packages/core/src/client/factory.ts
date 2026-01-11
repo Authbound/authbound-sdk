@@ -265,7 +265,7 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
       const response = await httpClient.get<{
         status: EudiVerificationStatus;
         result?: unknown;
-      }>(`/v1/sessions/${sessionId}/status`, {
+      }>(`/v1/verifications/${sessionId}/status`, {
         token: clientToken,
       });
 

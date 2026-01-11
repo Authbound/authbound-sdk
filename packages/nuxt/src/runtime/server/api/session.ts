@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Proxy to gateway
-    const response = await fetch(`${gatewayUrl}/v1/sessions`, {
+    const response = await fetch(`${gatewayUrl}/v1/verifications`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

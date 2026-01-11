@@ -299,7 +299,7 @@ export function createSessionRoute(
       }
 
       // Proxy to gateway
-      const gatewayResponse = await fetch(`${gatewayUrl}/v1/sessions`, {
+      const gatewayResponse = await fetch(`${gatewayUrl}/v1/verifications`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -530,7 +530,7 @@ export function createStatusRoute(
         console.log("[Authbound] Checking status:", sessionId);
       }
 
-      const response = await fetch(`${gatewayUrl}/v1/sessions/${sessionId}`, {
+      const response = await fetch(`${gatewayUrl}/v1/verifications/${sessionId}/status`, {
         headers: {
           Authorization: `Bearer ${secret}`,
         },
@@ -603,7 +603,7 @@ export async function createSession(options: {
     metadata,
   } = options;
 
-  const response = await fetch(`${gatewayUrl}/v1/sessions`, {
+  const response = await fetch(`${gatewayUrl}/v1/verifications`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

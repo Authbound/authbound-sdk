@@ -33,30 +33,37 @@ export interface SSESubscriptionOptions {
   autoReconnect?: boolean;
   /** Maximum reconnection attempts (default: 5) */
   maxReconnectAttempts?: number;
+  /** Initial cursor for replay (events after this ID will be returned) */
+  afterCursor?: string;
 }
 
 /**
  * Parse SSE format from a chunk of text.
- * SSE format: "event: <type>\ndata: <json>\n\n"
+ * SSE format: "id: <cursor>\nevent: <type>\ndata: <json>\n\n"
  */
-function parseSSEChunk(chunk: string): Array<{ event?: string; data: string }> {
-  const events: Array<{ event?: string; data: string }> = [];
+function parseSSEChunk(chunk: string): Array<{ id?: string; event?: string; data: string }> {
+  const events: Array<{ id?: string; event?: string; data: string }> = [];
   const lines = chunk.split("\n");
 
+  let currentId: string | undefined;
   let currentEvent: string | undefined;
   let currentData: string[] = [];
 
   for (const line of lines) {
-    if (line.startsWith("event:")) {
+    if (line.startsWith("id:")) {
+      currentId = line.slice(3).trim();
+    } else if (line.startsWith("event:")) {
       currentEvent = line.slice(6).trim();
     } else if (line.startsWith("data:")) {
       currentData.push(line.slice(5).trim());
     } else if (line === "" && currentData.length > 0) {
       // Empty line marks end of event
       events.push({
+        id: currentId,
         event: currentEvent,
         data: currentData.join("\n"),
       });
+      currentId = undefined;
       currentEvent = undefined;
       currentData = [];
     }
@@ -118,14 +125,16 @@ export function createStatusSubscription(
   onEvent: (event: StatusEvent) => void,
   options: SSESubscriptionOptions = {}
 ): () => void {
-  const { onError, autoReconnect = true, maxReconnectAttempts = 5 } = options;
+  const { onError, autoReconnect = true, maxReconnectAttempts = 5, afterCursor } = options;
 
   let abortController: AbortController | null = null;
   let reconnectAttempts = 0;
   let isCleanedUp = false;
   let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  // Track last received event ID for cursor-based replay on reconnection
+  let lastEventId: string | undefined = afterCursor;
 
-  const url = new URL(
+  const baseUrl = new URL(
     `/v1/verifications/${sessionId}/events/sse`,
     config.gatewayUrl
   );
@@ -134,20 +143,31 @@ export function createStatusSubscription(
     if (isCleanedUp) return;
 
     if (config.debug) {
-      console.log("[Authbound] Connecting to SSE:", sessionId);
+      console.log("[Authbound] Connecting to SSE:", sessionId, lastEventId ? `(after: ${lastEventId})` : "");
     }
 
     abortController = new AbortController();
 
+    // Build URL with optional cursor query parameter
+    const url = new URL(baseUrl.toString());
+    if (lastEventId) {
+      url.searchParams.set("after", lastEventId);
+    }
+
+    // Build headers - include Last-Event-ID for reconnection replay
+    const headers: Record<string, string> = {
+      Accept: "text/event-stream",
+      "Cache-Control": "no-cache",
+      Authorization: `Bearer ${clientToken}`,
+    };
+    if (lastEventId) {
+      headers["Last-Event-ID"] = lastEventId;
+    }
+
     try {
       const response = await fetch(url.toString(), {
         method: "GET",
-        headers: {
-          Accept: "text/event-stream",
-          "Cache-Control": "no-cache",
-          // Token in Authorization header - NOT in URL
-          Authorization: `Bearer ${clientToken}`,
-        },
+        headers,
         signal: abortController.signal,
       });
 
@@ -205,8 +225,13 @@ export function createStatusSubscription(
         }
 
         // Process events
-        for (const { event, data } of events) {
+        for (const { id, event, data } of events) {
           if (isCleanedUp) break;
+
+          // Track event ID for cursor-based replay on reconnection
+          if (id) {
+            lastEventId = id;
+          }
 
           // Skip heartbeat events (no data or empty)
           if (event === "heartbeat" || !data) {
