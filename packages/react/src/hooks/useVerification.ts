@@ -145,7 +145,8 @@ export function useVerification(
   const sessionId = session?.sessionId ?? null;
   const authorizationRequestUrl = session?.authorizationRequestUrl ?? null;
   const deepLink =
-    session?.deepLink ?? client.getDeepLink(authorizationRequestUrl ?? "");
+    session?.deepLink ??
+    (authorizationRequestUrl ? client.getDeepLink(authorizationRequestUrl) : null);
   const error = session?.error ?? null;
   const result = session?.result ?? null;
 

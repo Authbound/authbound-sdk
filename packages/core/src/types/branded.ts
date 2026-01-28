@@ -182,16 +182,18 @@ export type SecretKey = Brand<string, "SecretKey">;
 
 /**
  * Check if a string is a valid PublishableKey format.
+ * Allows base64url characters (alphanumeric, hyphen, underscore) after the prefix.
  */
 export function isPublishableKey(value: string): value is PublishableKey {
-  return /^pk_(live|test)_[a-zA-Z0-9]+$/.test(value);
+  return /^pk_(live|test)_[a-zA-Z0-9_-]+$/.test(value);
 }
 
 /**
  * Check if a string is a valid SecretKey format.
+ * Allows base64url characters (alphanumeric, hyphen, underscore) after the prefix.
  */
 export function isSecretKey(value: string): value is SecretKey {
-  return /^sk_(live|test)_[a-zA-Z0-9]+$/.test(value);
+  return /^sk_(live|test)_[a-zA-Z0-9_-]+$/.test(value);
 }
 
 /**
