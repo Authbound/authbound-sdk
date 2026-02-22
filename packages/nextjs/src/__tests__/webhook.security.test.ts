@@ -1,14 +1,14 @@
 /**
  * Security tests for webhook signature verification.
  *
- * Target: verifyWebhookSignature() in server.ts:184-215
+ * Target: verifyWebhookSignatureDetailed() re-exported from @authbound-sdk/server
  * Purpose: Prevent webhook replay attacks via future timestamps
  *          (attacker sends webhook with future timestamp, replays later)
  */
 
 import crypto from "crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { verifyWebhookSignature } from "../server";
+import { verifyWebhookSignatureDetailed } from "../server";
 
 // Test constants
 const SECRET = "whsec_test_secret_key_12345";
@@ -36,6 +36,15 @@ function createSignatureHeader(timestamp: number, signature: string): string {
   return `t=${timestamp},v1=${signature}`;
 }
 
+function verify(payload: string, header: string, secret: string, tolerance?: number) {
+  return verifyWebhookSignatureDetailed({
+    payload,
+    signature: header,
+    secret,
+    tolerance,
+  });
+}
+
 describe("verifyWebhookSignature - Replay Attack Prevention", () => {
   // Fix "now" to a known timestamp for predictable testing
   const NOW_SECONDS = 1_718_452_800; // June 15, 2024 12:00:00 UTC
@@ -55,10 +64,10 @@ describe("verifyWebhookSignature - Replay Attack Prevention", () => {
       const signature = generateSignature(PAYLOAD, futureTimestamp, SECRET);
       const header = createSignatureHeader(futureTimestamp, signature);
 
-      const result = verifyWebhookSignature(PAYLOAD, header, SECRET);
+      const result = verify(PAYLOAD, header, SECRET);
 
-      expect(result.isValid).toBe(false);
-      expect(result.error).toContain("replay attack");
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("tolerance");
     });
 
     it("rejects timestamp at boundary + 1 second (tolerance=300s)", () => {
@@ -66,9 +75,9 @@ describe("verifyWebhookSignature - Replay Attack Prevention", () => {
       const signature = generateSignature(PAYLOAD, futureTimestamp, SECRET);
       const header = createSignatureHeader(futureTimestamp, signature);
 
-      const result = verifyWebhookSignature(PAYLOAD, header, SECRET);
+      const result = verify(PAYLOAD, header, SECRET);
 
-      expect(result.isValid).toBe(false);
+      expect(result.valid).toBe(false);
     });
 
     it("accepts timestamp exactly at future boundary (tolerance=300s)", () => {
@@ -76,9 +85,9 @@ describe("verifyWebhookSignature - Replay Attack Prevention", () => {
       const signature = generateSignature(PAYLOAD, futureTimestamp, SECRET);
       const header = createSignatureHeader(futureTimestamp, signature);
 
-      const result = verifyWebhookSignature(PAYLOAD, header, SECRET);
+      const result = verify(PAYLOAD, header, SECRET);
 
-      expect(result.isValid).toBe(true);
+      expect(result.valid).toBe(true);
     });
   });
 
@@ -88,10 +97,10 @@ describe("verifyWebhookSignature - Replay Attack Prevention", () => {
       const signature = generateSignature(PAYLOAD, pastTimestamp, SECRET);
       const header = createSignatureHeader(pastTimestamp, signature);
 
-      const result = verifyWebhookSignature(PAYLOAD, header, SECRET);
+      const result = verify(PAYLOAD, header, SECRET);
 
-      expect(result.isValid).toBe(false);
-      expect(result.error).toContain("replay attack");
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("tolerance");
     });
 
     it("rejects timestamp at boundary - 1 second (tolerance=300s)", () => {
@@ -99,9 +108,9 @@ describe("verifyWebhookSignature - Replay Attack Prevention", () => {
       const signature = generateSignature(PAYLOAD, pastTimestamp, SECRET);
       const header = createSignatureHeader(pastTimestamp, signature);
 
-      const result = verifyWebhookSignature(PAYLOAD, header, SECRET);
+      const result = verify(PAYLOAD, header, SECRET);
 
-      expect(result.isValid).toBe(false);
+      expect(result.valid).toBe(false);
     });
 
     it("accepts timestamp exactly at past boundary (tolerance=300s)", () => {
@@ -109,9 +118,9 @@ describe("verifyWebhookSignature - Replay Attack Prevention", () => {
       const signature = generateSignature(PAYLOAD, pastTimestamp, SECRET);
       const header = createSignatureHeader(pastTimestamp, signature);
 
-      const result = verifyWebhookSignature(PAYLOAD, header, SECRET);
+      const result = verify(PAYLOAD, header, SECRET);
 
-      expect(result.isValid).toBe(true);
+      expect(result.valid).toBe(true);
     });
   });
 
@@ -120,19 +129,18 @@ describe("verifyWebhookSignature - Replay Attack Prevention", () => {
       const signature = generateSignature(PAYLOAD, NOW_SECONDS, SECRET);
       const header = createSignatureHeader(NOW_SECONDS, signature);
 
-      const result = verifyWebhookSignature(PAYLOAD, header, SECRET);
+      const result = verify(PAYLOAD, header, SECRET);
 
-      expect(result.isValid).toBe(true);
+      expect(result.valid).toBe(true);
       expect(result.error).toBeUndefined();
     });
 
     it("rejects valid timestamp with wrong signature", () => {
       const header = createSignatureHeader(NOW_SECONDS, "invalid_signature");
 
-      const result = verifyWebhookSignature(PAYLOAD, header, SECRET);
+      const result = verify(PAYLOAD, header, SECRET);
 
-      expect(result.isValid).toBe(false);
-      expect(result.error).toBe("Signature mismatch");
+      expect(result.valid).toBe(false);
     });
   });
 
@@ -143,9 +151,9 @@ describe("verifyWebhookSignature - Replay Attack Prevention", () => {
       const signature = generateSignature(PAYLOAD, pastTimestamp, SECRET);
       const header = createSignatureHeader(pastTimestamp, signature);
 
-      const result = verifyWebhookSignature(PAYLOAD, header, SECRET, 60);
+      const result = verify(PAYLOAD, header, SECRET, 60);
 
-      expect(result.isValid).toBe(false);
+      expect(result.valid).toBe(false);
     });
 
     it("accepts timestamp within custom tolerance", () => {
@@ -154,29 +162,25 @@ describe("verifyWebhookSignature - Replay Attack Prevention", () => {
       const signature = generateSignature(PAYLOAD, pastTimestamp, SECRET);
       const header = createSignatureHeader(pastTimestamp, signature);
 
-      const result = verifyWebhookSignature(PAYLOAD, header, SECRET, 600);
+      const result = verify(PAYLOAD, header, SECRET, 600);
 
-      expect(result.isValid).toBe(true);
+      expect(result.valid).toBe(true);
     });
   });
 
   describe("Invalid Header Format", () => {
     it("rejects missing timestamp", () => {
-      const result = verifyWebhookSignature(PAYLOAD, "v1=somesig", SECRET);
+      const result = verify(PAYLOAD, "v1=somesig", SECRET);
 
-      expect(result.isValid).toBe(false);
-      expect(result.error).toBe("Invalid signature header format");
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("timestamp");
     });
 
     it("rejects missing signature", () => {
-      const result = verifyWebhookSignature(
-        PAYLOAD,
-        `t=${NOW_SECONDS}`,
-        SECRET
-      );
+      const result = verify(PAYLOAD, `t=${NOW_SECONDS}`, SECRET);
 
-      expect(result.isValid).toBe(false);
-      expect(result.error).toBe("Invalid signature header format");
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("signature");
     });
   });
 });

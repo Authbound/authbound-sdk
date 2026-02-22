@@ -31,6 +31,8 @@ export type EudiVerificationStatus =
   | "processing"
   | "verified"
   | "failed"
+  | "canceled"
+  | "expired"
   | "timeout"
   | "error";
 
@@ -40,6 +42,8 @@ export const EudiVerificationStatusSchema = z.enum([
   "processing",
   "verified",
   "failed",
+  "canceled",
+  "expired",
   "timeout",
   "error",
 ]);
@@ -50,6 +54,8 @@ export const EudiVerificationStatusSchema = z.enum([
 export const TERMINAL_STATUSES: readonly EudiVerificationStatus[] = [
   "verified",
   "failed",
+  "canceled",
+  "expired",
   "timeout",
   "error",
 ] as const;
@@ -245,7 +251,7 @@ export const SessionStatusResponseSchema = z.object({
  */
 export interface StatusEvent {
   /** Event type */
-  type: "status" | "result" | "error" | "timeout" | "heartbeat";
+  type: "status" | "result" | "error" | "timeout" | "canceled" | "expired" | "heartbeat";
   /** Current status */
   status: EudiVerificationStatus;
   /** Result data (if type is "result") */
@@ -260,7 +266,7 @@ export interface StatusEvent {
 }
 
 export const StatusEventSchema = z.object({
-  type: z.enum(["status", "result", "error", "timeout", "heartbeat"]),
+  type: z.enum(["status", "result", "error", "timeout", "canceled", "expired", "heartbeat"]),
   status: EudiVerificationStatusSchema,
   result: VerificationResultSchema.optional(),
   error: z

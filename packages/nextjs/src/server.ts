@@ -15,8 +15,8 @@
  */
 
 import type { PolicyId } from "@authbound-sdk/core";
-import crypto from "crypto";
 import { type NextRequest, NextResponse } from "next/server";
+import { verifyWebhookSignatureDetailed } from "@authbound-sdk/server";
 
 // ============================================================================
 // Types
@@ -127,103 +127,45 @@ function getEnvVar(name: string, fallback?: string): string {
 }
 
 // ============================================================================
-// Webhook Signature Verification
+// Webhook Signature Verification (re-exported from @authbound-sdk/server)
+// ============================================================================
+
+export {
+  verifyWebhookSignature,
+  verifyWebhookSignatureDetailed,
+  generateWebhookSignature,
+  type WebhookSignatureOptions,
+  type WebhookSignatureResult,
+} from "@authbound-sdk/server";
+
+// ============================================================================
+// Gateway Response Mapping
 // ============================================================================
 
 /**
- * Parse the Authbound webhook signature header.
- * Format: "t=<timestamp>,v1=<signature>"
+ * Map gateway response fields to SDK-expected shape.
+ *
+ * Gateway returns snake_case REST conventions:
+ *   { id, client_token, client_action: { data }, verification_url, expires_at }
+ *
+ * SDK expects camelCase with semantic names:
+ *   { sessionId, clientToken, authorizationRequestUrl, expiresAt, deepLink }
  */
-function parseSignatureHeader(
-  header: string
-): { timestamp: number; signatures: string[] } | null {
-  const parts = header.split(",");
-  let timestamp = 0;
-  const signatures: string[] = [];
+function mapGatewayResponse(raw: Record<string, unknown>): Record<string, unknown> {
+  // If already mapped (has sessionId), pass through
+  if (raw.sessionId) return raw;
 
-  for (const part of parts) {
-    const [key, value] = part.split("=");
-    if (key === "t") {
-      timestamp = Number.parseInt(value, 10);
-      if (isNaN(timestamp)) {
-        return null;
-      }
-    } else if (key === "v1") {
-      signatures.push(value);
-    }
-  }
+  const clientAction = raw.client_action as
+    | { kind?: string; data?: string; expires_at?: string }
+    | undefined;
 
-  if (timestamp === 0 || signatures.length === 0) {
-    return null;
-  }
-
-  return { timestamp, signatures };
-}
-
-/**
- * Compute the expected signature for a webhook payload.
- * Uses HMAC-SHA256 with format: "timestamp.payload"
- */
-function computeSignature(
-  payload: string,
-  timestamp: number,
-  secret: string
-): string {
-  const signedPayload = `${timestamp}.${payload}`;
-  return crypto
-    .createHmac("sha256", secret)
-    .update(signedPayload)
-    .digest("hex");
-}
-
-/**
- * Compare signatures in constant time to prevent timing attacks.
- */
-function secureCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    return false;
-  }
-  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
-}
-
-/**
- * Verify a webhook signature.
- * Returns true if the signature is valid and the timestamp is within tolerance.
- */
-export function verifyWebhookSignature(
-  payload: string,
-  signatureHeader: string,
-  secret: string,
-  tolerance = 300 // 5 minutes default
-): { isValid: boolean; error?: string } {
-  const parsed = parseSignatureHeader(signatureHeader);
-
-  if (!parsed) {
-    return { isValid: false, error: "Invalid signature header format" };
-  }
-
-  const { timestamp, signatures } = parsed;
-
-  // Check timestamp tolerance (both past AND future to prevent replay attacks)
-  const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - timestamp) > tolerance) {
-    return {
-      isValid: false,
-      error: "Timestamp outside tolerance window (possible replay attack)",
-    };
-  }
-
-  // Compute expected signature
-  const expected = computeSignature(payload, timestamp, secret);
-
-  // Check if any of the provided signatures match
-  const isValid = signatures.some((sig) => secureCompare(expected, sig));
-
-  if (!isValid) {
-    return { isValid: false, error: "Signature mismatch" };
-  }
-
-  return { isValid: true };
+  return {
+    sessionId: `ses_${raw.id}`,
+    authorizationRequestUrl: clientAction?.data ?? raw.verification_url,
+    clientToken: raw.client_token,
+    expiresAt: raw.expires_at,
+    deepLink: clientAction?.data,
+  };
 }
 
 // ============================================================================
@@ -309,19 +251,26 @@ export function createSessionRoute(
       });
 
       if (!gatewayResponse.ok) {
-        const error = await gatewayResponse.text();
+        const errorBody = await gatewayResponse.json().catch(() => ({}));
         if (debug) {
-          console.error("[Authbound] Gateway error:", error);
+          console.error("[Authbound] Gateway error:", errorBody);
         }
         return NextResponse.json(
-          { error: "Failed to create session" },
+          {
+            error: errorBody.message ?? "Failed to create session",
+            code: errorBody.code,
+            message: errorBody.message,
+          },
           { status: gatewayResponse.status }
         );
       }
 
-      let responseData = await gatewayResponse.json();
+      const rawResponse = await gatewayResponse.json();
 
-      // Transform response if provided
+      // Map gateway response shape to SDK-expected shape
+      let responseData = mapGatewayResponse(rawResponse);
+
+      // Apply custom transform on top of mapped response
       if (transformResponse) {
         responseData = await transformResponse(responseData);
       }
@@ -397,13 +346,13 @@ export function createWebhookRoute(
         }
 
         // Verify HMAC signature with timestamp tolerance
-        const verification = verifyWebhookSignature(
-          rawBody,
+        const verification = verifyWebhookSignatureDetailed({
+          payload: rawBody,
           signature,
-          webhookSecret,
-          tolerance
-        );
-        if (!verification.isValid) {
+          secret: webhookSecret,
+          tolerance,
+        });
+        if (!verification.valid) {
           if (debug) {
             console.error(
               "[Authbound] Webhook signature verification failed:",
@@ -473,12 +422,6 @@ export interface StatusRouteOptions {
   gatewayUrl?: string;
 
   /**
-   * Secret key.
-   * @default Uses AUTHBOUND_SECRET env var
-   */
-  secret?: string;
-
-  /**
    * Enable debug logging.
    */
   debug?: boolean;
@@ -486,6 +429,9 @@ export interface StatusRouteOptions {
 
 /**
  * Create a status polling route handler.
+ *
+ * Forwards the client token from the incoming request's Authorization header
+ * to the gateway, preserving the principle of least privilege.
  *
  * @example
  * ```ts
@@ -506,12 +452,11 @@ export function createStatusRoute(
       "AUTHBOUND_GATEWAY_URL",
       "https://gateway.authbound.io"
     ),
-    secret = getEnvVar("AUTHBOUND_SECRET"),
     debug = false,
   } = options;
 
   return async (
-    _request: NextRequest,
+    request: NextRequest,
     context: { params: { sessionId: string } | Promise<{ sessionId: string }> }
   ): Promise<NextResponse> => {
     try {
@@ -526,13 +471,25 @@ export function createStatusRoute(
         );
       }
 
-      if (debug) {
-        console.log("[Authbound] Checking status:", sessionId);
+      // Forward the client token from the incoming request
+      const authorization = request.headers.get("Authorization");
+      if (!authorization) {
+        return NextResponse.json(
+          { error: "Missing Authorization header" },
+          { status: 401 }
+        );
       }
 
-      const response = await fetch(`${gatewayUrl}/v1/verifications/${sessionId}/status`, {
+      // Strip ses_ prefix if present (gateway expects raw UUID)
+      const rawId = sessionId.startsWith("ses_") ? sessionId.slice(4) : sessionId;
+
+      if (debug) {
+        console.log("[Authbound] Checking status:", rawId);
+      }
+
+      const response = await fetch(`${gatewayUrl}/v1/verifications/${rawId}/status`, {
         headers: {
-          Authorization: `Bearer ${secret}`,
+          Authorization: authorization,
         },
       });
 
@@ -620,7 +577,13 @@ export async function createSession(options: {
     throw new Error(`Failed to create session: ${response.statusText}`);
   }
 
-  return response.json();
+  const raw = await response.json();
+  return mapGatewayResponse(raw) as {
+    sessionId: string;
+    authorizationRequestUrl: string;
+    clientToken: string;
+    expiresAt: string;
+  };
 }
 
 // ============================================================================

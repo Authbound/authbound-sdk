@@ -408,15 +408,30 @@ function isRetryableCode(code: AuthboundErrorCode): boolean {
 }
 
 /**
+ * Map gateway-specific error codes to SDK error codes.
+ * The gateway may return codes that aren't directly in the SDK vocabulary.
+ */
+const GATEWAY_CODE_MAP: Record<string, AuthboundErrorCode> = {
+  invalid_policy: "policy_not_found",
+  validation_error: "policy_invalid",
+};
+
+/**
  * Map HTTP status code to AuthboundErrorCode.
  */
 function mapHttpStatusToCode(
   status: number,
   apiCode?: string
 ): AuthboundErrorCode {
-  // If API provided a code, try to use it
-  if (apiCode && isValidErrorCode(apiCode)) {
-    return apiCode as AuthboundErrorCode;
+  // If API provided a code, try to use it directly or normalize it
+  if (apiCode) {
+    if (isValidErrorCode(apiCode)) {
+      return apiCode as AuthboundErrorCode;
+    }
+    const mapped = GATEWAY_CODE_MAP[apiCode];
+    if (mapped) {
+      return mapped;
+    }
   }
 
   // Map by HTTP status

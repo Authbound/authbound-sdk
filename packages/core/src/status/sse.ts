@@ -73,24 +73,18 @@ function parseSSEChunk(chunk: string): Array<{ id?: string; event?: string; data
 }
 
 /**
- * Map gateway status to SDK-friendly EudiVerificationStatus.
- * - "expired" → "timeout" (session timed out)
- * - "canceled" → "error" (user/system canceled)
+ * Map gateway status to SDK EudiVerificationStatus.
+ * Passes through all statuses directly; unknown statuses default to "pending".
  */
 function mapGatewayStatus(status: string): StatusEvent["status"] {
   switch (status) {
     case "pending":
-      return "pending";
     case "processing":
-      return "processing";
     case "verified":
-      return "verified";
     case "failed":
-      return "failed";
-    case "expired":
-      return "timeout";
     case "canceled":
-      return "error";
+    case "expired":
+      return status;
     default:
       return "pending";
   }
