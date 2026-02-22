@@ -144,9 +144,16 @@ export function useVerification(
   const isFailed = status === "failed" || status === "error";
   const sessionId = session?.sessionId ?? null;
   const authorizationRequestUrl = session?.authorizationRequestUrl ?? null;
-  const deepLink =
-    session?.deepLink ??
-    (authorizationRequestUrl ? client.getDeepLink(authorizationRequestUrl) : null);
+  let deepLink: string | null = null;
+  try {
+    deepLink =
+      session?.deepLink ??
+      (authorizationRequestUrl
+        ? client.getDeepLink(authorizationRequestUrl)
+        : null);
+  } catch (err) {
+    client.log("Failed to generate deep link:", err);
+  }
   const error = session?.error ?? null;
   const result = session?.result ?? null;
 

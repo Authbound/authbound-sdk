@@ -36,6 +36,8 @@ const DEFAULT_MESSAGES: Record<EudiVerificationStatus, string> = {
   processing: "Verifying credentials...",
   verified: "Verification successful",
   failed: "Verification failed",
+  canceled: "Verification canceled",
+  expired: "Verification expired",
   timeout: "Verification timed out",
   error: "An error occurred",
 };
@@ -176,8 +178,10 @@ function getStatusIcon(status: EudiVerificationStatus): ReactNode {
       return <VerifiedIcon />;
     case "failed":
     case "error":
+    case "canceled":
       return <FailedIcon />;
     case "timeout":
+    case "expired":
       return <TimeoutIcon />;
     default:
       return <IdleIcon />;
@@ -194,8 +198,10 @@ function getStatusColor(status: EudiVerificationStatus): string {
       return "var(--ab-color-success)";
     case "failed":
     case "error":
+    case "canceled":
       return "var(--ab-color-error)";
     case "timeout":
+    case "expired":
       return "var(--ab-color-warning)";
     default:
       return "var(--ab-color-foreground)";

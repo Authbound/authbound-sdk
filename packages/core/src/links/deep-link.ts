@@ -51,8 +51,15 @@ export function buildDeepLink(
 ): string {
   const { scheme = WALLET_SCHEMES.EUDI, action = "verify" } = options;
 
-  // Parse the authorization request URL to extract parameters
-  const arUrl = new URL(authorizationRequestUrl);
+  let arUrl: URL;
+  try {
+    arUrl = new URL(authorizationRequestUrl);
+  } catch {
+    // Fallback: encode the raw string as request_uri
+    const deepLink = new URL(`${scheme}://${action}`);
+    deepLink.searchParams.set("request_uri", authorizationRequestUrl);
+    return deepLink.toString();
+  }
 
   // Build deep link URL
   const deepLink = new URL(`${scheme}://${action}`);
@@ -80,7 +87,12 @@ export function buildOpenID4VPDeepLink(
   authorizationRequestUrl: string
 ): string {
   // OpenID4VP uses the openid4vp:// scheme with the full URL
-  return `openid4vp://?${new URL(authorizationRequestUrl).search.slice(1)}`;
+  try {
+    return `openid4vp://?${new URL(authorizationRequestUrl).search.slice(1)}`;
+  } catch {
+    // Fallback: pass the raw URL as request_uri
+    return `openid4vp://?request_uri=${encodeURIComponent(authorizationRequestUrl)}`;
+  }
 }
 
 /**
@@ -93,9 +105,14 @@ export function buildCustomDeepLink(
   scheme: string,
   path = ""
 ): string {
-  const deepLink = new URL(`${scheme}://${path}`);
-  deepLink.searchParams.set("request_uri", authorizationRequestUrl);
-  return deepLink.toString();
+  try {
+    const deepLink = new URL(`${scheme}://${path}`);
+    deepLink.searchParams.set("request_uri", authorizationRequestUrl);
+    return deepLink.toString();
+  } catch {
+    // Fallback for malformed scheme: encode as query string
+    return `${scheme}://${path}?request_uri=${encodeURIComponent(authorizationRequestUrl)}`;
+  }
 }
 
 // ============================================================================
