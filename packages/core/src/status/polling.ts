@@ -143,6 +143,7 @@ export function createPollingSubscription(
         headers: {
           Authorization: `Bearer ${clientToken}`,
           Accept: "application/json",
+          "x-authbound-publishable-key": config.publishableKey,
         },
         signal: abortController.signal,
       });
@@ -294,6 +295,7 @@ export async function pollOnce(
     headers: {
       Authorization: `Bearer ${clientToken}`,
       Accept: "application/json",
+      "x-authbound-publishable-key": config.publishableKey,
     },
   });
 

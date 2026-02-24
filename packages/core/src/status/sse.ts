@@ -153,6 +153,7 @@ export function createStatusSubscription(
       Accept: "text/event-stream",
       "Cache-Control": "no-cache",
       Authorization: `Bearer ${clientToken}`,
+      "x-authbound-publishable-key": config.publishableKey,
     };
     if (lastEventId) {
       headers["Last-Event-ID"] = lastEventId;
@@ -236,17 +237,26 @@ export function createStatusSubscription(
           }
 
           try {
-            const parsed = JSON.parse(data) as StatusEvent;
+            const parsed = JSON.parse(data) as Record<string, unknown>;
             // Map gateway status to SDK-friendly status
-            const mappedStatus = mapGatewayStatus(parsed.status);
-            const eventWithType = event
-              ? { ...parsed, status: mappedStatus, type: event as StatusEvent["type"] }
-              : { ...parsed, status: mappedStatus };
+            const mappedStatus = mapGatewayStatus(parsed.status as string);
+            // Build a complete StatusEvent — the gateway sends `updatedAt`
+            // but the SDK schema expects `timestamp`
+            const timestamp =
+              (parsed.timestamp as string) ??
+              (parsed.updatedAt as string) ??
+              new Date().toISOString();
+            const statusEvent: StatusEvent = {
+              ...parsed,
+              status: mappedStatus,
+              type: (event ?? parsed.type ?? "status") as StatusEvent["type"],
+              timestamp,
+            };
 
-            onEvent(eventWithType);
+            onEvent(statusEvent);
 
             // Stop on terminal status (check raw status for terminal detection)
-            if (isTerminalStatus(parsed.status)) {
+            if (isTerminalStatus(parsed.status as string)) {
               cleanup();
               return;
             }
