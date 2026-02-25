@@ -26,6 +26,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { AuthboundAppearance } from "../types/appearance";
@@ -162,6 +163,7 @@ export function AuthboundProvider({
 }: AuthboundProviderProps) {
   const [session, setSession] = useState<VerificationSession | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const statusCleanupRef = useRef<(() => void) | null>(null);
 
   // Track OS color scheme preference for auto theme
   const [prefersDark, setPrefersDark] = useState(() => {
@@ -233,10 +235,18 @@ export function AuthboundProvider({
     setSession((prev) => (prev ? { ...prev, ...update } : null));
   }, []);
 
+  const cleanupStatusSubscription = useCallback(() => {
+    if (statusCleanupRef.current) {
+      statusCleanupRef.current();
+      statusCleanupRef.current = null;
+    }
+  }, []);
+
   // Reset session
   const resetSession = useCallback(() => {
+    cleanupStatusSubscription();
     setSession(null);
-  }, []);
+  }, [cleanupStatusSubscription]);
 
   // Start verification
   const startVerification = useCallback(
@@ -246,6 +256,8 @@ export function AuthboundProvider({
       metadata?: Record<string, string>;
     }) => {
       try {
+        cleanupStatusSubscription();
+
         // Create session
         const response = await client.startVerification({
           policyId: options?.policyId ?? policyId,
@@ -266,7 +278,7 @@ export function AuthboundProvider({
         setSession(newSession);
 
         // Subscribe to status updates
-        client.subscribeToStatus(
+        statusCleanupRef.current = client.subscribeToStatus(
           response.sessionId as SessionId,
           response.clientToken as Parameters<
             typeof client.subscribeToStatus
@@ -315,8 +327,14 @@ export function AuthboundProvider({
         throw authboundError;
       }
     },
-    [client, policyId]
+    [cleanupStatusSubscription, client, policyId]
   );
+
+  useEffect(() => {
+    return () => {
+      cleanupStatusSubscription();
+    };
+  }, [cleanupStatusSubscription]);
 
   // Build CSS custom properties
   const cssProperties = useMemo(() => {
