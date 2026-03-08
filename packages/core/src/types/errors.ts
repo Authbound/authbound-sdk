@@ -324,15 +324,30 @@ export class AuthboundError extends Error {
     body?: {
       code?: string;
       message?: string;
+      error?: string;
       details?: Record<string, unknown>;
+      [key: string]: unknown;
     }
   ): AuthboundError {
     const code = mapHttpStatusToCode(response.status, body?.code);
     const retryAfter = parseRetryAfter(response.headers.get("Retry-After"));
+    const extraDetails = Object.fromEntries(
+      Object.entries(body ?? {}).filter(
+        ([key, value]) =>
+          key !== "code" &&
+          key !== "message" &&
+          key !== "error" &&
+          key !== "details" &&
+          value !== undefined
+      )
+    );
 
-    return new AuthboundError(code, body?.message, {
+    return new AuthboundError(code, body?.message ?? body?.error, {
       statusCode: response.status,
-      details: body?.details,
+      details:
+        Object.keys(extraDetails).length > 0
+          ? { ...body?.details, ...extraDetails }
+          : body?.details,
       retryAfter,
     });
   }

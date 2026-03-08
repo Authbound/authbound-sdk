@@ -445,7 +445,7 @@ export function createStatusRoute(
   options: StatusRouteOptions = {}
 ): (
   request: NextRequest,
-  context: { params: { sessionId: string } | Promise<{ sessionId: string }> }
+  context: { params: Promise<{ sessionId: string }> }
 ) => Promise<NextResponse> {
   const {
     gatewayUrl = getEnvVar(
@@ -457,10 +457,9 @@ export function createStatusRoute(
 
   return async (
     request: NextRequest,
-    context: { params: { sessionId: string } | Promise<{ sessionId: string }> }
+    context: { params: Promise<{ sessionId: string }> }
   ): Promise<NextResponse> => {
     try {
-      // Handle both sync and async params (Next.js 15)
       const params = await context.params;
       const { sessionId } = params;
 
