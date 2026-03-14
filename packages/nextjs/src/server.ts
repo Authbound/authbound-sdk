@@ -126,6 +126,111 @@ function getEnvVar(name: string, fallback?: string): string {
   return value ?? fallback!;
 }
 
+function maskIdentifier(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (value.length <= 8) {
+    return "***";
+  }
+
+  return `${value.slice(0, 4)}...${value.slice(-4)}`;
+}
+
+function summarizeError(error: unknown): { name: string; message: string } {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+    };
+  }
+
+  return {
+    name: "UnknownError",
+    message: "Unknown error",
+  };
+}
+
+function summarizeSessionRequest(
+  policyId: PolicyId,
+  body: Record<string, unknown>
+): Record<string, unknown> {
+  const metadata =
+    body.metadata &&
+    typeof body.metadata === "object" &&
+    !Array.isArray(body.metadata)
+      ? (body.metadata as Record<string, unknown>)
+      : null;
+
+  return {
+    policyId,
+    bodyKeys: Object.keys(body).sort(),
+    hasCustomerUserRef:
+      typeof body.customerUserRef === "string" &&
+      body.customerUserRef.length > 0,
+    metadataKeys: metadata ? Object.keys(metadata).sort() : [],
+  };
+}
+
+function summarizeGatewayError(errorBody: unknown): Record<string, unknown> {
+  if (!errorBody || typeof errorBody !== "object") {
+    return {
+      type: typeof errorBody,
+    };
+  }
+
+  const typedErrorBody = errorBody as Record<string, unknown>;
+
+  return {
+    code:
+      typeof typedErrorBody.code === "string" ? typedErrorBody.code : undefined,
+    message:
+      typeof typedErrorBody.message === "string"
+        ? typedErrorBody.message
+        : undefined,
+    object:
+      typeof typedErrorBody.object === "string"
+        ? typedErrorBody.object
+        : undefined,
+  };
+}
+
+function summarizeSessionResponse(
+  responseData: Record<string, unknown>
+): Record<string, unknown> {
+  return {
+    sessionId:
+      typeof responseData.sessionId === "string"
+        ? maskIdentifier(responseData.sessionId)
+        : undefined,
+    expiresAt:
+      typeof responseData.expiresAt === "string"
+        ? responseData.expiresAt
+        : undefined,
+    hasAuthorizationRequestUrl:
+      typeof responseData.authorizationRequestUrl === "string" &&
+      responseData.authorizationRequestUrl.length > 0,
+    hasClientToken:
+      typeof responseData.clientToken === "string" &&
+      responseData.clientToken.length > 0,
+    hasDeepLink:
+      typeof responseData.deepLink === "string" &&
+      responseData.deepLink.length > 0,
+  };
+}
+
+function summarizeWebhookEvent(event: WebhookEvent): Record<string, unknown> {
+  return {
+    eventId: maskIdentifier(event.id),
+    type: event.type,
+    created: event.created,
+    sessionId: maskIdentifier(event.data.object.id),
+    status: event.data.object.status,
+    errorCode: event.data.object.last_error?.code,
+  };
+}
+
 // ============================================================================
 // Webhook Signature Verification (re-exported from @authbound-sdk/server)
 // ============================================================================
@@ -151,7 +256,9 @@ export {
  * SDK expects camelCase with semantic names:
  *   { sessionId, clientToken, authorizationRequestUrl, expiresAt, deepLink }
  */
-function mapGatewayResponse(raw: Record<string, unknown>): Record<string, unknown> {
+function mapGatewayResponse(
+  raw: Record<string, unknown>
+): Record<string, unknown> {
   // If already mapped (has sessionId), pass through
   if (raw.sessionId) return raw;
 
@@ -237,7 +344,10 @@ export function createSessionRoute(
       }
 
       if (debug) {
-        console.log("[Authbound] Creating session:", { policyId, body });
+        console.log(
+          "[Authbound] Creating session:",
+          summarizeSessionRequest(policyId, body)
+        );
       }
 
       // Proxy to gateway
@@ -253,7 +363,10 @@ export function createSessionRoute(
       if (!gatewayResponse.ok) {
         const errorBody = await gatewayResponse.json().catch(() => ({}));
         if (debug) {
-          console.error("[Authbound] Gateway error:", errorBody);
+          console.error(
+            "[Authbound] Gateway error:",
+            summarizeGatewayError(errorBody)
+          );
         }
         return NextResponse.json(
           {
@@ -276,13 +389,19 @@ export function createSessionRoute(
       }
 
       if (debug) {
-        console.log("[Authbound] Session created:", responseData);
+        console.log(
+          "[Authbound] Session created:",
+          summarizeSessionResponse(responseData)
+        );
       }
 
       return NextResponse.json(responseData);
     } catch (error) {
       if (debug) {
-        console.error("[Authbound] Session creation error:", error);
+        console.error(
+          "[Authbound] Session creation error:",
+          summarizeError(error)
+        );
       }
       return NextResponse.json(
         { error: "Internal server error" },
@@ -375,7 +494,7 @@ export function createWebhookRoute(
       const event = JSON.parse(rawBody) as WebhookEvent;
 
       if (debug) {
-        console.log("[Authbound] Webhook event:", event);
+        console.log("[Authbound] Webhook event:", summarizeWebhookEvent(event));
       }
 
       // Call event handler
@@ -400,7 +519,7 @@ export function createWebhookRoute(
       return NextResponse.json({ received: true });
     } catch (error) {
       if (debug) {
-        console.error("[Authbound] Webhook error:", error);
+        console.error("[Authbound] Webhook error:", summarizeError(error));
       }
       return NextResponse.json(
         { error: "Webhook processing failed" },
@@ -480,17 +599,24 @@ export function createStatusRoute(
       }
 
       // Strip ses_ prefix if present (gateway expects raw UUID)
-      const rawId = sessionId.startsWith("ses_") ? sessionId.slice(4) : sessionId;
+      const rawId = sessionId.startsWith("ses_")
+        ? sessionId.slice(4)
+        : sessionId;
 
       if (debug) {
-        console.log("[Authbound] Checking status:", rawId);
+        console.log("[Authbound] Checking status:", {
+          sessionId: maskIdentifier(rawId),
+        });
       }
 
-      const response = await fetch(`${gatewayUrl}/v1/verifications/${rawId}/status`, {
-        headers: {
-          Authorization: authorization,
-        },
-      });
+      const response = await fetch(
+        `${gatewayUrl}/v1/verifications/${rawId}/status`,
+        {
+          headers: {
+            Authorization: authorization,
+          },
+        }
+      );
 
       if (!response.ok) {
         return NextResponse.json(
@@ -503,7 +629,7 @@ export function createStatusRoute(
       return NextResponse.json(data);
     } catch (error) {
       if (debug) {
-        console.error("[Authbound] Status error:", error);
+        console.error("[Authbound] Status error:", summarizeError(error));
       }
       return NextResponse.json(
         { error: "Internal server error" },

@@ -59,7 +59,7 @@
     "@authbound-sdk/tsconfig": "workspace:*",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",
-    "next": "^16.1.0",
+    "next": "^16.1.6",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
