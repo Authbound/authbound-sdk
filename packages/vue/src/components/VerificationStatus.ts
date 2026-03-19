@@ -48,6 +48,18 @@ const STATUS_CONFIG: Record<EudiVerificationStatus, StatusConfig> = {
     icon: "✗",
     color: "var(--ab-color-error, #b3261e)",
   },
+  canceled: {
+    label: "Canceled",
+    description: "Verification was canceled",
+    icon: "✗",
+    color: "var(--ab-color-error, #b3261e)",
+  },
+  expired: {
+    label: "Expired",
+    description: "Verification expired, please try again",
+    icon: "⏱",
+    color: "var(--ab-color-warning, #f59e0b)",
+  },
   timeout: {
     label: "Timed Out",
     description: "Session expired, please try again",

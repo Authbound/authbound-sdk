@@ -6,7 +6,7 @@
 
 import QRCodeLib from "qrcode";
 import { type CSSProperties, useEffect, useState } from "react";
-import { useAuthbound } from "../context/authbound-context";
+import { useAuthboundOptional } from "../context/authbound-context";
 
 // ============================================================================
 // Types
@@ -62,13 +62,13 @@ export function QRCode({
   style,
   alt = "Scan with your EU Digital Identity Wallet",
 }: QRCodeProps) {
-  const { appearance } = useAuthbound();
+  const authbound = useAuthboundOptional();
   const [dataUrl, setDataUrl] = useState<string>("");
   const [error, setError] = useState<Error | null>(null);
 
   // Resolve colors
-  const fg = fgColor ?? "#1a1a1a";
-  const bg = bgColor ?? "#ffffff";
+  const fg = fgColor ?? authbound?.appearance.variables?.colorForeground ?? "#1a1a1a";
+  const bg = bgColor ?? authbound?.appearance.variables?.colorBackground ?? "#ffffff";
 
   // Generate QR code as data URL
   useEffect(() => {
