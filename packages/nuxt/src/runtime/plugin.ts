@@ -6,9 +6,9 @@
 
 import {
   type AuthboundClient,
+  asPublishableKey,
   createClient,
   isPublishableKey,
-  asPublishableKey,
   type PolicyId,
 } from "@authbound-sdk/core";
 import { defineNuxtPlugin, useRuntimeConfig } from "#app";

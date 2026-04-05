@@ -15,8 +15,8 @@
  */
 
 import type { PolicyId } from "@authbound-sdk/core";
-import { type NextRequest, NextResponse } from "next/server";
 import { verifyWebhookSignatureDetailed } from "@authbound-sdk/server";
+import { type NextRequest, NextResponse } from "next/server";
 
 // ============================================================================
 // Types
@@ -236,9 +236,9 @@ function summarizeWebhookEvent(event: WebhookEvent): Record<string, unknown> {
 // ============================================================================
 
 export {
+  generateWebhookSignature,
   verifyWebhookSignature,
   verifyWebhookSignatureDetailed,
-  generateWebhookSignature,
   type WebhookSignatureOptions,
   type WebhookSignatureResult,
 } from "@authbound-sdk/server";

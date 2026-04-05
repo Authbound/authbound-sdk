@@ -36,7 +36,12 @@ function createSignatureHeader(timestamp: number, signature: string): string {
   return `t=${timestamp},v1=${signature}`;
 }
 
-function verify(payload: string, header: string, secret: string, tolerance?: number) {
+function verify(
+  payload: string,
+  header: string,
+  secret: string,
+  tolerance?: number
+) {
   return verifyWebhookSignatureDetailed({
     payload,
     signature: header,

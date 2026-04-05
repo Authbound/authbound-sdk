@@ -67,8 +67,10 @@ export function QRCode({
   const [error, setError] = useState<Error | null>(null);
 
   // Resolve colors
-  const fg = fgColor ?? authbound?.appearance.variables?.colorForeground ?? "#1a1a1a";
-  const bg = bgColor ?? authbound?.appearance.variables?.colorBackground ?? "#ffffff";
+  const fg =
+    fgColor ?? authbound?.appearance.variables?.colorForeground ?? "#1a1a1a";
+  const bg =
+    bgColor ?? authbound?.appearance.variables?.colorBackground ?? "#ffffff";
 
   // Generate QR code as data URL
   useEffect(() => {

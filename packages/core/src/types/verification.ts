@@ -251,7 +251,14 @@ export const SessionStatusResponseSchema = z.object({
  */
 export interface StatusEvent {
   /** Event type */
-  type: "status" | "result" | "error" | "timeout" | "canceled" | "expired" | "heartbeat";
+  type:
+    | "status"
+    | "result"
+    | "error"
+    | "timeout"
+    | "canceled"
+    | "expired"
+    | "heartbeat";
   /** Current status */
   status: EudiVerificationStatus;
   /** Result data (if type is "result") */
@@ -266,7 +273,15 @@ export interface StatusEvent {
 }
 
 export const StatusEventSchema = z.object({
-  type: z.enum(["status", "result", "error", "timeout", "canceled", "expired", "heartbeat"]),
+  type: z.enum([
+    "status",
+    "result",
+    "error",
+    "timeout",
+    "canceled",
+    "expired",
+    "heartbeat",
+  ]),
   status: EudiVerificationStatusSchema,
   result: VerificationResultSchema.optional(),
   error: z

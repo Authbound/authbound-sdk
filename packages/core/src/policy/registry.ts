@@ -11,7 +11,6 @@
  */
 
 import type { PolicyId } from "../types/branded";
-import { AuthboundError } from "../types/errors";
 import { PolicyPresets, PRESET_POLICIES } from "../types/policy";
 
 // ============================================================================
@@ -162,10 +161,16 @@ export async function fetchPresetRegistry(
 
     // Update caches
     const expiresAt = Date.now() + STORAGE_CACHE_TTL_MS;
-    memoryCache = { data: registry, expiresAt: Date.now() + MEMORY_CACHE_TTL_MS };
+    memoryCache = {
+      data: registry,
+      expiresAt: Date.now() + MEMORY_CACHE_TTL_MS,
+    };
 
     // Persist to localStorage (browser only)
-    if (typeof localStorage !== "undefined" && typeof document !== "undefined") {
+    if (
+      typeof localStorage !== "undefined" &&
+      typeof document !== "undefined"
+    ) {
       try {
         localStorage.setItem(
           CACHE_KEY,

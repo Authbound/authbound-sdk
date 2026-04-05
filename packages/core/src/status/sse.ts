@@ -41,7 +41,9 @@ export interface SSESubscriptionOptions {
  * Parse SSE format from a chunk of text.
  * SSE format: "id: <cursor>\nevent: <type>\ndata: <json>\n\n"
  */
-function parseSSEChunk(chunk: string): Array<{ id?: string; event?: string; data: string }> {
+function parseSSEChunk(
+  chunk: string
+): Array<{ id?: string; event?: string; data: string }> {
   const events: Array<{ id?: string; event?: string; data: string }> = [];
   const lines = chunk.split("\n");
 
@@ -119,7 +121,12 @@ export function createStatusSubscription(
   onEvent: (event: StatusEvent) => void,
   options: SSESubscriptionOptions = {}
 ): () => void {
-  const { onError, autoReconnect = true, maxReconnectAttempts = 5, afterCursor } = options;
+  const {
+    onError,
+    autoReconnect = true,
+    maxReconnectAttempts = 5,
+    afterCursor,
+  } = options;
 
   let abortController: AbortController | null = null;
   let reconnectAttempts = 0;
@@ -137,7 +144,11 @@ export function createStatusSubscription(
     if (isCleanedUp) return;
 
     if (config.debug) {
-      console.log("[Authbound] Connecting to SSE:", sessionId, lastEventId ? `(after: ${lastEventId})` : "");
+      console.log(
+        "[Authbound] Connecting to SSE:",
+        sessionId,
+        lastEventId ? `(after: ${lastEventId})` : ""
+      );
     }
 
     abortController = new AbortController();

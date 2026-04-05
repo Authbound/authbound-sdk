@@ -109,7 +109,10 @@ export function createPollingSubscription(
   let lastStatus: EudiVerificationStatus = "idle";
   const startTime = Date.now();
 
-  const url = new URL(`/v1/verifications/${sessionId}/status`, config.gatewayUrl);
+  const url = new URL(
+    `/v1/verifications/${sessionId}/status`,
+    config.gatewayUrl
+  );
 
   async function poll(): Promise<void> {
     if (isCleanedUp) return;
@@ -289,7 +292,10 @@ export async function pollOnce(
   error?: { code: string; message: string };
   timeRemaining?: number;
 }> {
-  const url = new URL(`/v1/verifications/${sessionId}/status`, config.gatewayUrl);
+  const url = new URL(
+    `/v1/verifications/${sessionId}/status`,
+    config.gatewayUrl
+  );
 
   const response = await fetch(url.toString(), {
     headers: {

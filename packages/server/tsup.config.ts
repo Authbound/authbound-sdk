@@ -8,7 +8,12 @@ export default defineConfig([
     dts: true,
     clean: true,
     outDir: "dist",
-    external: ["next", "next/server", "@authbound-sdk/core", "@authbound-sdk/shared"],
+    external: [
+      "next",
+      "next/server",
+      "@authbound-sdk/core",
+      "@authbound-sdk/shared",
+    ],
   },
   // Next.js specific entry point
   {
@@ -30,7 +35,12 @@ export default defineConfig([
     format: ["esm", "cjs"],
     dts: true,
     outDir: "dist/express",
-    external: ["express", "@authbound-sdk/core", "@authbound-sdk/shared", "jose"],
+    external: [
+      "express",
+      "@authbound-sdk/core",
+      "@authbound-sdk/shared",
+      "jose",
+    ],
   },
   // Hono specific entry point
   {
@@ -52,6 +62,11 @@ export default defineConfig([
     format: ["esm"],
     dts: true,
     outDir: "dist",
-    external: ["next", "next/server", "@authbound-sdk/core", "@authbound-sdk/shared"],
+    external: [
+      "next",
+      "next/server",
+      "@authbound-sdk/core",
+      "@authbound-sdk/shared",
+    ],
   },
 ]);

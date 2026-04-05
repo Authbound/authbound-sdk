@@ -12,8 +12,8 @@ import type {
 } from "@authbound-sdk/core";
 import {
   AuthboundError,
-  isTerminalStatus,
   asClientToken,
+  isTerminalStatus,
 } from "@authbound-sdk/core";
 import { computed, onUnmounted, ref, watch } from "vue";
 import { useRouter, useRuntimeConfig } from "#app";
