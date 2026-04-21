@@ -1,135 +1,248 @@
-# Turborepo starter
+# Authbound Public SDK
 
-This Turborepo starter is maintained by the Turborepo core team.
+TypeScript SDK packages for Authbound verification and OpenID4VC credential issuance.
 
-## Using this example
-
-Run the following command:
+## Install
 
 ```sh
-npx create-turbo@latest
+pnpm add @authbound-sdk/server
 ```
 
-## What's inside?
+## Initialize
 
-This Turborepo includes the following packages/apps:
+```ts
+import { AuthboundClient } from "@authbound-sdk/server";
 
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@authbound-sdk/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@authbound-sdk/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@authbound-sdk/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+const authbound = new AuthboundClient({
+  apiKey: process.env.AUTHBOUND_API_KEY!,
+});
 ```
 
-You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+Use a server-side secret key: `sk_test_*` for test mode or `sk_live_*` for live mode. Do not expose this key in browser code.
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
+## Run The Basic Issuer Example
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
+The smallest runnable issuer-agent example lives in [`examples/issuer-agent-basic`](./examples/issuer-agent-basic).
 
-### Develop
-
-To develop all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+```sh
+cd examples/issuer-agent-basic
+pnpm install
+cp .env.example .env
+AUTHBOUND_API_KEY=sk_test_... pnpm dev
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+Open `http://localhost:3000`, click **Create wallet offer**, and the server will:
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
+1. Create an `Employee Badge` credential definition if it does not exist.
+2. Map a sample employee record into credential claims.
+3. Call `authbound.openId4Vc.issuance.createOffer`.
+4. Return the `offerUri` for QR-code or wallet-link handoff.
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
+## Issue A Credential Offer
 
-### Remote Caching
+Credential definitions are Authbound's issuer templates. List them first, create an OpenID4VCI offer, render the returned `offerUri` as a QR code, then poll the issuance session until the wallet redeems it.
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+```ts
+const definitions = await authbound.issuer.credentialDefinitions.list();
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+const pensionDefinition = definitions.data.find(
+  (definition) => definition.credentialDefinitionId === "pension_credential_v1"
+);
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+if (!pensionDefinition) {
+  throw new Error("Credential definition is not available for this project");
+}
 
-```
-cd my-turborepo
+const offer = await authbound.openId4Vc.issuance.createOffer({
+  credentialDefinitionId: pensionDefinition.credentialDefinitionId,
+  claims: {
+    Person: {
+      given_name: "Sergio",
+      family_name: "Jack",
+    },
+    Pension: {
+      startDate: "2025-01-01",
+    },
+  },
+  issuanceMode: "InTime",
+  txCode: "1234",
+  idempotencyKey: crypto.randomUUID(),
+});
 
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
+// Encode this URI as a QR code or pass it to your wallet handoff UI.
+console.log(offer.offerUri);
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
+const latest = await authbound.openId4Vc.issuance.get(offer.id);
+console.log(latest.status);
 ```
 
-## Useful Links
+## 15-Minute Issuer Agent Flow
 
-Learn more about the power of Turborepo:
+Use this shape when adding issuance to an existing website:
 
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+1. Create or update a project-scoped credential definition during setup.
+2. Map your business JSON into credential claims.
+3. Call `openId4Vc.issuance.createOffer`.
+4. Return `offer.offerUri` to the browser and render it as a QR code or wallet link.
+5. Poll `openId4Vc.issuance.get` until the session reaches a terminal status.
+
+```ts
+const definition = await authbound.issuer.credentialDefinitions.create({
+  credentialDefinitionId: "pension_credential_v1",
+  vct: "urn:vc:authbound:pension:1.0",
+  format: "dc+sd-jwt",
+  title: "Pension Credential",
+  aliases: ["pension"],
+  claims: [
+    { path: ["Person", "given_name"], mandatory: true, displayName: "Given Name" },
+    { path: ["Person", "family_name"], mandatory: true, displayName: "Family Name" },
+    { path: ["Pension", "startDate"], mandatory: true, displayName: "Start Date" },
+  ],
+  metadata: {
+    source: "issuer-agent-demo",
+  },
+});
+
+const pensionRecord = {
+  person: {
+    givenName: "Sergio",
+    familyName: "Jack",
+  },
+  pension: {
+    startDate: "2025-01-01",
+  },
+};
+
+const claims = {
+  Person: {
+    given_name: pensionRecord.person.givenName,
+    family_name: pensionRecord.person.familyName,
+  },
+  Pension: {
+    startDate: pensionRecord.pension.startDate,
+  },
+};
+
+const offer = await authbound.openId4Vc.issuance.createOffer({
+  credentialDefinitionId: definition.credentialDefinitionId,
+  claims,
+  issuanceMode: "InTime",
+  metadata: {
+    userRef: "user_123",
+    recordRef: "pension_record_456",
+  },
+  idempotencyKey: `pension_record_456:${definition.credentialDefinitionId}`,
+});
+
+return offer.offerUri;
+```
+
+Credential definition metadata is public issuer metadata for wallet discovery. Keep secrets and personal data in issuance `claims` or private application storage, not in definition titles, aliases, labels, rendering, or metadata.
+
+You can also create an offer by `vct` when you want the issuer to resolve the configured definition:
+
+```ts
+await authbound.openId4Vc.issuance.createOffer({
+  vct: "urn:vc:authbound:pension:1.0",
+  claims: {
+    Pension: {
+      startDate: "2025-01-01",
+    },
+  },
+});
+```
+
+## Manage Credential Definitions
+
+Project definitions are scoped to the API key's project and environment. Global Authbound definitions can be listed and used, while customer-created definitions can be updated or archived.
+
+```ts
+await authbound.issuer.credentialDefinitions.update("pension_credential_v1", {
+  title: "Updated Pension Credential",
+  aliases: ["pension", "retirement-benefit"],
+});
+
+await authbound.issuer.credentialDefinitions.archive("pension_credential_v1");
+```
+
+## Deferred Issuance
+
+For deferred flows, create the offer first and patch claims before the wallet token is issued.
+
+```ts
+const offer = await authbound.openId4Vc.issuance.createOffer({
+  credentialDefinitionId: "pension_credential_v1",
+  claims: {},
+  issuanceMode: "Deferred",
+});
+
+await authbound.openId4Vc.issuance.update(offer.id, {
+  claims: {
+    Pension: {
+      startDate: "2025-02-01",
+    },
+  },
+});
+```
+
+## Manage Issuance Sessions
+
+```ts
+const sessions = await authbound.openId4Vc.issuance.list({ limit: 25 });
+const session = await authbound.openId4Vc.issuance.get(sessions.data[0]!.id);
+
+if (session.status === "offer_created") {
+  await authbound.openId4Vc.issuance.cancel(session.id);
+}
+```
+
+## Verification Sessions
+
+Existing verification APIs remain available through `authbound.sessions`.
+
+```ts
+const session = await authbound.sessions.create({
+  userRef: "user_123",
+  policyId: "age_gate_18",
+});
+
+const status = await authbound.sessions.get(session.sessionId);
+console.log(status.status);
+```
+
+## Development
+
+```sh
+pnpm --filter @authbound-sdk/server test
+pnpm --filter @authbound-sdk/server typecheck
+pnpm --filter @authbound-sdk/server build
+```
+
+## Contributing and Publishing
+
+See [CONTRIBUTING](./CONTRIBUTING.md) for contribution workflow and release standards.
+
+### Publishable packages
+
+- `@authbound-sdk/core`
+- `@authbound-sdk/server`
+- `@authbound-sdk/shared`
+- `@authbound-sdk/react`
+- `@authbound-sdk/vue`
+- `@authbound-sdk/nextjs`
+- `@authbound-sdk/nuxt`
+- `@authbound-sdk/quickid-core`
+- `@authbound-sdk/quickid-react`
+- `@authbound-sdk/quickid-server`
+
+### NPM publish flow
+
+From `/packages/public-sdk`:
+
+```sh
+pnpm release:check
+pnpm --filter @authbound-sdk/server publish --access public --no-git-checks
+pnpm --filter @authbound-sdk/react publish --access public --no-git-checks
+```
+
+Use the same flow for each package in dependency order.

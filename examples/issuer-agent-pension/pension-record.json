@@ -1,0 +1,13 @@
+{
+  "person": {
+    "givenName": "Sergio",
+    "familyName": "Jack",
+    "birthDate": "1960-06-15",
+    "personalAdministrativeNumber": "010160-123A"
+  },
+  "pension": {
+    "typeCode": "RETIREMENT",
+    "typeName": "Retirement pension",
+    "startDate": "2025-01-01"
+  }
+}

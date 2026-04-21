@@ -30,6 +30,46 @@ yarn add @authbound-sdk/server
 - `next >= 14.0.0` (Next.js 15+ recommended)
 - `jose >= 5.0.0` (for JWT encryption)
 
+## OpenID4VC Issuance
+
+Use `AuthboundClient` on your server to create credential definitions and OpenID4VCI wallet offers. See the runnable example in [`examples/issuer-agent-basic`](../../examples/issuer-agent-basic).
+
+```typescript
+import { AuthboundClient } from "@authbound-sdk/server";
+
+const authbound = new AuthboundClient({
+  apiKey: process.env.AUTHBOUND_API_KEY!, // sk_test_* or sk_live_*
+});
+
+const definition = await authbound.issuer.credentialDefinitions.create({
+  credentialDefinitionId: "employee_badge_v1",
+  vct: "urn:vc:authbound:employee-badge:1.0",
+  format: "dc+sd-jwt",
+  title: "Employee Badge",
+  claims: [
+    { path: ["Employee", "given_name"], mandatory: true },
+    { path: ["Employee", "family_name"], mandatory: true },
+    { path: ["Employee", "employee_number"], mandatory: true },
+  ],
+});
+
+const offer = await authbound.openId4Vc.issuance.createOffer({
+  credentialDefinitionId: definition.credentialDefinitionId,
+  claims: {
+    Employee: {
+      given_name: "Sergio",
+      family_name: "Jack",
+      employee_number: "E-1001",
+    },
+  },
+  idempotencyKey: "employee-badge:E-1001",
+});
+
+console.log(offer.offerUri);
+```
+
+Credential definition metadata is public issuer metadata for wallet discovery. Do not put secrets or personal data in definition titles, aliases, labels, rendering, or metadata.
+
 ## Quick Start
 
 ### 1. Configure Authbound
@@ -736,4 +776,3 @@ MIT © [Authbound](https://authbound.com)
 - [Documentation](https://docs.authbound.com)
 - [GitHub Issues](https://github.com/authbound/sdk/issues)
 - [Discord Community](https://discord.gg/authbound)
-

@@ -1,0 +1,15 @@
+{
+  "name": "@authbound-sdk/issuer-agent-basic",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "predev": "pnpm --filter @authbound-sdk/server build",
+    "dev": "node server.mjs",
+    "check": "node --check server.mjs"
+  },
+  "dependencies": {
+    "@authbound-sdk/server": "workspace:*"
+  }
+}
+
