@@ -76,7 +76,7 @@ const latest = await authbound.openId4Vc.issuance.get(offer.id);
 console.log(latest.status);
 ```
 
-## 15-Minute Issuer Agent Flow
+## Add Issuance to an Existing Application
 
 Use this shape when adding issuance to an existing website:
 
@@ -234,15 +234,3 @@ See [CONTRIBUTING](./CONTRIBUTING.md) for contribution workflow and release stan
 - `@authbound-sdk/quickid-core`
 - `@authbound-sdk/quickid-react`
 - `@authbound-sdk/quickid-server`
-
-### NPM publish flow
-
-From `/packages/public-sdk`:
-
-```sh
-pnpm release:check
-pnpm --filter @authbound-sdk/server publish --access public --no-git-checks
-pnpm --filter @authbound-sdk/react publish --access public --no-git-checks
-```
-
-Use the same flow for each package in dependency order.
