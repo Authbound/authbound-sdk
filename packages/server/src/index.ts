@@ -120,12 +120,26 @@ export {
   // Types
   type AuthboundClientConfig,
   AuthboundClientError,
+  type CreateCredentialDefinitionOptions,
+  type CreateOpenId4VcIssuanceOfferOptions,
   type CreateSessionOptions,
   type CreateSessionResult,
+  type CredentialDefinition,
+  type CredentialDefinitionClaim,
+  type CredentialDefinitionClaimInput,
+  type CredentialDefinitionList,
   // Standalone functions
   createSession,
   type GetSessionResult,
   getSessionStatus,
+  type ListOpenId4VcIssuanceOptions,
+  type OpenId4VcIssuanceCredential,
+  type OpenId4VcIssuanceList,
+  type OpenId4VcIssuanceOffer,
+  type OpenId4VcIssuanceStatus,
+  type PublicCredentialFormat,
+  type UpdateCredentialDefinitionOptions,
+  type UpdateOpenId4VcIssuanceOptions,
   type VerifySignatureOptions,
 } from "./core/client";
 

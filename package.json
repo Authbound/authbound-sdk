@@ -6,7 +6,8 @@
     "dev": "pnpm -r --filter './packages/*' run dev",
     "lint": "ultracite lint",
     "format": "ultracite format",
-    "check-types": "pnpm -r --filter './packages/*' run check-types"
+    "check-types": "pnpm -r --filter './packages/*' run check-types",
+    "release:check": "pnpm lint && pnpm check-types && pnpm build"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.5",

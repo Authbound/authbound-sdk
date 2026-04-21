@@ -34,7 +34,7 @@ export interface AuthboundClientConfig {
   /**
    * Your Authbound API key.
    * Get this from the Authbound dashboard.
-   * Must start with "ab_test_" or "ab_live_".
+   * Must start with "sk_test_" or "sk_live_".
    */
   apiKey: string;
 
@@ -62,10 +62,10 @@ const DEFAULT_TIMEOUT = 30_000; // 30 seconds
 
 /**
  * Validate API key format.
- * API keys must start with "ab_test_" or "ab_live_".
+ * API keys must start with "sk_test_" or "sk_live_".
  */
 function validateApiKeyFormat(apiKey: string): boolean {
-  return apiKey.startsWith("ab_test_") || apiKey.startsWith("ab_live_");
+  return apiKey.startsWith("sk_test_") || apiKey.startsWith("sk_live_");
 }
 
 // ============================================================================
@@ -127,6 +127,78 @@ const VerificationStatusResponseSchema = z.object({
       attributes: z.record(z.string(), z.unknown()).optional(),
     })
     .optional(),
+});
+
+const PublicCredentialFormatSchema = z.enum([
+  "dc+sd-jwt",
+  "mso_mdoc",
+  "jwt_vc_json",
+]);
+
+const CredentialDefinitionAuthoringFormatSchema = z.enum([
+  "dc+sd-jwt",
+  "jwt_vc_json",
+]);
+
+const CredentialDefinitionClaimSchema = z.object({
+  name: z.string(),
+  path: z.array(z.string()),
+  mandatory: z.boolean(),
+  displayName: z.string(),
+});
+
+const CredentialDefinitionSchema = z.object({
+  object: z.literal("issuer.credential_definition"),
+  id: z.string(),
+  credentialDefinitionId: z.string(),
+  format: PublicCredentialFormatSchema,
+  vct: z.string().optional(),
+  title: z.string(),
+  claims: z.array(CredentialDefinitionClaimSchema),
+});
+
+const CredentialDefinitionListSchema = z.object({
+  object: z.literal("list"),
+  data: z.array(CredentialDefinitionSchema),
+});
+
+const OpenId4VcIssuanceStatusSchema = z.enum([
+  "offer_created",
+  "ready_to_issue",
+  "token_issued",
+  "credential_issued",
+  "canceled",
+  "expired",
+  "failed",
+]);
+
+const OpenId4VcIssuanceCredentialSchema = z.object({
+  credentialDefinitionId: z.string(),
+  format: PublicCredentialFormatSchema,
+  status: z.string(),
+});
+
+const OpenId4VcIssuanceOfferSchema = z.object({
+  object: z.literal("openid4vc_issuance"),
+  id: z.string(),
+  status: OpenId4VcIssuanceStatusSchema,
+  credentialDefinitionId: z.string(),
+  credentials: z.array(OpenId4VcIssuanceCredentialSchema),
+  offerUri: z.string(),
+  offerQrUri: z.string(),
+  credentialIssuer: z.string(),
+  issuanceMode: z.enum(["InTime", "Deferred"]),
+  txCodeRequired: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  metadata: z.record(z.string(), z.string()).optional(),
+  expiresAt: z.string().optional(),
+});
+
+const OpenId4VcIssuanceListSchema = z.object({
+  object: z.literal("list"),
+  data: z.array(OpenId4VcIssuanceOfferSchema),
+  nextCursor: z.string().optional(),
 });
 
 // ============================================================================
@@ -212,15 +284,96 @@ export interface GetSessionResult {
   };
 }
 
+export type PublicCredentialFormat = z.infer<
+  typeof PublicCredentialFormatSchema
+>;
+
+export type CredentialDefinitionAuthoringFormat = z.infer<
+  typeof CredentialDefinitionAuthoringFormatSchema
+>;
+
+export type CredentialDefinitionClaim = z.infer<
+  typeof CredentialDefinitionClaimSchema
+>;
+
+export type CredentialDefinition = z.infer<typeof CredentialDefinitionSchema>;
+
+export type CredentialDefinitionList = z.infer<
+  typeof CredentialDefinitionListSchema
+>;
+
+export type OpenId4VcIssuanceStatus = z.infer<
+  typeof OpenId4VcIssuanceStatusSchema
+>;
+
+export type OpenId4VcIssuanceCredential = z.infer<
+  typeof OpenId4VcIssuanceCredentialSchema
+>;
+
+export type OpenId4VcIssuanceOffer = z.infer<
+  typeof OpenId4VcIssuanceOfferSchema
+>;
+
+export type OpenId4VcIssuanceList = z.infer<typeof OpenId4VcIssuanceListSchema>;
+
+export interface CreateOpenId4VcIssuanceOfferOptions {
+  credentialDefinitionId?: string;
+  vct?: string;
+  claims: Record<string, unknown>;
+  issuanceMode?: "InTime" | "Deferred";
+  txCode?: string;
+  urlScheme?: "openid-credential-offer://" | "haip://";
+  metadata?: Record<string, string>;
+  idempotencyKey?: string;
+}
+
+export interface CredentialDefinitionClaimInput {
+  path: string[];
+  mandatory?: boolean;
+  displayName?: string;
+}
+
+export interface CreateCredentialDefinitionOptions {
+  credentialDefinitionId: string;
+  vct: string;
+  format: CredentialDefinitionAuthoringFormat;
+  title: string;
+  claims?: CredentialDefinitionClaimInput[];
+  aliases?: string[];
+  rendering?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export type UpdateCredentialDefinitionOptions = Partial<
+  Omit<CreateCredentialDefinitionOptions, "credentialDefinitionId">
+>;
+
+export interface ListOpenId4VcIssuanceOptions {
+  limit?: number;
+  cursor?: string;
+}
+
+export interface UpdateOpenId4VcIssuanceOptions {
+  claims?: Record<string, unknown>;
+  credentialSubject?: Record<string, unknown>;
+}
+
 export class AuthboundClientError extends Error {
+  readonly code: string;
+  readonly statusCode?: number;
+  readonly details?: unknown;
+
   constructor(
     message: string,
-    public readonly code: string,
-    public readonly statusCode?: number,
-    public readonly details?: unknown
+    code: string,
+    statusCode?: number,
+    details?: unknown
   ) {
     super(message);
     this.name = "AuthboundClientError";
+    this.code = code;
+    this.statusCode = statusCode;
+    this.details = details;
   }
 }
 
@@ -237,12 +390,22 @@ export class AuthboundClient {
   /**
    * Sessions API for creating and querying verification sessions.
    */
-  public readonly sessions: SessionsApi;
+  readonly sessions: SessionsApi;
 
   /**
    * Webhooks API for signature verification.
    */
-  public readonly webhooks: WebhooksApi;
+  readonly webhooks: WebhooksApi;
+
+  /**
+   * Issuer configuration APIs.
+   */
+  readonly issuer: IssuerApi;
+
+  /**
+   * OpenID4VC issuance APIs.
+   */
+  readonly openId4Vc: OpenId4VcApi;
 
   constructor(config: AuthboundClientConfig) {
     if (!config.apiKey) {
@@ -251,7 +414,7 @@ export class AuthboundClient {
 
     if (!validateApiKeyFormat(config.apiKey)) {
       throw new AuthboundClientError(
-        'Invalid API key format. API key must start with "ab_test_" or "ab_live_".',
+        'Invalid API key format. API key must start with "sk_test_" or "sk_live_".',
         "INVALID_API_KEY_FORMAT"
       );
     }
@@ -264,6 +427,8 @@ export class AuthboundClient {
     // Initialize sub-APIs
     this.sessions = new SessionsApi(this);
     this.webhooks = new WebhooksApi();
+    this.issuer = new IssuerApi(this);
+    this.openId4Vc = new OpenId4VcApi(this);
   }
 
   /**
@@ -273,7 +438,10 @@ export class AuthboundClient {
   async request<T>(
     method: "GET" | "POST" | "PATCH" | "DELETE",
     path: string,
-    body?: unknown
+    body?: unknown,
+    options?: {
+      headers?: Record<string, string>;
+    }
   ): Promise<T> {
     const url = `${this.apiUrl}${path}`;
 
@@ -290,11 +458,12 @@ export class AuthboundClient {
       headers: {
         "Content-Type": "application/json",
         "X-Authbound-Key": this.apiKey,
+        ...(options?.headers ?? {}),
       },
       signal: controller.signal,
     };
 
-    if (body) {
+    if (body !== undefined) {
       fetchOptions.body = JSON.stringify(body);
     }
 
@@ -316,9 +485,21 @@ export class AuthboundClient {
           );
         }
 
+        const publicError =
+          errorBody &&
+          typeof errorBody === "object" &&
+          !Array.isArray(errorBody) &&
+          (errorBody as Record<string, unknown>).object === "error"
+            ? (errorBody as Record<string, unknown>)
+            : undefined;
+
         throw new AuthboundClientError(
-          `API request failed: ${response.status} ${response.statusText}`,
-          "API_ERROR",
+          typeof publicError?.message === "string"
+            ? publicError.message
+            : `API request failed: ${response.status} ${response.statusText}`,
+          typeof publicError?.code === "string"
+            ? publicError.code
+            : "API_ERROR",
           response.status,
           errorBody
         );
@@ -357,6 +538,228 @@ export class AuthboundClient {
    */
   getApiKey(): string {
     return this.apiKey;
+  }
+}
+
+function parseApiResponse<T>(schema: z.ZodSchema<T>, response: unknown): T {
+  const parsed = schema.safeParse(response);
+  if (!parsed.success) {
+    throw new AuthboundClientError(
+      "Invalid response from API",
+      "INVALID_RESPONSE",
+      undefined,
+      parsed.error.format()
+    );
+  }
+  return parsed.data;
+}
+
+function buildQueryString(
+  params: Record<string, string | number | undefined>
+): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) {
+      search.set(key, String(value));
+    }
+  }
+  const queryString = search.toString();
+  return queryString ? `?${queryString}` : "";
+}
+
+function encodePathSegment(value: string): string {
+  return encodeURIComponent(value);
+}
+
+function assertCreateOfferIdentifier(
+  options: CreateOpenId4VcIssuanceOfferOptions
+): void {
+  const hasCredentialDefinitionId = !!options.credentialDefinitionId;
+  const hasVct = !!options.vct;
+  if (hasCredentialDefinitionId === hasVct) {
+    throw new AuthboundClientError(
+      "Exactly one of credentialDefinitionId or vct is required",
+      "VALIDATION_ERROR",
+      400
+    );
+  }
+}
+
+function assertNonEmpty(value: string, field: string): void {
+  if (!value.trim()) {
+    throw new AuthboundClientError(
+      `${field} is required`,
+      "VALIDATION_ERROR",
+      400
+    );
+  }
+}
+
+function assertCredentialDefinitionAuthoringFormat(format: string): void {
+  if (!CredentialDefinitionAuthoringFormatSchema.safeParse(format).success) {
+    throw new AuthboundClientError(
+      "Unsupported credential definition format",
+      "VALIDATION_ERROR",
+      400
+    );
+  }
+}
+
+// ============================================================================
+// Issuer API
+// ============================================================================
+
+class IssuerApi {
+  readonly credentialDefinitions: CredentialDefinitionsApi;
+
+  constructor(client: AuthboundClient) {
+    this.credentialDefinitions = new CredentialDefinitionsApi(client);
+  }
+}
+
+class CredentialDefinitionsApi {
+  constructor(private readonly client: AuthboundClient) {}
+
+  async list(): Promise<CredentialDefinitionList> {
+    const response = await this.client.request<unknown>(
+      "GET",
+      "/v1/issuer/credential-definitions"
+    );
+    return parseApiResponse(CredentialDefinitionListSchema, response);
+  }
+
+  async get(credentialDefinitionId: string): Promise<CredentialDefinition> {
+    assertNonEmpty(credentialDefinitionId, "credentialDefinitionId");
+    const response = await this.client.request<unknown>(
+      "GET",
+      `/v1/issuer/credential-definitions/${encodePathSegment(credentialDefinitionId)}`
+    );
+    return parseApiResponse(CredentialDefinitionSchema, response);
+  }
+
+  async create(
+    options: CreateCredentialDefinitionOptions
+  ): Promise<CredentialDefinition> {
+    assertNonEmpty(options.credentialDefinitionId, "credentialDefinitionId");
+    assertNonEmpty(options.vct, "vct");
+    assertNonEmpty(options.title, "title");
+    assertCredentialDefinitionAuthoringFormat(options.format);
+    const response = await this.client.request<unknown>(
+      "POST",
+      "/v1/issuer/credential-definitions",
+      options
+    );
+    return parseApiResponse(CredentialDefinitionSchema, response);
+  }
+
+  async update(
+    credentialDefinitionId: string,
+    options: UpdateCredentialDefinitionOptions
+  ): Promise<CredentialDefinition> {
+    assertNonEmpty(credentialDefinitionId, "credentialDefinitionId");
+    if (Object.keys(options).length === 0) {
+      throw new AuthboundClientError(
+        "At least one credential definition field is required",
+        "VALIDATION_ERROR",
+        400
+      );
+    }
+    if (options.format) {
+      assertCredentialDefinitionAuthoringFormat(options.format);
+    }
+    const response = await this.client.request<unknown>(
+      "PATCH",
+      `/v1/issuer/credential-definitions/${encodePathSegment(credentialDefinitionId)}`,
+      options
+    );
+    return parseApiResponse(CredentialDefinitionSchema, response);
+  }
+
+  async archive(credentialDefinitionId: string): Promise<CredentialDefinition> {
+    assertNonEmpty(credentialDefinitionId, "credentialDefinitionId");
+    const response = await this.client.request<unknown>(
+      "POST",
+      `/v1/issuer/credential-definitions/${encodePathSegment(credentialDefinitionId)}/archive`
+    );
+    return parseApiResponse(CredentialDefinitionSchema, response);
+  }
+}
+
+// ============================================================================
+// OpenID4VC API
+// ============================================================================
+
+class OpenId4VcApi {
+  readonly issuance: OpenId4VcIssuanceApi;
+
+  constructor(client: AuthboundClient) {
+    this.issuance = new OpenId4VcIssuanceApi(client);
+  }
+}
+
+class OpenId4VcIssuanceApi {
+  constructor(private readonly client: AuthboundClient) {}
+
+  async createOffer(
+    options: CreateOpenId4VcIssuanceOfferOptions
+  ): Promise<OpenId4VcIssuanceOffer> {
+    assertCreateOfferIdentifier(options);
+    const { idempotencyKey, ...body } = options;
+    const response = await this.client.request<unknown>(
+      "POST",
+      "/v1/openid4vc/issuance/offer",
+      body,
+      {
+        headers: idempotencyKey
+          ? { "Idempotency-Key": idempotencyKey }
+          : undefined,
+      }
+    );
+    return parseApiResponse(OpenId4VcIssuanceOfferSchema, response);
+  }
+
+  async list(
+    options?: ListOpenId4VcIssuanceOptions
+  ): Promise<OpenId4VcIssuanceList> {
+    const response = await this.client.request<unknown>(
+      "GET",
+      `/v1/openid4vc/issuance${buildQueryString({
+        limit: options?.limit,
+        cursor: options?.cursor,
+      })}`
+    );
+    return parseApiResponse(OpenId4VcIssuanceListSchema, response);
+  }
+
+  async get(issuanceId: string): Promise<OpenId4VcIssuanceOffer> {
+    assertNonEmpty(issuanceId, "issuanceId");
+    const response = await this.client.request<unknown>(
+      "GET",
+      `/v1/openid4vc/issuance/${encodePathSegment(issuanceId)}`
+    );
+    return parseApiResponse(OpenId4VcIssuanceOfferSchema, response);
+  }
+
+  async update(
+    issuanceId: string,
+    options: UpdateOpenId4VcIssuanceOptions
+  ): Promise<OpenId4VcIssuanceOffer> {
+    assertNonEmpty(issuanceId, "issuanceId");
+    const response = await this.client.request<unknown>(
+      "PATCH",
+      `/v1/openid4vc/issuance/${encodePathSegment(issuanceId)}`,
+      options
+    );
+    return parseApiResponse(OpenId4VcIssuanceOfferSchema, response);
+  }
+
+  async cancel(issuanceId: string): Promise<OpenId4VcIssuanceOffer> {
+    assertNonEmpty(issuanceId, "issuanceId");
+    const response = await this.client.request<unknown>(
+      "POST",
+      `/v1/openid4vc/issuance/${encodePathSegment(issuanceId)}/cancel`
+    );
+    return parseApiResponse(OpenId4VcIssuanceOfferSchema, response);
   }
 }
 
@@ -495,7 +898,7 @@ class WebhooksApi {
    */
   verifySignature(options: VerifySignatureOptions): boolean {
     // Import here to support edge runtimes
-    const crypto = require("crypto") as typeof import("crypto");
+    const crypto = require("node:crypto") as typeof import("node:crypto");
 
     const { payload, signature, secret, tolerance = 300 } = options;
 
