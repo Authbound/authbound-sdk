@@ -13,7 +13,7 @@ import { type AuthboundContext, AuthboundKey } from "../plugin";
  * @example
  * ```vue
  * <script setup>
- * const { client, session, isReady } = useAuthbound();
+ * const { client, verification, isReady } = useAuthbound();
  * </script>
  * ```
  */

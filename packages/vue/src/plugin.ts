@@ -13,8 +13,8 @@ import {
   type EudiVerificationStatus,
   type PolicyId,
   type PublishableKey,
-  type SessionId,
   type StatusEvent,
+  type VerificationId,
   type VerificationResult,
 } from "@authbound-sdk/core";
 import {
@@ -39,11 +39,11 @@ import {
 // ============================================================================
 
 /**
- * Current verification session state.
+ * Current verification state.
  */
-export interface VerificationSession {
-  /** Session ID */
-  sessionId: SessionId;
+export interface VerificationState {
+  /** Verification ID */
+  verificationId: VerificationId;
   /** Current status */
   status: EudiVerificationStatus;
   /** Authorization request URL (for QR code) */
@@ -58,7 +58,7 @@ export interface VerificationSession {
   error?: AuthboundError;
   /** Time remaining in seconds */
   timeRemaining?: number;
-  /** When session expires */
+  /** When verification expires */
   expiresAt: Date;
 }
 
@@ -70,8 +70,8 @@ export interface AuthboundContext {
   client: AuthboundClient;
   /** Whether SDK is configured and ready */
   isReady: Ref<boolean>;
-  /** Current session (if any) */
-  session: Ref<VerificationSession | null>;
+  /** Current verification (if any) */
+  verification: Ref<VerificationState | null>;
   /** Appearance configuration */
   appearance: ComputedRef<AuthboundAppearance>;
   /** Default policy ID */
@@ -79,18 +79,19 @@ export interface AuthboundContext {
   /** CSS custom properties */
   cssProperties: ComputedRef<Record<string, string>>;
 
-  /** Start a new verification session */
+  /** Start a new verification */
   startVerification: (options?: {
     policyId?: PolicyId;
     customerUserRef?: string;
     metadata?: Record<string, string>;
+    provider?: "auto" | "vcs" | "eudi";
   }) => Promise<void>;
 
-  /** Reset current session */
-  resetSession: () => void;
+  /** Reset current verification */
+  resetVerification: () => void;
 
-  /** Update session state */
-  updateSession: (update: Partial<VerificationSession>) => void;
+  /** Update verification state */
+  updateVerification: (update: Partial<VerificationState>) => void;
 }
 
 // ============================================================================
@@ -108,8 +109,8 @@ export interface AuthboundPluginOptions {
   publishableKey: PublishableKey | string;
   /** Default policy for verification */
   policyId?: PolicyId;
-  /** Session creation endpoint (default: /api/authbound/session) */
-  sessionEndpoint?: string;
+  /** Verification creation endpoint (default: /api/authbound/verification) */
+  verificationEndpoint?: string;
   /** Gateway URL override (for testing) */
   gatewayUrl?: string;
   /** Appearance customization */
@@ -146,7 +147,7 @@ export const AuthboundPlugin = {
     const {
       publishableKey,
       policyId,
-      sessionEndpoint,
+      verificationEndpoint,
       gatewayUrl,
       debug = false,
     } = options;
@@ -155,7 +156,7 @@ export const AuthboundPlugin = {
     const clientConfig: AuthboundClientConfig = {
       publishableKey: publishableKey as PublishableKey,
       policyId,
-      sessionEndpoint,
+      verificationEndpoint,
       gatewayUrl,
       debug,
     };
@@ -172,7 +173,8 @@ export const AuthboundPlugin = {
 
     // Reactive state
     const isReady = ref(false);
-    const session = ref<VerificationSession | null>(null);
+    const verification = ref<VerificationState | null>(null);
+    let statusCleanup: (() => void) | null = null;
 
     // Track OS color scheme preference for auto theme
     const prefersDark = ref(
@@ -231,33 +233,43 @@ export const AuthboundPlugin = {
       isReady.value = true;
     }
 
-    // Session management
-    const updateSession = (update: Partial<VerificationSession>) => {
-      if (session.value) {
-        session.value = { ...session.value, ...update };
+    // Verification state management
+    const updateVerification = (update: Partial<VerificationState>) => {
+      if (verification.value) {
+        verification.value = { ...verification.value, ...update };
       }
     };
 
-    const resetSession = () => {
-      session.value = null;
+    const cleanupStatusSubscription = () => {
+      statusCleanup?.();
+      statusCleanup = null;
+    };
+
+    const resetVerification = () => {
+      cleanupStatusSubscription();
+      verification.value = null;
     };
 
     const startVerification = async (verifyOptions?: {
       policyId?: PolicyId;
       customerUserRef?: string;
       metadata?: Record<string, string>;
+      provider?: "auto" | "vcs" | "eudi";
     }) => {
       try {
-        // Create session
+        cleanupStatusSubscription();
+
+        // Create verification
         const response = await client.startVerification({
           policyId: verifyOptions?.policyId ?? policyId,
           customerUserRef: verifyOptions?.customerUserRef,
           metadata: verifyOptions?.metadata,
+          provider: verifyOptions?.provider,
         });
 
-        // Initialize session state
-        const newSession: VerificationSession = {
-          sessionId: response.sessionId as SessionId,
+        // Initialize verification state
+        const newVerification: VerificationState = {
+          verificationId: response.verificationId as VerificationId,
           status: "pending",
           authorizationRequestUrl: response.authorizationRequestUrl,
           clientToken: response.clientToken,
@@ -265,24 +277,24 @@ export const AuthboundPlugin = {
           expiresAt: new Date(response.expiresAt),
         };
 
-        session.value = newSession;
+        verification.value = newVerification;
 
         // Subscribe to status updates
-        client.subscribeToStatus(
-          response.sessionId as SessionId,
+        statusCleanup = client.subscribeToStatus(
+          response.verificationId as VerificationId,
           response.clientToken as Parameters<
             typeof client.subscribeToStatus
           >[1],
           (event: StatusEvent) => {
             if (
-              !session.value ||
-              session.value.sessionId !== response.sessionId
+              !verification.value ||
+              verification.value.verificationId !== response.verificationId
             ) {
               return;
             }
 
-            session.value = {
-              ...session.value,
+            verification.value = {
+              ...verification.value,
               status: event.status,
               result: event.result,
               error: event.error
@@ -296,13 +308,13 @@ export const AuthboundPlugin = {
           {
             onError: (error) => {
               if (
-                !session.value ||
-                session.value.sessionId !== response.sessionId
+                !verification.value ||
+                verification.value.verificationId !== response.verificationId
               ) {
                 return;
               }
-              session.value = {
-                ...session.value,
+              verification.value = {
+                ...verification.value,
                 status: "error",
                 error,
               };
@@ -311,8 +323,8 @@ export const AuthboundPlugin = {
         );
       } catch (error) {
         const authboundError = AuthboundError.from(error);
-        session.value = {
-          sessionId: "ses_error" as SessionId,
+        verification.value = {
+          verificationId: "vrf_error" as VerificationId,
           status: "error",
           authorizationRequestUrl: "",
           clientToken: "",
@@ -327,13 +339,13 @@ export const AuthboundPlugin = {
     const context: AuthboundContext = {
       client,
       isReady: readonly(isReady) as Ref<boolean>,
-      session: session as Ref<VerificationSession | null>,
+      verification: verification as Ref<VerificationState | null>,
       appearance,
       policyId,
       cssProperties,
       startVerification,
-      resetSession,
-      updateSession,
+      resetVerification,
+      updateVerification,
     };
 
     // Provide to app

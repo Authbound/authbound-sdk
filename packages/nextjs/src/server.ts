@@ -612,7 +612,7 @@ export function createStatusRoute(
       "AUTHBOUND_GATEWAY_URL",
       "https://gateway.authbound.io"
     ),
-    publishableKey = getPublishableKey(),
+    publishableKey: configuredPublishableKey,
     debug = false,
   } = options;
 
@@ -645,6 +645,8 @@ export function createStatusRoute(
           verificationId: maskIdentifier(verificationId),
         });
       }
+
+      const publishableKey = getPublishableKey(configuredPublishableKey);
 
       const response = await fetch(
         `${gatewayUrl}/v1/verifications/${verificationId}/status`,

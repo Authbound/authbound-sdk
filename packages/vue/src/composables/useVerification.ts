@@ -7,7 +7,7 @@
 import type {
   EudiVerificationStatus,
   PolicyId,
-  SessionId,
+  VerificationId,
   VerificationResult,
 } from "@authbound-sdk/core";
 import { AuthboundError, isTerminalStatus } from "@authbound-sdk/core";
@@ -34,12 +34,16 @@ export interface UseVerificationOptions {
   customerUserRef?: string;
   /** Additional metadata */
   metadata?: Record<string, string>;
+  /** Optional provider override */
+  provider?: "auto" | "vcs" | "eudi";
   /** Callback when verified */
   onVerified?: (result: VerificationResult) => void;
   /** Callback when failed */
   onFailed?: (error: AuthboundError) => void;
   /** Callback on any status change */
   onStatusChange?: (status: EudiVerificationStatus) => void;
+  /** Callback when timeout or expiration occurs */
+  onTimeout?: () => void;
 }
 
 export interface UseVerificationReturn {
@@ -55,9 +59,9 @@ export interface UseVerificationReturn {
   /** Whether in a terminal state */
   isTerminal: ComputedRef<boolean>;
 
-  // Session data
-  /** Current session ID */
-  sessionId: ComputedRef<SessionId | null>;
+  // Verification data
+  /** Current verification ID */
+  verificationId: ComputedRef<VerificationId | null>;
   /** Authorization request URL for QR code */
   authorizationRequestUrl: ComputedRef<string | null>;
   /** Deep link for mobile wallets */
@@ -66,13 +70,13 @@ export interface UseVerificationReturn {
   error: ComputedRef<AuthboundError | null>;
   /** Verification result (if successful) */
   result: ComputedRef<VerificationResult | null>;
-  /** Time remaining until session expires (seconds) */
+  /** Time remaining until verification expires (seconds) */
   timeRemaining: Ref<number | null>;
 
   // Actions
   /** Start verification */
   startVerification: () => Promise<void>;
-  /** Retry verification (creates new session) */
+  /** Retry verification (creates a new verification) */
   retry: () => Promise<void>;
   /** Reset to idle state */
   reset: () => void;
@@ -116,15 +120,19 @@ export interface UseVerificationReturn {
 export function useVerification(
   options: UseVerificationOptions = {}
 ): UseVerificationReturn {
-  const { session, startVerification: ctxStart, resetSession } = useAuthbound();
+  const {
+    verification,
+    startVerification: ctxStart,
+    resetVerification,
+  } = useAuthbound();
 
   // Local state for time tracking
   const timeRemaining = ref<number | null>(null);
   let timerInterval: ReturnType<typeof setInterval> | null = null;
 
-  // Computed state from session
+  // Computed state from the active verification
   const status = computed<EudiVerificationStatus>(() => {
-    return session.value?.status ?? "idle";
+    return verification.value?.status ?? "idle";
   });
 
   const isLoading = computed(() => {
@@ -136,31 +144,37 @@ export function useVerification(
   });
 
   const isFailed = computed(() => {
-    return status.value === "failed" || status.value === "error";
+    return (
+      status.value === "failed" ||
+      status.value === "error" ||
+      status.value === "canceled" ||
+      status.value === "expired" ||
+      status.value === "timeout"
+    );
   });
 
   const isTerminal = computed(() => {
     return isTerminalStatus(status.value);
   });
 
-  const sessionId = computed(() => {
-    return session.value?.sessionId ?? null;
+  const verificationId = computed(() => {
+    return verification.value?.verificationId ?? null;
   });
 
   const authorizationRequestUrl = computed(() => {
-    return session.value?.authorizationRequestUrl ?? null;
+    return verification.value?.authorizationRequestUrl ?? null;
   });
 
   const deepLink = computed(() => {
-    return session.value?.deepLink ?? null;
+    return verification.value?.deepLink ?? null;
   });
 
   const error = computed(() => {
-    return session.value?.error ?? null;
+    return verification.value?.error ?? null;
   });
 
   const result = computed(() => {
-    return session.value?.result ?? null;
+    return verification.value?.result ?? null;
   });
 
   // Timer management
@@ -169,20 +183,20 @@ export function useVerification(
       clearInterval(timerInterval);
     }
 
-    if (!session.value?.expiresAt) {
+    if (!verification.value?.expiresAt) {
       timeRemaining.value = null;
       return;
     }
 
     const updateTimeRemaining = () => {
-      if (!session.value?.expiresAt) {
+      if (!verification.value?.expiresAt) {
         timeRemaining.value = null;
         return;
       }
 
       const remaining = Math.max(
         0,
-        Math.floor((session.value.expiresAt.getTime() - Date.now()) / 1000)
+        Math.floor((verification.value.expiresAt.getTime() - Date.now()) / 1000)
       );
 
       timeRemaining.value = remaining;
@@ -218,15 +232,22 @@ export function useVerification(
       if (newStatus === "verified" && result.value) {
         options.onVerified?.(result.value);
         stopTimer();
-      } else if (
-        (newStatus === "failed" || newStatus === "error") &&
-        error.value
-      ) {
-        options.onFailed?.(error.value);
-        stopTimer();
-      } else if (newStatus === "timeout") {
+      } else if (isFailed.value) {
+        if (newStatus === "timeout" || newStatus === "expired") {
+          options.onTimeout?.();
+        }
         options.onFailed?.(
-          new AuthboundError("wallet_timeout", "Session timed out")
+          error.value ??
+            new AuthboundError(
+              newStatus === "timeout"
+                ? "wallet_timeout"
+                : "verification_invalid_state",
+              newStatus === "expired"
+                ? "Verification expired."
+                : newStatus === "canceled"
+                  ? "Verification was canceled."
+                  : "Verification did not complete."
+            )
         );
         stopTimer();
       }
@@ -234,9 +255,9 @@ export function useVerification(
     { immediate: false }
   );
 
-  // Watch session for timer start
+  // Watch verification for timer start
   watch(
-    () => session.value?.expiresAt,
+    () => verification.value?.expiresAt,
     (expiresAt) => {
       if (expiresAt && !isTerminal.value) {
         startTimer();
@@ -253,16 +274,17 @@ export function useVerification(
       policyId: options.policyId,
       customerUserRef: options.customerUserRef,
       metadata: options.metadata,
+      provider: options.provider,
     });
   };
 
   const retry = async () => {
-    resetSession();
+    resetVerification();
     await startVerification();
   };
 
   const reset = () => {
-    resetSession();
+    resetVerification();
     stopTimer();
   };
 
@@ -284,8 +306,8 @@ export function useVerification(
     isFailed,
     isTerminal,
 
-    // Session data
-    sessionId,
+    // Verification data
+    verificationId,
     authorizationRequestUrl,
     deepLink,
     error,
