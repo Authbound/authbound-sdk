@@ -4,8 +4,8 @@
  * Server-side SDK for Authbound identity and age verification.
  *
  * This package provides:
- * - AuthboundClient for API calls (session creation, status querying)
- * - JWT token management for verification sessions
+ * - AuthboundClient for API calls (verification creation, status querying)
+ * - JWT token management for verification cookies
  * - Webhook signature verification
  * - Framework-agnostic core utilities
  *
@@ -23,9 +23,9 @@
  *   apiKey: process.env.AUTHBOUND_API_KEY!,
  * });
  *
- * const session = await client.sessions.create({
- *   userRef: 'user_123',
- *   callbackUrl: 'https://example.com/webhook',
+ * const verification = await client.verifications.create({
+ *   policyId: 'pol_authbound_pension_v1',
+ *   customerUserRef: 'user_123',
  * });
  *
  * // Webhook verification
@@ -52,9 +52,9 @@ export {
 // JWT Utilities
 export {
   type CreateTokenOptions,
-  claimsToSession,
+  claimsToVerificationContext,
   createToken,
-  getSessionFromToken,
+  getVerificationFromToken,
   isTokenExpired,
   refreshToken,
   verifyToken,
@@ -64,20 +64,20 @@ export type {
   AssuranceLevel,
   AuthboundClaims,
   AuthboundConfig,
-  AuthboundSession,
+  AuthboundVerificationContext,
   CookieOptions,
-  CreateSessionResponse,
+  CreateVerificationResponse,
   Dob,
   LastError,
   MiddlewareResult,
   ProtectedRouteConfig,
   RoutesConfig,
-  SessionStatusResponse,
   Sex,
   VerificationRequirements,
-  VerificationSessionObject,
-  VerificationSessionStatus,
+  VerificationEventObject,
+  VerificationEventStatus,
   VerificationStatus,
+  VerificationStatusResponse,
   VerifiedOutputs,
   // Webhook types
   WebhookEvent,
@@ -95,14 +95,14 @@ export {
   DobSchema,
   getDefaultCookieOptions,
   LastErrorSchema,
-  mapSessionStatusToVerificationStatus,
+  mapVerificationEventStatusToVerificationStatus,
   ProtectedRouteConfigSchema,
   parseConfig,
   RoutesConfigSchema,
   SexSchema,
   VerificationRequirementsSchema,
-  VerificationSessionObjectSchema,
-  VerificationSessionStatusSchema,
+  VerificationEventObjectSchema,
+  VerificationEventStatusSchema,
   VerificationStatusSchema,
   VerifiedOutputsSchema,
   // Webhook schemas
@@ -120,26 +120,32 @@ export {
   // Types
   type AuthboundClientConfig,
   AuthboundClientError,
+  type CancelVerificationOptions,
   type CreateCredentialDefinitionOptions,
   type CreateOpenId4VcIssuanceOfferOptions,
-  type CreateSessionOptions,
-  type CreateSessionResult,
+  type CreateVerificationOptions,
   type CredentialDefinition,
   type CredentialDefinitionClaim,
   type CredentialDefinitionClaimInput,
   type CredentialDefinitionList,
   // Standalone functions
-  createSession,
-  type GetSessionResult,
-  getSessionStatus,
+  createVerification,
+  getVerificationStatus,
+  type GetVerificationStatusOptions,
   type ListOpenId4VcIssuanceOptions,
+  type ListVerificationsOptions,
   type OpenId4VcIssuanceCredential,
   type OpenId4VcIssuanceList,
   type OpenId4VcIssuanceOffer,
   type OpenId4VcIssuanceStatus,
+  type PublicVerificationStatus,
   type PublicCredentialFormat,
+  type SignedVerificationResult,
   type UpdateCredentialDefinitionOptions,
   type UpdateOpenId4VcIssuanceOptions,
+  type Verification,
+  type VerificationList,
+  type VerificationStatus as ApiVerificationStatus,
   type VerifySignatureOptions,
 } from "./core/client";
 

@@ -7,7 +7,7 @@
  * to your Next.js application:
  *
  * - Simplified middleware (`withAuthbound`)
- * - Zero-config route handlers (`createSessionRoute`, `createWebhookRoute`)
+ * - Zero-config route handlers (`createVerificationRoute`, `createWebhookRoute`)
  * - React components and hooks (Provider, VerificationWall, useVerification)
  * - Full server-side utilities
  *
@@ -22,11 +22,11 @@
  *
  * export const config = { matcher: ['/((?!_next|static).*)'] };
  *
- * // 2. app/api/authbound/session/route.ts
- * import { createSessionRoute } from '@authbound-sdk/nextjs';
+ * // 2. app/api/authbound/verification/route.ts
+ * import { createVerificationRoute } from '@authbound-sdk/nextjs';
  *
- * export const POST = createSessionRoute({
- *   policyId: 'age-gate-18@1.0.0',
+ * export const POST = createVerificationRoute({
+ *   policyId: 'pol_authbound_pension_v1',
  * });
  *
  * // 3. app/verify/page.tsx
@@ -68,18 +68,17 @@ export {
   type AuthboundClaims,
   // Types
   type AuthboundConfig,
-  type AuthboundSession,
+  type AuthboundVerificationContext,
   type CookieOptions,
   calculateAge,
   checkRequirements,
-  clearSessionCookie,
+  clearVerificationCookie,
   // Advanced handlers
   createAuthboundHandlers,
   // Server utilities
-  createSession,
-  createSessionHandler,
   // Zero-config route handlers
-  createSessionRoute,
+  createVerification,
+  createVerificationRoute,
   createSignOutHandler,
   createStatusHandler,
   createStatusRoute,
@@ -90,15 +89,15 @@ export {
   // Cookie utilities
   getCookieName,
   getCookieValue,
-  getSessionFromCookie,
-  getSessionFromToken,
+  getVerificationFromCookie,
+  getVerificationFromToken,
   type ProtectedRouteConfig,
   // Configuration
   parseConfig,
   type RoutesConfig,
-  type SessionRouteOptions,
   type StatusRouteOptions,
-  setSessionCookie,
+  type VerificationRouteOptions,
+  setVerificationCookie,
   type VerificationRequirements,
   verifyToken,
   type WebhookRouteOptions,
@@ -121,7 +120,7 @@ export type {
   StatusBadgeProps,
   UseVerificationOptions,
   UseVerificationReturn,
-  VerificationSession,
+  VerificationState,
   VerificationStatusProps,
   VerificationWallProps,
 } from "./client";
@@ -139,8 +138,8 @@ export {
   type PolicyId,
   PolicyPresets,
   type PublishableKey,
-  type SessionId,
   type StatusEvent,
+  type VerificationId,
   type VerificationClaims,
   type VerificationResult,
 } from "@authbound-sdk/core";

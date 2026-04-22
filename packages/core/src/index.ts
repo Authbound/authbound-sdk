@@ -13,11 +13,11 @@
  * });
  *
  * // Start verification
- * const { sessionId, authorizationRequestUrl, clientToken } =
+ * const { verificationId, authorizationRequestUrl, clientToken } =
  *   await client.startVerification();
  *
  * // Subscribe to status updates (SSE with polling fallback)
- * const cleanup = client.subscribeToStatus(sessionId, clientToken, (event) => {
+ * const cleanup = client.subscribeToStatus(verificationId, clientToken, (event) => {
  *   if (event.status === 'verified') {
  *     console.log('Verification successful!', event.result);
  *   }
@@ -54,18 +54,18 @@ export {
   asPolicyId,
   asPublishableKey,
   asSecretKey,
-  asSessionId,
+  asVerificationId,
   type ClientToken,
   getKeyEnvironment,
   isPolicyId,
   isPublishableKey,
   isSecretKey,
-  isSessionId,
+  isVerificationId,
   type PolicyId,
   type PublishableKey,
   parsePolicyId,
   type SecretKey,
-  type SessionId,
+  type VerificationId,
 } from "./types/branded";
 
 // Error types
@@ -99,18 +99,18 @@ export {
 } from "./types/tokens";
 // Verification types
 export {
-  type CreateSessionRequest,
-  CreateSessionRequestSchema,
-  type CreateSessionResponse,
-  CreateSessionResponseSchema,
+  type CreateVerificationOptions,
+  CreateVerificationOptionsSchema,
+  type CreateVerificationResponse,
+  CreateVerificationResponseSchema,
   type EudiVerificationStatus,
   EudiVerificationStatusSchema,
   isTerminalStatus,
-  type SessionStatusResponse,
-  SessionStatusResponseSchema,
   type StatusEvent,
   StatusEventSchema,
   TERMINAL_STATUSES,
+  type VerificationStatusResponse,
+  VerificationStatusResponseSchema,
   type Verdict,
   VerdictSchema,
   type VerificationAttributes,
@@ -185,10 +185,3 @@ export {
   type PresetFromRegistry,
   type PresetRegistry,
 } from "./policy";
-
-// ============================================================================
-// Legacy Exports (from original types.ts)
-// Keep for backwards compatibility
-// ============================================================================
-
-export * from "./types.legacy";

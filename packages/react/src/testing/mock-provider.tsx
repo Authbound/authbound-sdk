@@ -10,7 +10,7 @@ import type {
   ClientToken,
   EudiVerificationStatus,
   PolicyId,
-  SessionId,
+  VerificationId,
   VerificationClaims,
   VerificationResult,
 } from "@authbound-sdk/core";
@@ -26,7 +26,7 @@ import {
 import {
   AuthboundContext,
   type AuthboundContextValue,
-  type VerificationSession,
+  type VerificationState,
 } from "../context/authbound-context";
 import type { AuthboundAppearance } from "../types/appearance";
 import {
@@ -80,11 +80,14 @@ export const MockScenarios = {
     failOnStart: true,
   },
 
-  /** Session expired */
-  sessionExpired: {
+  /** Verification expired */
+  verificationExpired: {
     delay: 3000,
     result: "error" as const,
-    error: new AuthboundError("session_expired", "Session has expired"),
+    error: new AuthboundError(
+      "verification_expired",
+      "Verification has expired"
+    ),
   },
 } as const;
 
@@ -138,7 +141,7 @@ const MockContext = createContext<MockContextValue | null>(null);
  * const { triggerVerified, triggerFailed } = useMockAuthbound();
  *
  * // Simulate successful verification
- * await triggerVerified({ verdict: 'approved', claims: { age_over_18: true } });
+ * await triggerVerified({ verified: true, assertions: { age_over_18: true } });
  *
  * // Simulate failure
  * await triggerFailed(new AuthboundError('wallet_rejected'));
@@ -155,11 +158,11 @@ export function useMockAuthbound(): MockContextValue {
 }
 
 // ============================================================================
-// Mock Session State
+// Mock Verification State
 // ============================================================================
 
-interface MockSession {
-  sessionId: SessionId;
+interface MockVerification {
+  verificationId: VerificationId;
   status: EudiVerificationStatus;
   authorizationRequestUrl: string;
   clientToken: string;
@@ -206,7 +209,7 @@ export function MockAuthboundProvider({
   appearance = {},
   children,
 }: MockAuthboundProviderProps) {
-  const [session, setSession] = useState<MockSession | null>(null);
+  const [session, setSession] = useState<MockVerification | null>(null);
 
   // Resolve scenario
   const resolvedScenario = useMemo(() => {
@@ -226,8 +229,8 @@ export function MockAuthboundProvider({
           status: "verified",
           result: result ??
             config.customResult ?? {
-              verdict: "approved",
-              claims: { age_over_18: true },
+              verified: true,
+              assertions: { age_over_18: true },
             },
         };
       });
@@ -285,11 +288,11 @@ export function MockAuthboundProvider({
       throw scenario.error ?? new AuthboundError("network_error");
     }
 
-    // Create mock session
-    const mockSession: MockSession = {
-      sessionId: `ses_mock_${Date.now()}` as SessionId,
+    // Create mock verification
+    const mockSession: MockVerification = {
+      verificationId: `vrf_mock_${Date.now()}` as VerificationId,
       status: "pending",
-      authorizationRequestUrl: `https://mock.authbound.io/v?session=mock_${Date.now()}`,
+      authorizationRequestUrl: `https://mock.authbound.io/v?verification=mock_${Date.now()}`,
       clientToken: "mock_token_" + Date.now(),
       expiresAt: new Date(Date.now() + 5 * 60 * 1000),
     };
@@ -304,8 +307,8 @@ export function MockAuthboundProvider({
         switch (scenario.result) {
           case "verified":
             triggerVerified({
-              verdict: "approved",
-              claims: scenario.claims ?? {},
+              verified: true,
+              assertions: scenario.claims ? { ...scenario.claims } : {},
             });
             break;
           case "failed":
@@ -333,14 +336,15 @@ export function MockAuthboundProvider({
         config: {
           publishableKey: "pk_test_mock" as any,
           gatewayUrl: "https://mock.authbound.io",
-          sessionEndpoint: "/api/mock/session",
+          verificationEndpoint: "/api/mock/verification",
           timeout: 30_000,
           debug: false,
           environment: "test" as const,
         },
         startVerification: async () => ({
-          sessionId: "ses_mock" as SessionId,
-          authorizationRequestUrl: "https://mock.authbound.io/v?session=mock",
+          verificationId: "vrf_mock" as VerificationId,
+          authorizationRequestUrl:
+            "https://mock.authbound.io/v?verification=mock",
           clientToken: "mock_token" as ClientToken,
           expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
         }),
@@ -351,22 +355,22 @@ export function MockAuthboundProvider({
         log: () => {},
       } as any, // Mock client doesn't need full implementation
       isReady: true,
-      session: session
+      verification: session
         ? ({
-            sessionId: session.sessionId,
+            verificationId: session.verificationId,
             status: session.status,
             authorizationRequestUrl: session.authorizationRequestUrl,
             clientToken: session.clientToken as ClientToken,
             result: session.result,
             error: session.error,
             expiresAt: session.expiresAt,
-          } as VerificationSession)
+          } as VerificationState)
         : null,
       appearance,
       policyId: "test-policy@1.0.0" as PolicyId,
       startVerification,
-      resetSession: triggerReset,
-      updateSession: (update: Partial<VerificationSession>) =>
+      resetVerification: triggerReset,
+      updateVerification: (update: Partial<VerificationState>) =>
         setSession((prev) => (prev ? { ...prev, ...update } : null)),
     }),
     [session, appearance, startVerification, triggerReset]
@@ -458,9 +462,9 @@ export function createMockResult(
   claims: VerificationClaims = { age_over_18: true }
 ): VerificationResult {
   return {
-    verdict: "approved",
-    claims,
-    verified_at: new Date().toISOString(),
+    verified: true,
+    assertions: { ...claims },
+    verifiedAt: new Date().toISOString(),
   };
 }
 

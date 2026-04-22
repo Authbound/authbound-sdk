@@ -2,7 +2,7 @@ import type { QuickIDConfig } from "@authbound-sdk/quickid-core";
 import { CheckCircle, FileText, Shield, User } from "lucide-react";
 import { useState } from "react";
 import { KYCModal } from "./components/kyc/KYCModal";
-import { useCreateSession } from "./hooks/useCreateSession";
+import { useCreateVerification } from "./hooks/useCreateVerification";
 import "./App.css";
 
 function App() {
@@ -18,12 +18,10 @@ function App() {
 
   console.log("quickIDConfig", quickIDConfig);
 
-  // React Query mutation for creating sessions
-  const createSessionMutation = useCreateSession();
+  const createVerificationMutation = useCreateVerification();
 
   const handleOpenKYC = async () => {
-    // Always fetch a fresh session when starting the flow
-    createSessionMutation.mutate(
+    createVerificationMutation.mutate(
       {
         customer_user_ref: `demo_user_${Date.now()}`,
       },
@@ -33,9 +31,9 @@ function App() {
           setIsKYCOpen(true);
         },
         onError: (error) => {
-          console.error("Failed to create session:", error);
+          console.error("Failed to create verification:", error);
           alert(
-            `Failed to start verification session: ${error.message}. See console for details.`
+            `Failed to start verification: ${error.message}. See console for details.`
           );
         },
       }
@@ -82,11 +80,11 @@ function App() {
             ) : (
               <button
                 className="btn-primary"
-                disabled={createSessionMutation.isPending}
+                disabled={createVerificationMutation.isPending}
                 onClick={handleOpenKYC}
               >
                 <Shield className="btn-icon" size={18} />
-                {createSessionMutation.isPending
+                {createVerificationMutation.isPending
                   ? "Starting..."
                   : "Verify Identity to Start"}
               </button>

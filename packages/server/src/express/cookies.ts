@@ -13,8 +13,8 @@ import type {
   Request,
   Response,
 } from "express";
-import { createToken, getSessionFromToken } from "../core/jwt";
-import type { AuthboundConfig, AuthboundSession } from "../core/types";
+import { createToken, getVerificationFromToken } from "../core/jwt";
+import type { AuthboundConfig, AuthboundVerificationContext } from "../core/types";
 import { getDefaultCookieOptions } from "../core/types";
 
 // ============================================================================
@@ -72,23 +72,23 @@ export function getCookieValue(
  * Get the session from request cookies.
  * Returns null if no valid session cookie exists.
  */
-export async function getSessionFromCookie(
+export async function getVerificationFromCookie(
   req: Request,
   config: AuthboundConfig
-): Promise<AuthboundSession | null> {
+): Promise<AuthboundVerificationContext | null> {
   const token = getCookieValue(req, config);
   if (!token) return null;
 
-  return getSessionFromToken(token, config.secret);
+  return getVerificationFromToken(token, config.secret);
 }
 
 // ============================================================================
 // Cookie Writing
 // ============================================================================
 
-export interface SetSessionCookieOptions {
+export interface SetVerificationCookieOptions {
   userRef: string;
-  sessionId: string;
+  verificationId: string;
   status: "VERIFIED" | "REJECTED" | "MANUAL_REVIEW_NEEDED" | "PENDING";
   assuranceLevel: "NONE" | "LOW" | "SUBSTANTIAL" | "HIGH";
   age?: number;
@@ -98,15 +98,15 @@ export interface SetSessionCookieOptions {
 /**
  * Create and set a session cookie on an Express response.
  */
-export async function setSessionCookie(
+export async function setVerificationCookie(
   res: Response,
   config: AuthboundConfig,
-  sessionData: SetSessionCookieOptions
+  sessionData: SetVerificationCookieOptions
 ): Promise<void> {
   const token = await createToken({
     secret: config.secret,
     userRef: sessionData.userRef,
-    sessionId: sessionData.sessionId,
+    verificationId: sessionData.verificationId,
     status: sessionData.status,
     assuranceLevel: sessionData.assuranceLevel,
     age: sessionData.age,
@@ -123,7 +123,7 @@ export async function setSessionCookie(
 /**
  * Clear the session cookie from an Express response.
  */
-export function clearSessionCookie(
+export function clearVerificationCookie(
   res: Response,
   config: AuthboundConfig
 ): void {

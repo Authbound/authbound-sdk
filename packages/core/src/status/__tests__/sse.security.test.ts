@@ -8,7 +8,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResolvedConfig } from "../../client/config";
-import { asClientToken, asSessionId } from "../../types/branded";
+import { asClientToken, asVerificationId } from "../../types/branded";
 import { AuthboundError } from "../../types/errors";
 import type { StatusEvent } from "../../types/verification";
 import { createStatusSubscription, MAX_BUFFER_SIZE } from "../sse";
@@ -17,10 +17,13 @@ import { createStatusSubscription, MAX_BUFFER_SIZE } from "../sse";
 const TEST_CONFIG: ResolvedConfig = {
   gatewayUrl: "https://gateway.authbound.test",
   publishableKey: "pk_test_123" as any,
+  verificationEndpoint: "/api/authbound/verification",
+  timeout: 30_000,
+  environment: "test",
   debug: false,
 };
 
-const TEST_SESSION_ID = asSessionId("ses_test123");
+const TEST_VERIFICATION_ID = asVerificationId("vrf_test123");
 const TEST_CLIENT_TOKEN = asClientToken("token_test123");
 
 /**
@@ -55,22 +58,26 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
 
   afterEach(() => {
     if (cleanup) cleanup();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
   describe("Overflow Prevention", () => {
     it("throws when single chunk exceeds 64KB without delimiters", async () => {
       // Create a chunk larger than MAX_BUFFER_SIZE without any \n\n delimiter
-      const hugeChunk = "data: " + "a".repeat(MAX_BUFFER_SIZE + 1000);
+      const hugeChunk = `data: ${"a".repeat(MAX_BUFFER_SIZE + 1000)}`;
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        body: createMockStream([hugeChunk]),
-      });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          body: createMockStream([hugeChunk]),
+        })
+      );
 
       cleanup = createStatusSubscription(
         TEST_CONFIG,
-        TEST_SESSION_ID,
+        TEST_VERIFICATION_ID,
         TEST_CLIENT_TOKEN,
         (event) => events.push(event),
         {
@@ -90,16 +97,21 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
       // Send many small chunks that accumulate to exceed buffer
       const chunkSize = 10 * 1024; // 10KB each
       const numChunks = 8; // Total 80KB > 64KB
-      const chunks = Array(numChunks).fill("data: " + "a".repeat(chunkSize));
+      const chunks = new Array(numChunks).fill(
+        `data: ${"a".repeat(chunkSize)}`
+      );
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        body: createMockStream(chunks),
-      });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          body: createMockStream(chunks),
+        })
+      );
 
       cleanup = createStatusSubscription(
         TEST_CONFIG,
-        TEST_SESSION_ID,
+        TEST_VERIFICATION_ID,
         TEST_CLIENT_TOKEN,
         (event) => events.push(event),
         {
@@ -116,16 +128,19 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
 
     it("throws at exact boundary (64KB + 1 byte)", async () => {
       // Exactly at the limit + 1
-      const chunk = "data: " + "a".repeat(MAX_BUFFER_SIZE - 5); // -5 for "data: "
+      const chunk = `data: ${"a".repeat(MAX_BUFFER_SIZE - 5)}`; // -5 for "data: "
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        body: createMockStream([chunk]),
-      });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          body: createMockStream([chunk]),
+        })
+      );
 
       cleanup = createStatusSubscription(
         TEST_CONFIG,
-        TEST_SESSION_ID,
+        TEST_VERIFICATION_ID,
         TEST_CLIENT_TOKEN,
         (event) => events.push(event),
         {
@@ -147,14 +162,17 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
       const chunk1 = 'event: status\ndata: {"status":"pending"}\n\n';
       const chunk2 = 'event: status\ndata: {"status":"processing"}\n\n';
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        body: createMockStream([chunk1, chunk2]),
-      });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          body: createMockStream([chunk1, chunk2]),
+        })
+      );
 
       cleanup = createStatusSubscription(
         TEST_CONFIG,
-        TEST_SESSION_ID,
+        TEST_VERIFICATION_ID,
         TEST_CLIENT_TOKEN,
         (event) => events.push(event),
         {
@@ -178,14 +196,17 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
         "a".repeat(safeSize) +
         '"}\n\n';
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        body: createMockStream([chunk]),
-      });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          body: createMockStream([chunk]),
+        })
+      );
 
       cleanup = createStatusSubscription(
         TEST_CONFIG,
-        TEST_SESSION_ID,
+        TEST_VERIFICATION_ID,
         TEST_CLIENT_TOKEN,
         (event) => events.push(event),
         {
@@ -211,14 +232,17 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
         );
       }
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        body: createMockStream(events_data),
-      });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          body: createMockStream(events_data),
+        })
+      );
 
       cleanup = createStatusSubscription(
         TEST_CONFIG,
-        TEST_SESSION_ID,
+        TEST_VERIFICATION_ID,
         TEST_CLIENT_TOKEN,
         (event) => events.push(event),
         {
@@ -235,20 +259,72 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
       );
       expect(events.length).toBeGreaterThan(0);
     });
+
+    it("fetches final status when a terminal SSE event has no result", async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          body: createMockStream([
+            'event: status\ndata: {"status":"verified","updatedAt":"2026-04-21T10:00:00.000Z"}\n\n',
+          ]),
+        })
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              object: "verification_status",
+              id: "vrf_test123",
+              status: "verified",
+              result: {
+                verified: true,
+                attributes: { "Pension.startDate": "2025-01-01" },
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          )
+        );
+      vi.stubGlobal("fetch", fetchMock);
+
+      cleanup = createStatusSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          onError: (error) => errors.push(error),
+          autoReconnect: false,
+        }
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(errors).toEqual([]);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(events.at(-1)).toMatchObject({
+        status: "verified",
+        result: {
+          verified: true,
+          attributes: { "Pension.startDate": "2025-01-01" },
+        },
+      });
+    });
   });
 
   describe("Error Details", () => {
     it("returns AuthboundError with network_error code", async () => {
       const hugeChunk = "a".repeat(MAX_BUFFER_SIZE + 100);
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        body: createMockStream([hugeChunk]),
-      });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          body: createMockStream([hugeChunk]),
+        })
+      );
 
       cleanup = createStatusSubscription(
         TEST_CONFIG,
-        TEST_SESSION_ID,
+        TEST_VERIFICATION_ID,
         TEST_CLIENT_TOKEN,
         () => {},
         {

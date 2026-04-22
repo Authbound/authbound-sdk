@@ -1,14 +1,18 @@
 import type { z } from "zod";
-import type { VerificationResultSchema } from "./schemas";
+import type {
+  AssuranceLevelSchema,
+  BiometricDataSchema,
+  DocumentDataSchema,
+  ErrorDetailSchema,
+  VerificationResultSchema,
+  VerificationStatusSchema,
+} from "./schemas";
 
-// Re-export types from core
-export type {
-  AssuranceLevel,
-  BiometricData,
-  DocumentData,
-  ErrorDetail,
-  VerificationStatus,
-} from "@authbound-sdk/core";
+export type VerificationStatus = z.infer<typeof VerificationStatusSchema>;
+export type AssuranceLevel = z.infer<typeof AssuranceLevelSchema>;
+export type DocumentData = z.infer<typeof DocumentDataSchema>;
+export type BiometricData = z.infer<typeof BiometricDataSchema>;
+export type ErrorDetail = z.infer<typeof ErrorDetailSchema>;
 
 // Re-export VerificationResult type inferred from schema
 export type VerificationResult = z.infer<typeof VerificationResultSchema>;

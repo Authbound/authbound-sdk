@@ -16,15 +16,15 @@ import * as React from "react";
 export interface DeepLinkButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /**
-   * Authorization request URL from the verification session.
+   * Authorization request URL from the verification.
    * This is the URL that the wallet app will use to fetch the verification request.
    */
   authorizationRequestUrl: string;
 
   /**
-   * Session ID for tracking (optional, used for analytics).
+   * Verification ID for tracking (optional, used for analytics).
    */
-  sessionId?: string;
+  verificationId?: string;
 
   /**
    * Wallet scheme to use for the deep link.
@@ -69,8 +69,8 @@ export interface DeepLinkButtonProps
  * @example
  * ```tsx
  * <DeepLinkButton
- *   authorizationRequestUrl={session.authorizationRequestUrl}
- *   sessionId={session.sessionId}
+ *   authorizationRequestUrl={verification.authorizationRequestUrl}
+ *   verificationId={verification.verificationId}
  * >
  *   Open in Wallet
  * </DeepLinkButton>
@@ -89,7 +89,7 @@ export interface DeepLinkButtonProps
  */
 export function DeepLinkButton({
   authorizationRequestUrl,
-  sessionId,
+  verificationId,
   scheme = "openid4vp",
   showOnDesktop = false,
   onOpen,
@@ -150,7 +150,7 @@ export function DeepLinkButton({
       aria-label={typeof children === "string" ? children : "Open wallet app"}
       className={className}
       data-authbound-deep-link
-      data-session-id={sessionId}
+      data-verification-id={verificationId}
       disabled={disabled || isOpening}
       onClick={handleClick}
       type="button"

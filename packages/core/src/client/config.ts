@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import type { PolicyId, PublishableKey } from "../types/branded";
-import { isPublishableKey } from "../types/branded";
+import { isPolicyId, isPublishableKey } from "../types/branded";
 import { AuthboundError } from "../types/errors";
 
 // ============================================================================
@@ -24,8 +24,8 @@ export interface AuthboundClientConfig {
   /** Gateway URL (defaults to production) */
   gatewayUrl?: string;
 
-  /** Session creation endpoint on your server */
-  sessionEndpoint?: string;
+  /** Verification creation endpoint on your server */
+  verificationEndpoint?: string;
 
   /** Request timeout in milliseconds (default: 30000) */
   timeout?: number;
@@ -39,12 +39,9 @@ export const AuthboundClientConfigSchema = z.object({
     message:
       "Invalid publishable key format. Expected pk_live_... or pk_test_...",
   }),
-  policyId: z
-    .string()
-    .regex(/^.+@.+$/, "Policy ID must include version (e.g., policy@1.0.0)")
-    .optional(),
+  policyId: z.string().refine(isPolicyId, "Invalid policy ID").optional(),
   gatewayUrl: z.string().url().optional(),
-  sessionEndpoint: z.string().optional(),
+  verificationEndpoint: z.string().optional(),
   timeout: z.number().int().positive().optional(),
   debug: z.boolean().optional(),
 });
@@ -58,7 +55,7 @@ export const AuthboundClientConfigSchema = z.object({
  */
 export const DEFAULT_CONFIG = {
   gatewayUrl: "https://gateway.authbound.io",
-  sessionEndpoint: "/api/authbound/session",
+  verificationEndpoint: "/api/authbound/verification",
   timeout: 30_000,
   debug: false,
 } as const;
@@ -74,7 +71,7 @@ export interface ResolvedConfig {
   publishableKey: PublishableKey;
   policyId?: PolicyId;
   gatewayUrl: string;
-  sessionEndpoint: string;
+  verificationEndpoint: string;
   timeout: number;
   debug: boolean;
   environment: "live" | "test";
@@ -107,8 +104,8 @@ export function resolveConfig(config: AuthboundClientConfig): ResolvedConfig {
     publishableKey: validated.publishableKey as PublishableKey,
     policyId: validated.policyId as PolicyId | undefined,
     gatewayUrl: validated.gatewayUrl ?? DEFAULT_CONFIG.gatewayUrl,
-    sessionEndpoint:
-      validated.sessionEndpoint ?? DEFAULT_CONFIG.sessionEndpoint,
+    verificationEndpoint:
+      validated.verificationEndpoint ?? DEFAULT_CONFIG.verificationEndpoint,
     timeout: validated.timeout ?? DEFAULT_CONFIG.timeout,
     debug: validated.debug ?? DEFAULT_CONFIG.debug,
     environment,

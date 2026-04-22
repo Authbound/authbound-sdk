@@ -15,7 +15,7 @@
  * Grouped by category:
  * - config_*: Configuration errors (developer mistake)
  * - policy_*: Policy resolution errors
- * - session_*: Session lifecycle errors
+ * - verification_*: Verification lifecycle errors
  * - wallet_*: Wallet interaction errors
  * - token_*: Token validation errors
  * - network_*: Network/connectivity errors
@@ -30,11 +30,11 @@ export type AuthboundErrorCode =
   | "policy_not_found"
   | "policy_invalid"
   | "policy_version_required"
-  // Session errors
-  | "session_create_failed"
-  | "session_not_found"
-  | "session_expired"
-  | "session_invalid_state"
+  // Verification errors
+  | "verification_create_failed"
+  | "verification_not_found"
+  | "verification_expired"
+  | "verification_invalid_state"
   // Wallet interaction errors
   | "wallet_timeout"
   | "wallet_rejected"
@@ -108,26 +108,26 @@ export const ERROR_METADATA: Record<AuthboundErrorCode, ErrorMetadata> = {
     hint: "Use format: 'policy-name@1.0.0'. Unversioned policies are only allowed in test mode.",
     docsPath: "/policies/versioning",
   },
-  // Session
-  session_create_failed: {
-    message: "Failed to create verification session.",
+  // Verification
+  verification_create_failed: {
+    message: "Failed to create verification.",
     hint: "Check your API key permissions and that the policy is enabled.",
-    docsPath: "/errors/session-create-failed",
+    docsPath: "/errors/verification-create-failed",
   },
-  session_not_found: {
-    message: "Verification session not found.",
-    hint: "The session may have expired or been deleted. Create a new session with startVerification().",
-    docsPath: "/errors/session-not-found",
+  verification_not_found: {
+    message: "Verification not found.",
+    hint: "The verification may have expired or been deleted. Create a new verification with startVerification().",
+    docsPath: "/errors/verification-not-found",
   },
-  session_expired: {
-    message: "Verification session has expired.",
-    hint: "Sessions expire after 5 minutes. Call startVerification() to create a new session.",
-    docsPath: "/errors/session-expired",
+  verification_expired: {
+    message: "Verification has expired.",
+    hint: "Verifications expire after 5 minutes. Call startVerification() to create a new verification.",
+    docsPath: "/errors/verification-expired",
   },
-  session_invalid_state: {
-    message: "Session is in an invalid state for this operation.",
-    hint: "Check session.status before performing operations. Terminal states cannot be changed.",
-    docsPath: "/errors/session-invalid-state",
+  verification_invalid_state: {
+    message: "Verification is in an invalid state for this operation.",
+    hint: "Check verification.status before performing operations. Terminal states cannot be changed.",
+    docsPath: "/errors/verification-invalid-state",
   },
   // Wallet
   wallet_timeout: {
@@ -173,7 +173,7 @@ export const ERROR_METADATA: Record<AuthboundErrorCode, ErrorMetadata> = {
   },
   token_expired: {
     message: "Authentication token has expired.",
-    hint: "Tokens expire with the session. Create a new session to get a fresh token.",
+    hint: "Tokens expire with the verification. Create a new verification to get a fresh token.",
     docsPath: "/errors/token-expired",
   },
   token_signature_invalid: {
@@ -233,8 +233,8 @@ export const ERROR_MESSAGES: Record<AuthboundErrorCode, string> =
  * } catch (error) {
  *   if (error instanceof AuthboundError) {
  *     switch (error.code) {
- *       case 'session_expired':
- *         // Handle expired session
+ *       case 'verification_expired':
+ *         // Handle expired verification
  *         break;
  *       case 'wallet_timeout':
  *         // Show timeout UI
@@ -458,11 +458,11 @@ function mapHttpStatusToCode(
     case 403:
       return "token_signature_invalid";
     case 404:
-      return "session_not_found";
+      return "verification_not_found";
     case 408:
       return "wallet_timeout";
     case 410:
-      return "session_expired";
+      return "verification_expired";
     case 422:
       return "policy_invalid";
     case 429:

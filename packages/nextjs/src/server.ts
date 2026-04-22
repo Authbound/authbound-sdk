@@ -5,11 +5,11 @@
  *
  * @example
  * ```ts
- * // app/api/authbound/session/route.ts
- * import { createSessionRoute } from '@authbound-sdk/nextjs/server';
+ * // app/api/authbound/verification/route.ts
+ * import { createVerificationRoute } from '@authbound-sdk/nextjs/server';
  *
- * export const POST = createSessionRoute({
- *   policyId: 'age-gate-18@1.0.0',
+ * export const POST = createVerificationRoute({
+ *   policyId: 'pol_authbound_pension_v1',
  * });
  * ```
  */
@@ -22,21 +22,21 @@ import { type NextRequest, NextResponse } from "next/server";
 // Types
 // ============================================================================
 
-export interface SessionRouteOptions {
+export interface VerificationRouteOptions {
   /**
-   * Policy ID for the verification session.
+   * Policy ID for the verification.
    */
   policyId: PolicyId;
 
   /**
-   * Custom session endpoint on Authbound gateway.
+   * Custom Authbound gateway URL.
    * @default Uses AUTHBOUND_GATEWAY_URL env var
    */
   gatewayUrl?: string;
 
   /**
-   * Secret key for signing.
-   * @default Uses AUTHBOUND_SECRET env var
+   * Authbound secret key.
+   * @default Uses AUTHBOUND_SECRET_KEY env var
    */
   secret?: string;
 
@@ -72,12 +72,12 @@ export interface WebhookRouteOptions {
   webhookSecret?: string;
 
   /**
-   * Handler for verified sessions.
+   * Handler for verified events.
    */
   onVerified?: (event: WebhookEvent) => void | Promise<void>;
 
   /**
-   * Handler for failed sessions.
+   * Handler for failed events.
    */
   onFailed?: (event: WebhookEvent) => void | Promise<void>;
 
@@ -126,6 +126,32 @@ function getEnvVar(name: string, fallback?: string): string {
   return value ?? fallback!;
 }
 
+function getSecretKey(fallback?: string): string {
+  const value =
+    process.env.AUTHBOUND_SECRET_KEY ??
+    process.env.AUTHBOUND_SECRET ??
+    fallback;
+  if (!value) {
+    throw new Error(
+      "Missing required environment variable: AUTHBOUND_SECRET_KEY"
+    );
+  }
+  return value;
+}
+
+function getPublishableKey(fallback?: string): string {
+  const value =
+    process.env.NEXT_PUBLIC_AUTHBOUND_PK ??
+    process.env.AUTHBOUND_PUBLISHABLE_KEY ??
+    fallback;
+  if (!value) {
+    throw new Error(
+      "Missing required environment variable: NEXT_PUBLIC_AUTHBOUND_PK"
+    );
+  }
+  return value;
+}
+
 function maskIdentifier(value: string | undefined): string | undefined {
   if (!value) {
     return undefined;
@@ -152,7 +178,7 @@ function summarizeError(error: unknown): { name: string; message: string } {
   };
 }
 
-function summarizeSessionRequest(
+function summarizeVerificationRequest(
   policyId: PolicyId,
   body: Record<string, unknown>
 ): Record<string, unknown> {
@@ -196,13 +222,13 @@ function summarizeGatewayError(errorBody: unknown): Record<string, unknown> {
   };
 }
 
-function summarizeSessionResponse(
+function summarizeVerificationResponse(
   responseData: Record<string, unknown>
 ): Record<string, unknown> {
   return {
-    sessionId:
-      typeof responseData.sessionId === "string"
-        ? maskIdentifier(responseData.sessionId)
+    verificationId:
+      typeof responseData.verificationId === "string"
+        ? maskIdentifier(responseData.verificationId)
         : undefined,
     expiresAt:
       typeof responseData.expiresAt === "string"
@@ -225,7 +251,7 @@ function summarizeWebhookEvent(event: WebhookEvent): Record<string, unknown> {
     eventId: maskIdentifier(event.id),
     type: event.type,
     created: event.created,
-    sessionId: maskIdentifier(event.data.object.id),
+    verificationId: maskIdentifier(event.data.object.id),
     status: event.data.object.status,
     errorCode: event.data.object.last_error?.code,
   };
@@ -254,20 +280,19 @@ export {
  *   { id, client_token, client_action: { data }, verification_url, expires_at }
  *
  * SDK expects camelCase with semantic names:
- *   { sessionId, clientToken, authorizationRequestUrl, expiresAt, deepLink }
+ *   { verificationId, clientToken, authorizationRequestUrl, expiresAt, deepLink }
  */
 function mapGatewayResponse(
   raw: Record<string, unknown>
 ): Record<string, unknown> {
-  // If already mapped (has sessionId), pass through
-  if (raw.sessionId) return raw;
+  if (raw.verificationId) return raw;
 
   const clientAction = raw.client_action as
     | { kind?: string; data?: string; expires_at?: string }
     | undefined;
 
   return {
-    sessionId: `ses_${raw.id}`,
+    verificationId: raw.id,
     authorizationRequestUrl: clientAction?.data ?? raw.verification_url,
     clientToken: raw.client_token,
     expiresAt: raw.expires_at,
@@ -276,29 +301,29 @@ function mapGatewayResponse(
 }
 
 // ============================================================================
-// Session Route Handler
+// Verification Route Handler
 // ============================================================================
 
 /**
- * Create a zero-config session route handler.
+ * Create a zero-config verification route handler.
  *
- * This handler creates verification sessions by proxying requests to the
+ * This handler creates verifications by proxying requests to the
  * Authbound gateway. It handles authentication and adds your policy ID.
  *
  * @example
  * ```ts
- * // app/api/authbound/session/route.ts
- * import { createSessionRoute } from '@authbound-sdk/nextjs/server';
+ * // app/api/authbound/verification/route.ts
+ * import { createVerificationRoute } from '@authbound-sdk/nextjs/server';
  *
- * export const POST = createSessionRoute({
- *   policyId: 'age-gate-18@1.0.0',
+ * export const POST = createVerificationRoute({
+ *   policyId: 'pol_authbound_pension_v1',
  * });
  * ```
  *
  * @example
  * ```ts
  * // With custom metadata
- * export const POST = createSessionRoute({
+ * export const POST = createVerificationRoute({
  *   policyId: 'kyc-full@1.0.0',
  *   transformRequest: async (request, body) => {
  *     const user = await getCurrentUser();
@@ -310,8 +335,8 @@ function mapGatewayResponse(
  * });
  * ```
  */
-export function createSessionRoute(
-  options: SessionRouteOptions
+export function createVerificationRoute(
+  options: VerificationRouteOptions
 ): (request: NextRequest) => Promise<NextResponse> {
   const {
     policyId,
@@ -319,7 +344,7 @@ export function createSessionRoute(
       "AUTHBOUND_GATEWAY_URL",
       "https://gateway.authbound.io"
     ),
-    secret = getEnvVar("AUTHBOUND_SECRET"),
+    secret = getSecretKey(),
     debug = false,
     transformRequest,
     transformResponse,
@@ -335,29 +360,39 @@ export function createSessionRoute(
         // Empty body is fine
       }
 
-      // Add policy ID
-      body.policyId = policyId;
-
       // Transform request if provided
       if (transformRequest) {
         body = await transformRequest(request, body);
       }
+      body.policyId = policyId;
 
       if (debug) {
         console.log(
-          "[Authbound] Creating session:",
-          summarizeSessionRequest(policyId, body)
+          "[Authbound] Creating verification:",
+          summarizeVerificationRequest(policyId, body)
         );
+      }
+
+      const gatewayBody = {
+        customer_user_ref: body.customerUserRef,
+        policy_id: body.policyId,
+        metadata: body.metadata,
+        provider: body.provider,
+      };
+      const idempotencyKey = request.headers.get("Idempotency-Key");
+      const gatewayHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        "X-Authbound-Key": secret,
+      };
+      if (idempotencyKey) {
+        gatewayHeaders["Idempotency-Key"] = idempotencyKey;
       }
 
       // Proxy to gateway
       const gatewayResponse = await fetch(`${gatewayUrl}/v1/verifications`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${secret}`,
-        },
-        body: JSON.stringify(body),
+        headers: gatewayHeaders,
+        body: JSON.stringify(gatewayBody),
       });
 
       if (!gatewayResponse.ok) {
@@ -370,7 +405,7 @@ export function createSessionRoute(
         }
         return NextResponse.json(
           {
-            error: errorBody.message ?? "Failed to create session",
+            error: errorBody.message ?? "Failed to create verification",
             code: errorBody.code,
             message: errorBody.message,
           },
@@ -390,8 +425,8 @@ export function createSessionRoute(
 
       if (debug) {
         console.log(
-          "[Authbound] Session created:",
-          summarizeSessionResponse(responseData)
+          "[Authbound] Verification created:",
+          summarizeVerificationResponse(responseData)
         );
       }
 
@@ -399,7 +434,7 @@ export function createSessionRoute(
     } catch (error) {
       if (debug) {
         console.error(
-          "[Authbound] Session creation error:",
+          "[Authbound] Verification creation error:",
           summarizeError(error)
         );
       }
@@ -427,7 +462,7 @@ export function createSessionRoute(
  *   onVerified: async (event) => {
  *     const { id, verified_outputs } = event.data.object;
  *     await db.users.update({
- *       where: { sessionId: id },
+ *       where: { verificationId: id },
  *       data: { verified: true, age: verified_outputs?.age },
  *     });
  *   },
@@ -541,6 +576,12 @@ export interface StatusRouteOptions {
   gatewayUrl?: string;
 
   /**
+   * Authbound publishable key used to scope client-token status requests.
+   * @default Uses NEXT_PUBLIC_AUTHBOUND_PK or AUTHBOUND_PUBLISHABLE_KEY env var
+   */
+  publishableKey?: string;
+
+  /**
    * Enable debug logging.
    */
   debug?: boolean;
@@ -554,7 +595,7 @@ export interface StatusRouteOptions {
  *
  * @example
  * ```ts
- * // app/api/authbound/status/[sessionId]/route.ts
+ * // app/api/authbound/status/[verificationId]/route.ts
  * import { createStatusRoute } from '@authbound-sdk/nextjs/server';
  *
  * export const GET = createStatusRoute();
@@ -564,27 +605,28 @@ export function createStatusRoute(
   options: StatusRouteOptions = {}
 ): (
   request: NextRequest,
-  context: { params: Promise<{ sessionId: string }> }
+  context: { params: Promise<{ verificationId: string }> }
 ) => Promise<NextResponse> {
   const {
     gatewayUrl = getEnvVar(
       "AUTHBOUND_GATEWAY_URL",
       "https://gateway.authbound.io"
     ),
+    publishableKey = getPublishableKey(),
     debug = false,
   } = options;
 
   return async (
     request: NextRequest,
-    context: { params: Promise<{ sessionId: string }> }
+    context: { params: Promise<{ verificationId: string }> }
   ): Promise<NextResponse> => {
     try {
       const params = await context.params;
-      const { sessionId } = params;
+      const { verificationId } = params;
 
-      if (!sessionId) {
+      if (!verificationId) {
         return NextResponse.json(
-          { error: "Missing sessionId" },
+          { error: "Missing verificationId" },
           { status: 400 }
         );
       }
@@ -598,22 +640,18 @@ export function createStatusRoute(
         );
       }
 
-      // Strip ses_ prefix if present (gateway expects raw UUID)
-      const rawId = sessionId.startsWith("ses_")
-        ? sessionId.slice(4)
-        : sessionId;
-
       if (debug) {
         console.log("[Authbound] Checking status:", {
-          sessionId: maskIdentifier(rawId),
+          verificationId: maskIdentifier(verificationId),
         });
       }
 
       const response = await fetch(
-        `${gatewayUrl}/v1/verifications/${rawId}/status`,
+        `${gatewayUrl}/v1/verifications/${verificationId}/status`,
         {
           headers: {
             Authorization: authorization,
+            "X-Authbound-Publishable-Key": publishableKey,
           },
         }
       );
@@ -644,32 +682,32 @@ export function createStatusRoute(
 // ============================================================================
 
 /**
- * Create a session on the server side.
+ * Create a verification on the server side.
  * Useful for server components or server actions.
  *
  * @example
  * ```ts
  * // In a server action
- * import { createSession } from '@authbound-sdk/nextjs/server';
+ * import { createVerification } from '@authbound-sdk/nextjs/server';
  *
  * export async function startVerification() {
  *   'use server';
- *   const session = await createSession({
- *     policyId: 'age-gate-18@1.0.0',
+ *   const verification = await createVerification({
+ *     policyId: 'pol_authbound_pension_v1',
  *     metadata: { userId: user.id },
  *   });
- *   return session;
+ *   return verification;
  * }
  * ```
  */
-export async function createSession(options: {
+export async function createVerification(options: {
   policyId: PolicyId;
   gatewayUrl?: string;
   secret?: string;
   customerUserRef?: string;
   metadata?: Record<string, string>;
 }): Promise<{
-  sessionId: string;
+  verificationId: string;
   authorizationRequestUrl: string;
   clientToken: string;
   expiresAt: string;
@@ -680,7 +718,7 @@ export async function createSession(options: {
       "AUTHBOUND_GATEWAY_URL",
       "https://gateway.authbound.io"
     ),
-    secret = getEnvVar("AUTHBOUND_SECRET"),
+    secret = getSecretKey(),
     customerUserRef,
     metadata,
   } = options;
@@ -689,22 +727,22 @@ export async function createSession(options: {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${secret}`,
+      "X-Authbound-Key": secret,
     },
     body: JSON.stringify({
-      policyId,
-      customerUserRef,
+      policy_id: policyId,
+      customer_user_ref: customerUserRef,
       metadata,
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to create session: ${response.statusText}`);
+    throw new Error(`Failed to create verification: ${response.statusText}`);
   }
 
   const raw = await response.json();
   return mapGatewayResponse(raw) as {
-    sessionId: string;
+    verificationId: string;
     authorizationRequestUrl: string;
     clientToken: string;
     expiresAt: string;
@@ -719,13 +757,13 @@ export {
   type AuthboundClaims,
   // Core types
   type AuthboundConfig,
-  type AuthboundSession,
+  type AuthboundVerificationContext,
   type CookieOptions,
   calculateAge,
   checkRequirements,
   // JWT
   createToken,
-  getSessionFromToken,
+  getVerificationFromToken,
   type ProtectedRouteConfig,
   // Utilities
   parseConfig,
@@ -736,16 +774,16 @@ export {
 } from "@authbound-sdk/server";
 
 export {
-  clearSessionCookie,
+  clearVerificationCookie,
   // Next.js specific
   createAuthboundHandlers,
-  createSessionHandler,
   createSignOutHandler,
   createStatusHandler,
+  createVerificationHandler,
   createWebhookHandler,
   // Cookies
   getCookieName,
   getCookieValue,
-  getSessionFromCookie,
-  setSessionCookie,
+  getVerificationFromCookie,
+  setVerificationCookie,
 } from "@authbound-sdk/server/next";

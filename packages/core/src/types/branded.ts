@@ -2,18 +2,18 @@
  * Branded types for type-safe identifiers.
  *
  * Uses nominal branding to ensure type safety at compile-time.
- * This prevents accidentally passing a session ID where a policy ID is expected,
+ * This prevents accidentally passing a verification ID where a policy ID is expected,
  * even if both are strings with similar formats.
  *
  * @example
  * ```ts
- * import { asPolicyId, asSessionId, type PolicyId, type SessionId } from '@authbound-sdk/core';
+ * import { asPolicyId, asVerificationId, type PolicyId, type VerificationId } from '@authbound-sdk/core';
  *
- * const policyId = asPolicyId('age-gate-18@1.0.0');  // Creates PolicyId
- * const sessionId = asSessionId('ses_abc123');        // Creates SessionId
+ * const policyId = asPolicyId('pol_authbound_pension_v1'); // Creates PolicyId
+ * const verificationId = asVerificationId('vrf_abc123');    // Creates VerificationId
  *
  * // This would cause a type error:
- * // const bad: PolicyId = sessionId;  // Error: SessionId is not assignable to PolicyId
+ * // const bad: PolicyId = verificationId;  // Error: VerificationId is not assignable to PolicyId
  * ```
  */
 
@@ -41,13 +41,10 @@ export type Brand<T, B extends string> = T & { readonly [__brand]: B };
 // ============================================================================
 
 /**
- * Policy ID with semantic version.
- * Format: `{name}@{semver}` (e.g., "age-gate-18@1.0.0")
+ * Policy ID.
  *
- * The version component follows semantic versioning:
- * - MAJOR: Breaking policy changes
- * - MINOR: New optional requirements
- * - PATCH: Bug fixes, clarifications
+ * Supports Authbound seeded IDs like `pol_authbound_pension_v1` and semantic
+ * IDs like `age-gate-18@1.0.0`.
  *
  * Use `asPolicyId()` to create a PolicyId from a string.
  */
@@ -57,11 +54,21 @@ export type PolicyId = Brand<string, "PolicyId">;
  * Check if a string is a valid PolicyId format.
  */
 export function isPolicyId(value: string): value is PolicyId {
+  if (!value || /[/?#\\\s]/.test(value)) {
+    return false;
+  }
+
+  const unversionedPattern = /^[a-zA-Z0-9_-]+$/;
+  if (!value.includes("@")) {
+    return unversionedPattern.test(value);
+  }
+
   const parts = value.split("@");
   if (parts.length !== 2) return false;
 
   const [name, version] = parts;
   if (!(name && version)) return false;
+  if (!unversionedPattern.test(name)) return false;
 
   // Basic semver validation (allows v prefix)
   const semverPattern = /^v?\d+\.\d+\.\d+(?:-[\w.]+)?(?:\+[\w.]+)?$/;
@@ -77,7 +84,7 @@ export function isPolicyId(value: string): value is PolicyId {
 export function asPolicyId(value: string): PolicyId {
   if (!isPolicyId(value)) {
     throw new TypeError(
-      `Invalid policy ID format: "${value}". Expected format: "name@version" (e.g., "age-gate-18@1.0.0")`
+      `Invalid policy ID format: "${value}". Expected an Authbound policy ID (e.g., "pol_authbound_pension_v1") or "name@version" (e.g., "age-gate-18@1.0.0")`
     );
   }
   return value as PolicyId;
@@ -104,56 +111,56 @@ export function parsePolicyId(policyId: PolicyId): {
 }
 
 // ============================================================================
-// Session Identifiers
+// Verification Identifiers
 // ============================================================================
 
 /**
- * Verification session ID.
- * Format: `ses_{ulid}` (e.g., "ses_01HX7Y8K3M...")
+ * Verification ID.
+ * Format: `vrf_{id}` or UUID.
  *
- * Use `asSessionId()` to create a SessionId from a string.
+ * Use `asVerificationId()` to create a VerificationId from a string.
  */
-export type SessionId = Brand<string, "SessionId">;
+export type VerificationId = Brand<string, "VerificationId">;
 
 /**
- * Check if a string is a valid SessionId format.
+ * Check if a string is a valid VerificationId format.
  *
- * Validates that the session ID:
- * - Starts with "ses_" prefix
+ * Validates that the verification ID:
+ * - Starts with "vrf_" or is a UUID
  * - Contains only alphanumeric characters, underscores, and hyphens after the prefix
  * - Has at least one character after the prefix
  *
  * This strict validation prevents path traversal attacks where malicious IDs
- * like "ses_../admin/status" could be used to access unintended endpoints.
+ * like "vrf_../admin/status" could be used to access unintended endpoints.
  */
-export function isSessionId(value: string): value is SessionId {
-  // Strict pattern: prefix + alphanumeric/underscore/hyphen only
-  // Prevents path traversal (../), query injection (?), and other special chars
-  return /^ses_[a-zA-Z0-9_-]+$/.test(value);
+export function isVerificationId(value: string): value is VerificationId {
+  const uuidPattern =
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+  return /^vrf_[a-zA-Z0-9_-]+$/.test(value) || uuidPattern.test(value);
 }
 
 /**
- * Create a branded SessionId from a string.
+ * Create a branded VerificationId from a string.
  * Validates format before casting.
  *
- * @throws TypeError if the string is not a valid session ID format
+ * @throws TypeError if the string is not a valid verification ID format
  */
-export function asSessionId(value: string): SessionId {
-  if (!isSessionId(value)) {
+export function asVerificationId(value: string): VerificationId {
+  if (!isVerificationId(value)) {
     throw new TypeError(
-      `Invalid session ID format: "${value}". Expected format: "ses_" followed by alphanumeric characters, underscores, or hyphens (e.g., "ses_01HX7Y8K3M...")`
+      `Invalid verification ID format: "${value}". Expected "vrf_" followed by alphanumeric characters, underscores, or hyphens, or a UUID.`
     );
   }
-  return value as SessionId;
+  return value as VerificationId;
 }
 
 /**
- * Create a branded SessionId without validation.
+ * Create a branded VerificationId without validation.
  * Use only when you're certain the string is valid.
  * @internal
  */
-export function unsafeAsSessionId(value: string): SessionId {
-  return value as SessionId;
+export function unsafeAsVerificationId(value: string): VerificationId {
+  return value as VerificationId;
 }
 
 // ============================================================================

@@ -1,27 +1,27 @@
 /**
- * API service for QuickID session management
+ * API service for QuickID verification creation
  */
 
-export interface CreateSessionRequest {
+export interface CreateVerificationRequest {
   customer_user_ref?: string;
 }
 
-export interface CreateSessionResponse {
+export interface CreateVerificationResponse {
   client_token: string;
   session_id?: string;
   expires_at?: string;
 }
 
 /**
- * Creates a QuickID verification session.
+ * Creates a QuickID verification.
  *
  * ⚠️ SECURITY WARNING:
  * This direct call to the QuickID backend is for DEMO PURPOSES ONLY.
  * In production, this should call your own backend proxy endpoint.
  */
-export async function createSession(
-  request?: CreateSessionRequest
-): Promise<CreateSessionResponse> {
+export async function createVerification(
+  request?: CreateVerificationRequest
+): Promise<CreateVerificationResponse> {
   const API_URL = import.meta.env.VITE_QUICKID_API_URL;
   const API_KEY = import.meta.env.VITE_QUICKID_API_KEY;
 
@@ -55,7 +55,9 @@ export async function createSession(
   if (!res.ok) {
     const errorText = await res.text();
     throw new Error(
-      `Failed to create session (${res.status}): ${errorText || res.statusText}`
+      `Failed to create verification (${res.status}): ${
+        errorText || res.statusText
+      }`
     );
   }
 

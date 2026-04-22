@@ -1,9 +1,9 @@
 import type {
   AssuranceLevel,
   AuthboundClaims,
-  AuthboundSession,
+  AuthboundVerificationContext,
   VerificationStatus,
-} from "@authbound-sdk/core";
+} from "./types";
 import * as jose from "jose";
 
 // ============================================================================
@@ -55,8 +55,8 @@ export interface CreateTokenOptions {
   secret: string;
   /** Customer user reference */
   userRef: string;
-  /** Session ID from Authbound */
-  sessionId: string;
+  /** Verification ID from Authbound */
+  verificationId: string;
   /** Verification status */
   status: VerificationStatus;
   /** Assurance level */
@@ -79,7 +79,7 @@ export async function createToken(
   const {
     secret,
     userRef,
-    sessionId,
+    verificationId,
     status,
     assuranceLevel,
     age,
@@ -97,7 +97,7 @@ export async function createToken(
 
   const claims: Omit<AuthboundClaims, "iat" | "exp"> = {
     sub: userRef,
-    sid: sessionId,
+    sid: verificationId,
     status,
     assurance: assuranceLevel,
     ...(age !== undefined && { age }),
@@ -157,15 +157,17 @@ export async function verifyToken(
 }
 
 /**
- * Convert JWT claims to a user-friendly session object.
+ * Convert JWT claims to a user-friendly verification context.
  */
-export function claimsToSession(claims: AuthboundClaims): AuthboundSession {
+export function claimsToVerificationContext(
+  claims: AuthboundClaims
+): AuthboundVerificationContext {
   return {
     isVerified: claims.status === "VERIFIED",
     status: claims.status,
     assuranceLevel: claims.assurance,
     age: claims.age,
-    sessionId: claims.sid,
+    verificationId: claims.sid,
     userRef: claims.sub,
     dateOfBirth: claims.dateOfBirth,
     expiresAt: new Date(claims.exp * 1000),
@@ -173,16 +175,16 @@ export function claimsToSession(claims: AuthboundClaims): AuthboundSession {
 }
 
 /**
- * Get session from a token string.
+ * Get verification context from a token string.
  * Returns null if the token is invalid or expired.
  */
-export async function getSessionFromToken(
+export async function getVerificationFromToken(
   token: string,
   secret: string
-): Promise<AuthboundSession | null> {
+): Promise<AuthboundVerificationContext | null> {
   const claims = await verifyToken(token, secret);
   if (!claims) return null;
-  return claimsToSession(claims);
+  return claimsToVerificationContext(claims);
 }
 
 // ============================================================================
@@ -245,7 +247,7 @@ export async function refreshToken(
   return createToken({
     secret,
     userRef: claims.sub,
-    sessionId: claims.sid,
+    verificationId: claims.sid,
     status: claims.status,
     assuranceLevel: claims.assurance,
     age: claims.age,

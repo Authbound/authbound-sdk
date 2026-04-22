@@ -11,11 +11,11 @@
  * });
  *
  * // Start verification
- * const { sessionId, authorizationRequestUrl, clientToken } =
+ * const { verificationId, authorizationRequestUrl, clientToken } =
  *   await client.startVerification();
  *
  * // Subscribe to status updates
- * const cleanup = client.subscribeToStatus(sessionId, clientToken, (event) => {
+ * const cleanup = client.subscribeToStatus(verificationId, clientToken, (event) => {
  *   console.log('Status:', event.status);
  * });
  * ```
@@ -23,20 +23,20 @@
 
 import { buildDeepLink, buildUniversalLink } from "../links";
 import { createPollingSubscription, createStatusSubscription } from "../status";
-import type { ClientToken, PolicyId, SessionId } from "../types/branded";
+import type { ClientToken, PolicyId, VerificationId } from "../types/branded";
 import { AuthboundError } from "../types/errors";
 import type {
-  CreateSessionResponse,
+  CreateVerificationResponse,
   EudiVerificationStatus,
   StatusEvent,
 } from "../types/verification";
 import {
-  CreateSessionResponseSchema,
+  CreateVerificationResponseSchema,
   StatusEventSchema,
 } from "../types/verification";
 import type { AuthboundClientConfig, ResolvedConfig } from "./config";
 import { resolveConfig } from "./config";
-import { createHttpClient, createSessionClient } from "./http";
+import { createHttpClient, createVerificationClient } from "./http";
 
 // ============================================================================
 // Client Interface
@@ -47,19 +47,20 @@ export interface AuthboundClient {
   readonly config: ResolvedConfig;
 
   /**
-   * Start a verification session.
+   * Start a verification.
    *
-   * Creates a session through your backend, which securely calls the Gateway
-   * using your secret key. Returns session details for displaying QR code.
+   * Creates a verification through your backend, which securely calls the
+   * Gateway using your secret key. Returns details for displaying QR code.
    */
   startVerification(options?: {
     policyId?: PolicyId;
     customerUserRef?: string;
     metadata?: Record<string, string>;
-  }): Promise<CreateSessionResponse>;
+    provider?: "auto" | "vcs" | "eudi";
+  }): Promise<CreateVerificationResponse>;
 
   /**
-   * Subscribe to session status updates via SSE.
+   * Subscribe to verification status updates via SSE.
    *
    * Uses Server-Sent Events for real-time updates with automatic
    * polling fallback if SSE fails.
@@ -67,7 +68,7 @@ export interface AuthboundClient {
    * @returns Cleanup function to stop subscription
    */
   subscribeToStatus(
-    sessionId: SessionId,
+    verificationId: VerificationId,
     clientToken: ClientToken,
     onEvent: (event: StatusEvent) => void,
     options?: {
@@ -77,13 +78,13 @@ export interface AuthboundClient {
   ): () => void;
 
   /**
-   * Poll for session status (manual fallback).
+   * Poll for verification status (manual fallback).
    *
    * Use subscribeToStatus for real-time updates. This is exposed for
    * environments where SSE is not available.
    */
   pollStatus(
-    sessionId: SessionId,
+    verificationId: VerificationId,
     clientToken: ClientToken
   ): Promise<{ status: EudiVerificationStatus; result?: unknown }>;
 
@@ -121,7 +122,7 @@ export interface AuthboundClient {
 export function createClient(config: AuthboundClientConfig): AuthboundClient {
   const resolvedConfig = resolveConfig(config);
   const httpClient = createHttpClient(resolvedConfig);
-  const sessionClient = createSessionClient(resolvedConfig);
+  const verificationClient = createVerificationClient(resolvedConfig);
 
   // Debug logger
   function log(...args: unknown[]): void {
@@ -145,29 +146,34 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
 
       log("Starting verification with policy:", policyId);
 
-      const response = await sessionClient.createSession({
+      const response = await verificationClient.createVerification({
         policyId,
         customerUserRef: options.customerUserRef,
         metadata: options.metadata,
+        provider: options.provider,
       });
 
       // Validate response
-      const parsed = CreateSessionResponseSchema.safeParse(response);
+      const parsed = CreateVerificationResponseSchema.safeParse(response);
       if (!parsed.success) {
-        throw new AuthboundError("internal_error", "Invalid session response", {
-          details: { issues: parsed.error.issues },
-        });
+        throw new AuthboundError(
+          "internal_error",
+          "Invalid verification response",
+          {
+            details: { issues: parsed.error.issues },
+          }
+        );
       }
 
-      log("Session created:", parsed.data.sessionId);
+      log("Verification created:", parsed.data.verificationId);
 
-      return parsed.data as CreateSessionResponse;
+      return parsed.data as CreateVerificationResponse;
     },
 
-    subscribeToStatus(sessionId, clientToken, onEvent, options = {}) {
+    subscribeToStatus(verificationId, clientToken, onEvent, options = {}) {
       const { onError, fallbackToPolling = true } = options;
 
-      log("Subscribing to status for session:", sessionId);
+      log("Subscribing to status for verification:", verificationId);
 
       // Wrap event handler to validate and log
       const handleEvent = (event: StatusEvent) => {
@@ -206,7 +212,7 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
       try {
         activeCleanup = createStatusSubscription(
           resolvedConfig,
-          sessionId,
+          verificationId,
           clientToken,
           handleEvent,
           {
@@ -231,7 +237,7 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
                 // Start polling instead and track the new cleanup
                 activeCleanup = createPollingSubscription(
                   resolvedConfig,
-                  sessionId,
+                  verificationId,
                   clientToken,
                   handleEvent,
                   { onError: handleError }
@@ -250,7 +256,7 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
           log("SSE setup failed, using polling");
           activeCleanup = createPollingSubscription(
             resolvedConfig,
-            sessionId,
+            verificationId,
             clientToken,
             handleEvent,
             { onError: handleError }
@@ -261,12 +267,15 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
       }
     },
 
-    async pollStatus(sessionId, clientToken) {
+    async pollStatus(verificationId, clientToken) {
       const response = await httpClient.get<{
         status: EudiVerificationStatus;
         result?: unknown;
-      }>(`/v1/verifications/${sessionId}/status`, {
+      }>(`/v1/verifications/${verificationId}/status`, {
         token: clientToken,
+        headers: {
+          "x-authbound-publishable-key": resolvedConfig.publishableKey,
+        },
       });
 
       return response.data;

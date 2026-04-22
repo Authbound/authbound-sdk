@@ -1,25 +1,25 @@
-import type { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { AuthboundClient, AuthboundClientError } from "../core/client";
 import { createSafeErrorResponse, logError } from "../core/error-utils";
 import type {
   AuthboundConfig,
-  CreateSessionResponse,
-  SessionStatusResponse,
+  CreateVerificationResponse,
+  VerificationStatusResponse,
   WebhookEvent,
 } from "../core/types";
 import {
   calculateAgeFromDob,
-  mapSessionStatusToVerificationStatus,
+  mapVerificationEventStatusToVerificationStatus,
   parseConfig,
   WebhookEventSchema,
 } from "../core/types";
 import {
-  clearSessionCookie,
+  clearVerificationCookie,
   createErrorResponse,
   createJsonResponse,
-  getSessionFromCookie,
-  setSessionCookie,
+  type CookieReadableRequest,
+  getVerificationFromCookie,
+  setVerificationCookie,
 } from "./cookies";
 
 // ============================================================================
@@ -27,12 +27,12 @@ import {
 // ============================================================================
 
 export interface AuthboundHandlers {
-  /** POST handler for creating sessions and handling webhooks */
-  POST: (request: NextRequest) => Promise<NextResponse>;
-  /** GET handler for checking session status */
-  GET: (request: NextRequest) => Promise<NextResponse>;
+  /** POST handler for creating verifications and handling webhooks */
+  POST: (request: Request) => Promise<Response>;
+  /** GET handler for checking verification status */
+  GET: (request: Request) => Promise<Response>;
   /** DELETE handler for signing out */
-  DELETE: (request: NextRequest) => Promise<NextResponse>;
+  DELETE: (request: Request) => Promise<Response>;
 }
 
 export interface HandlersOptions {
@@ -42,14 +42,16 @@ export interface HandlersOptions {
    *
    * The event uses a nested structure:
    * - event.type: The event type (e.g., "identity.verification_session.verified")
-   * - event.data.object: The verification session object with status and verified_outputs
+   * - event.data.object: The verification event object with status and verified_outputs
    */
   onWebhook?: (event: WebhookEvent) => void | Promise<void>;
 
   /**
-   * Custom handler called when a session is created.
+   * Custom handler called when a verification is created.
    */
-  onSessionCreated?: (response: CreateSessionResponse) => void | Promise<void>;
+  onVerificationCreated?: (
+    response: CreateVerificationResponse
+  ) => void | Promise<void>;
 
   /**
    * Custom handler to validate the webhook signature.
@@ -60,7 +62,7 @@ export interface HandlersOptions {
    * Format: "t=<timestamp>,v1=<signature>"
    */
   validateWebhookSignature?: (
-    request: NextRequest,
+    request: Request,
     event: WebhookEvent
   ) => boolean | Promise<boolean>;
 
@@ -69,33 +71,39 @@ export interface HandlersOptions {
    * Useful when integrating with existing auth systems.
    * By default, generates a unique ref based on timestamp.
    */
-  getUserRef?: (request: NextRequest) => string | Promise<string>;
+  getUserRef?: (request: Request) => string | Promise<string>;
 }
 
 // ============================================================================
 // Request Schemas
 // ============================================================================
 
-const CreateSessionRequestSchema = z.object({
+const CreateVerificationRequestSchema = z.object({
   customer_user_ref: z.string().optional(),
   callback_url: z.string().url().optional(),
+  policy_id: z.string().optional(),
 });
 
 // ============================================================================
 // Path Detection
 // ============================================================================
 
-type RouteAction = "session" | "callback" | "status" | "signout" | "unknown";
+type RouteAction =
+  | "verification"
+  | "callback"
+  | "status"
+  | "signout"
+  | "unknown";
 
-function detectRouteAction(request: NextRequest): RouteAction {
-  const { pathname, searchParams } = request.nextUrl;
+function detectRouteAction(request: Request): RouteAction {
+  const { pathname, searchParams } = new URL(request.url);
   const method = request.method;
 
   // Check for explicit action query param
   const action = searchParams.get("action");
   if (action === "callback") return "callback";
   if (action === "status") return "status";
-  if (action === "session") return "session";
+  if (action === "verification") return "verification";
 
   // Infer from path segments
   const segments = pathname.split("/").filter(Boolean);
@@ -116,7 +124,7 @@ function detectRouteAction(request: NextRequest): RouteAction {
   // Default based on method
   if (method === "DELETE") return "signout";
   if (method === "GET") return "status";
-  if (method === "POST") return "session";
+  if (method === "POST") return "verification";
 
   return "unknown";
 }
@@ -158,7 +166,7 @@ export function createAuthboundHandlers(
   // POST Handler
   // ============================================================================
 
-  const POST = async (request: NextRequest): Promise<NextResponse> => {
+  const POST = async (request: Request): Promise<Response> => {
     const action = detectRouteAction(request);
 
     // Handle webhook callback
@@ -166,15 +174,15 @@ export function createAuthboundHandlers(
       return handleWebhook(request, validatedConfig, options);
     }
 
-    // Handle session creation
-    return handleCreateSession(request, validatedConfig, options, client);
+    // Handle verification creation
+    return handleCreateVerification(request, validatedConfig, options, client);
   };
 
   // ============================================================================
   // GET Handler
   // ============================================================================
 
-  const GET = async (request: NextRequest): Promise<NextResponse> => {
+  const GET = async (request: Request): Promise<Response> => {
     return handleGetStatus(request, validatedConfig);
   };
 
@@ -182,7 +190,7 @@ export function createAuthboundHandlers(
   // DELETE Handler
   // ============================================================================
 
-  const DELETE = async (request: NextRequest): Promise<NextResponse> => {
+  const DELETE = async (request: Request): Promise<Response> => {
     return handleSignOut(request, validatedConfig);
   };
 
@@ -193,18 +201,18 @@ export function createAuthboundHandlers(
 // Handler Implementations
 // ============================================================================
 
-async function handleCreateSession(
-  request: NextRequest,
+async function handleCreateVerification(
+  request: Request,
   config: AuthboundConfig,
   options: HandlersOptions,
   client: AuthboundClient
-): Promise<NextResponse> {
+): Promise<Response> {
   try {
     // Parse request body
-    let body: z.infer<typeof CreateSessionRequestSchema> = {};
+    let body: z.infer<typeof CreateVerificationRequestSchema> = {};
     try {
       const rawBody = await request.json();
-      body = CreateSessionRequestSchema.parse(rawBody);
+      body = CreateVerificationRequestSchema.parse(rawBody);
     } catch {
       // Body might be empty or invalid - use defaults
     }
@@ -223,48 +231,51 @@ async function handleCreateSession(
         ? new URL(config.routes.callback, request.url).toString()
         : undefined);
 
-    // Use AuthboundClient to create session
-    const result = await client.sessions.create({
-      userRef,
-      callbackUrl,
+    const result = await client.verifications.create({
+      policyId: body.policy_id ?? "default",
+      customerUserRef: userRef,
+      metadata: callbackUrl ? { callback_url: callbackUrl } : undefined,
     });
 
-    const sessionResponse: CreateSessionResponse = {
-      clientToken: result.clientToken,
-      sessionId: result.sessionId,
+    const verificationResponse: CreateVerificationResponse = {
+      clientToken: result.clientToken ?? "",
+      verificationId: result.id,
       expiresAt: result.expiresAt,
     };
 
     // Call custom handler if provided
-    if (options.onSessionCreated) {
-      await options.onSessionCreated(sessionResponse);
+    if (options.onVerificationCreated) {
+      await options.onVerificationCreated(verificationResponse);
     }
 
     if (config.debug) {
-      console.log("[Authbound] Session created:", sessionResponse.sessionId);
+      console.log(
+        "[Authbound] Verification created:",
+        verificationResponse.verificationId
+      );
     }
 
-    return createJsonResponse(sessionResponse);
+    return createJsonResponse(verificationResponse);
   } catch (error) {
     if (error instanceof AuthboundClientError) {
-      logError(error, "Session creation", config.debug);
+      logError(error, "Verification creation", config.debug);
       return createErrorResponse(
         error.message,
         error.statusCode ?? 500,
         error.code
       );
     }
-    logError(error, "Session creation", config.debug);
+    logError(error, "Verification creation", config.debug);
     const safeError = createSafeErrorResponse(error, 500, config.debug);
     return createErrorResponse(safeError.message, 500, safeError.code);
   }
 }
 
 async function handleWebhook(
-  request: NextRequest,
+  request: Request,
   config: AuthboundConfig,
   options: HandlersOptions
-): Promise<NextResponse> {
+): Promise<Response> {
   try {
     const rawBody = await request.json();
     const parsed = WebhookEventSchema.safeParse(rawBody);
@@ -283,7 +294,7 @@ async function handleWebhook(
     }
 
     const event = parsed.data;
-    const session = event.data.object;
+    const verification = event.data.object;
 
     // Validate signature if handler provided
     if (options.validateWebhookSignature) {
@@ -309,9 +320,9 @@ async function handleWebhook(
 
     // Calculate age from DOB if available
     let age: number | undefined;
-    if (session.verified_outputs?.dob) {
+    if (verification.verified_outputs?.dob) {
       try {
-        age = calculateAgeFromDob(session.verified_outputs.dob);
+        age = calculateAgeFromDob(verification.verified_outputs.dob);
       } catch (error) {
         // Log invalid DOB but don't fail the webhook
         logError(error, "Age calculation from DOB", config.debug);
@@ -319,21 +330,21 @@ async function handleWebhook(
       }
     }
 
-    // Format DOB as ISO string for session cookie
-    const dateOfBirth = session.verified_outputs?.dob
-      ? `${session.verified_outputs.dob.year}-${String(session.verified_outputs.dob.month).padStart(2, "0")}-${String(session.verified_outputs.dob.day).padStart(2, "0")}`
+    // Format DOB as ISO string for the verification cookie.
+    const dateOfBirth = verification.verified_outputs?.dob
+      ? `${verification.verified_outputs.dob.year}-${String(verification.verified_outputs.dob.month).padStart(2, "0")}-${String(verification.verified_outputs.dob.day).padStart(2, "0")}`
       : undefined;
 
-    // Create response with session cookie
+    // Create response with verification cookie.
     const response = createJsonResponse({ success: true });
 
-    // Set the session cookie with verification data
-    // Map the session status to our internal verification status
-    await setSessionCookie(response, config, {
-      userRef: session.client_reference_id,
-      sessionId: session.id,
-      status: mapSessionStatusToVerificationStatus(session.status),
-      assuranceLevel: "SUBSTANTIAL", // Default assurance level for verified sessions
+    await setVerificationCookie(response, config, {
+      userRef: verification.client_reference_id,
+      verificationId: verification.id,
+      status: mapVerificationEventStatusToVerificationStatus(
+        verification.status
+      ),
+      assuranceLevel: "SUBSTANTIAL",
       age,
       dateOfBirth,
     });
@@ -342,8 +353,8 @@ async function handleWebhook(
       console.log("[Authbound] Webhook processed:", {
         eventId: event.id,
         eventType: event.type,
-        sessionId: session.id,
-        status: session.status,
+        verificationId: verification.id,
+        status: verification.status,
       });
     }
 
@@ -356,15 +367,18 @@ async function handleWebhook(
 }
 
 async function handleGetStatus(
-  request: NextRequest,
+  request: Request,
   config: AuthboundConfig
-): Promise<NextResponse> {
+): Promise<Response> {
   try {
-    const session = await getSessionFromCookie(request, config);
+    const verification = await getVerificationFromCookie(
+      request as CookieReadableRequest,
+      config
+    );
 
-    const statusResponse: SessionStatusResponse = {
-      session,
-      isVerified: session?.isVerified ?? false,
+    const statusResponse: VerificationStatusResponse = {
+      verification,
+      isVerified: verification?.isVerified ?? false,
     };
 
     return createJsonResponse(statusResponse);
@@ -376,12 +390,12 @@ async function handleGetStatus(
 }
 
 async function handleSignOut(
-  request: NextRequest,
+  request: Request,
   config: AuthboundConfig
-): Promise<NextResponse> {
+): Promise<Response> {
   try {
     const response = createJsonResponse({ success: true });
-    clearSessionCookie(response, config);
+    clearVerificationCookie(response, config);
 
     if (config.debug) {
       console.log("[Authbound] Session cleared");
@@ -400,9 +414,9 @@ async function handleSignOut(
 // ============================================================================
 
 /**
- * Create a standalone session creation handler.
+ * Create a standalone verification creation handler.
  */
-export function createSessionHandler(
+export function createVerificationHandler(
   config: AuthboundConfig,
   options: HandlersOptions = {}
 ) {
@@ -418,8 +432,8 @@ export function createSessionHandler(
     debug: validatedConfig.debug,
   });
 
-  return (request: NextRequest) =>
-    handleCreateSession(request, validatedConfig, options, client);
+  return (request: Request) =>
+    handleCreateVerification(request, validatedConfig, options, client);
 }
 
 /**
@@ -430,8 +444,7 @@ export function createWebhookHandler(
   options: HandlersOptions = {}
 ) {
   const validatedConfig = parseConfig(config);
-  return (request: NextRequest) =>
-    handleWebhook(request, validatedConfig, options);
+  return (request: Request) => handleWebhook(request, validatedConfig, options);
 }
 
 /**
@@ -439,7 +452,7 @@ export function createWebhookHandler(
  */
 export function createStatusHandler(config: AuthboundConfig) {
   const validatedConfig = parseConfig(config);
-  return (request: NextRequest) => handleGetStatus(request, validatedConfig);
+  return (request: Request) => handleGetStatus(request, validatedConfig);
 }
 
 /**
@@ -447,5 +460,5 @@ export function createStatusHandler(config: AuthboundConfig) {
  */
 export function createSignOutHandler(config: AuthboundConfig) {
   const validatedConfig = parseConfig(config);
-  return (request: NextRequest) => handleSignOut(request, validatedConfig);
+  return (request: Request) => handleSignOut(request, validatedConfig);
 }

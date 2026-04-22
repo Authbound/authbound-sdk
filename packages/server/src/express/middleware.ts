@@ -18,13 +18,13 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import type {
   AuthboundConfig,
-  AuthboundSession,
+  AuthboundVerificationContext,
   MiddlewareResult,
   ProtectedRouteConfig,
   VerificationRequirements,
 } from "../core/types";
 import { checkRequirements, parseConfig } from "../core/types";
-import { getSessionFromCookie } from "./cookies";
+import { getVerificationFromCookie } from "./cookies";
 
 // ============================================================================
 // Types
@@ -43,10 +43,10 @@ export interface ExpressMiddlewareOptions {
   ) => void | Promise<void>;
 
   /**
-   * Custom handler to run after session validation.
+   * Custom handler to run after verification context validation.
    * Useful for logging or additional checks.
    */
-  onSessionValidated?: (
+  onVerificationValidated?: (
     req: Request,
     res: Response,
     result: MiddlewareResult
@@ -61,11 +61,11 @@ export interface ExpressMiddlewareOptions {
 
 export type AuthboundMiddleware = RequestHandler;
 
-// Extend Express Request to include authbound session
+// Extend Express Request to include Authbound verification context
 declare global {
   namespace Express {
     interface Request {
-      authboundSession?: AuthboundSession | null;
+      authboundVerification?: AuthboundVerificationContext | null;
     }
   }
 }
@@ -143,7 +143,7 @@ function buildVerifyUrl(req: Request, verifyPath: string): string {
  * Create an Authbound middleware for Express.js.
  *
  * This middleware protects routes based on the configuration.
- * It checks session cookies and enforces verification requirements.
+ * It checks verification cookies and enforces verification requirements.
  *
  * @example
  * ```ts
@@ -210,39 +210,48 @@ export function authboundMiddleware(
         return next();
       }
 
-      // Get session from cookie
-      const session = await getSessionFromCookie(req, validatedConfig);
+      // Get verification context from cookie
+      const verification = await getVerificationFromCookie(
+        req,
+        validatedConfig
+      );
 
-      // Attach session to request for downstream handlers
-      req.authboundSession = session;
+      // Attach verification context to request for downstream handlers
+      req.authboundVerification = verification;
 
       // Check requirements
       const requirementsCheck = checkRequirements(
-        session,
+        verification,
         matchingRoute.requirements
       );
 
       const result: MiddlewareResult = {
         allowed: requirementsCheck.met,
-        session: session ?? undefined,
+        verification: verification ?? undefined,
         reason: requirementsCheck.reason,
         redirectUrl: requirementsCheck.met
           ? undefined
           : buildVerifyUrl(req, validatedConfig.routes.verify),
       };
 
-      // Call session validated hook
-      if (options.onSessionValidated) {
-        await options.onSessionValidated(req, res, result);
+      // Call verification validated hook
+      if (options.onVerificationValidated) {
+        await options.onVerificationValidated(req, res, result);
       }
 
       // If requirements are met, allow through
       if (result.allowed) {
-        // Add session data to response headers
-        if (session) {
-          res.setHeader("x-authbound-verified", session.isVerified.toString());
-          res.setHeader("x-authbound-status", session.status);
-          res.setHeader("x-authbound-session-id", session.sessionId);
+        // Add verification data to response headers
+        if (verification) {
+          res.setHeader(
+            "x-authbound-verified",
+            verification.isVerified.toString()
+          );
+          res.setHeader("x-authbound-status", verification.status);
+          res.setHeader(
+            "x-authbound-verification-id",
+            verification.verificationId
+          );
         }
 
         return next();
@@ -315,33 +324,42 @@ export function withAuthbound(
         }
       }
 
-      // Get session from cookie
-      const session = await getSessionFromCookie(req, validatedConfig);
-      req.authboundSession = session;
+      // Get verification context from cookie
+      const verification = await getVerificationFromCookie(
+        req,
+        validatedConfig
+      );
+      req.authboundVerification = verification;
 
       // Check requirements
-      const requirementsCheck = checkRequirements(session, requirements);
+      const requirementsCheck = checkRequirements(verification, requirements);
 
       const result: MiddlewareResult = {
         allowed: requirementsCheck.met,
-        session: session ?? undefined,
+        verification: verification ?? undefined,
         reason: requirementsCheck.reason,
         redirectUrl: requirementsCheck.met
           ? undefined
           : buildVerifyUrl(req, validatedConfig.routes.verify),
       };
 
-      // Call session validated hook
-      if (options.onSessionValidated) {
-        await options.onSessionValidated(req, res, result);
+      // Call verification validated hook
+      if (options.onVerificationValidated) {
+        await options.onVerificationValidated(req, res, result);
       }
 
       // If requirements are met, allow through
       if (result.allowed) {
-        if (session) {
-          res.setHeader("x-authbound-verified", session.isVerified.toString());
-          res.setHeader("x-authbound-status", session.status);
-          res.setHeader("x-authbound-session-id", session.sessionId);
+        if (verification) {
+          res.setHeader(
+            "x-authbound-verified",
+            verification.isVerified.toString()
+          );
+          res.setHeader("x-authbound-status", verification.status);
+          res.setHeader(
+            "x-authbound-verification-id",
+            verification.verificationId
+          );
         }
         return next();
       }

@@ -6,7 +6,7 @@
  */
 
 import type { ResolvedConfig } from "../client/config";
-import type { ClientToken, SessionId } from "../types/branded";
+import type { ClientToken, VerificationId } from "../types/branded";
 import { AuthboundError } from "../types/errors";
 import type { StatusEvent } from "../types/verification";
 
@@ -93,7 +93,7 @@ function mapGatewayStatus(status: string): StatusEvent["status"] {
 }
 
 /**
- * Check if a status is terminal (session complete).
+ * Check if a status is terminal.
  */
 function isTerminalStatus(status: string): boolean {
   return (
@@ -106,8 +106,47 @@ function isTerminalStatus(status: string): boolean {
   );
 }
 
+async function fetchLatestStatus(
+  config: ResolvedConfig,
+  verificationId: VerificationId,
+  clientToken: ClientToken
+): Promise<StatusEvent | null> {
+  const url = new URL(
+    `/v1/verifications/${verificationId}/status`,
+    config.gatewayUrl
+  );
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${clientToken}`,
+      "x-authbound-publishable-key": config.publishableKey,
+    },
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = (await response.json()) as {
+    status?: string;
+    result?: StatusEvent["result"];
+    error?: StatusEvent["error"];
+  };
+  const status = mapGatewayStatus(data.status ?? "pending");
+
+  return {
+    type: data.result ? "result" : data.error ? "error" : "status",
+    status,
+    ...(data.result ? { result: data.result } : {}),
+    ...(data.error ? { error: data.error } : {}),
+    timestamp: new Date().toISOString(),
+  };
+}
+
 /**
- * Create an SSE subscription for session status updates.
+ * Create an SSE subscription for verification status updates.
  *
  * Uses fetch with ReadableStream to allow Authorization headers,
  * preventing token exposure in URL query parameters.
@@ -116,7 +155,7 @@ function isTerminalStatus(status: string): boolean {
  */
 export function createStatusSubscription(
   config: ResolvedConfig,
-  sessionId: SessionId,
+  verificationId: VerificationId,
   clientToken: ClientToken,
   onEvent: (event: StatusEvent) => void,
   options: SSESubscriptionOptions = {}
@@ -136,7 +175,7 @@ export function createStatusSubscription(
   let lastEventId: string | undefined = afterCursor;
 
   const baseUrl = new URL(
-    `/v1/verifications/${sessionId}/events/sse`,
+    `/v1/verifications/${verificationId}/events/sse`,
     config.gatewayUrl
   );
 
@@ -146,7 +185,7 @@ export function createStatusSubscription(
     if (config.debug) {
       console.log(
         "[Authbound] Connecting to SSE:",
-        sessionId,
+        verificationId,
         lastEventId ? `(after: ${lastEventId})` : ""
       );
     }
@@ -264,13 +303,22 @@ export function createStatusSubscription(
               timestamp,
             };
 
-            onEvent(statusEvent);
-
             // Stop on terminal status (check raw status for terminal detection)
             if (isTerminalStatus(parsed.status as string)) {
+              const finalEvent =
+                statusEvent.result || statusEvent.error
+                  ? null
+                  : await fetchLatestStatus(
+                      config,
+                      verificationId,
+                      clientToken
+                    ).catch(() => null);
+              onEvent(finalEvent ?? statusEvent);
               cleanup();
               return;
             }
+
+            onEvent(statusEvent);
           } catch (parseError) {
             if (config.debug) {
               console.error(

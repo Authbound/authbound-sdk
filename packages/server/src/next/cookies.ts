@@ -1,8 +1,23 @@
-import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { createToken, getSessionFromToken } from "../core/jwt";
-import type { AuthboundConfig, AuthboundSession } from "../core/types";
+import { createToken, getVerificationFromToken } from "../core/jwt";
+import type { AuthboundConfig, AuthboundVerificationContext } from "../core/types";
 import { getDefaultCookieOptions } from "../core/types";
+
+export interface CookieReadableRequest extends Request {
+  cookies?: {
+    get(name: string): { value?: string } | undefined;
+  };
+}
+
+export interface CookieMutableResponse extends Response {
+  cookies: {
+    set(
+      name: string,
+      value: string,
+      options?: Omit<CookieSetOptions, "name">
+    ): void;
+  };
+}
 
 // ============================================================================
 // Cookie Name Helper
@@ -58,34 +73,34 @@ export function buildCookieOptions(config: AuthboundConfig): CookieSetOptions {
  * Get the raw cookie value from a request.
  */
 export function getCookieValue(
-  request: NextRequest,
+  request: CookieReadableRequest,
   config: AuthboundConfig
 ): string | undefined {
   const cookieName = getCookieName(config);
-  return request.cookies.get(cookieName)?.value;
+  return request.cookies?.get(cookieName)?.value;
 }
 
 /**
- * Get the session from the request cookies.
- * Returns null if no valid session cookie exists.
+ * Get the verification context from the request cookies.
+ * Returns null if no valid verification cookie exists.
  */
-export async function getSessionFromCookie(
-  request: NextRequest,
+export async function getVerificationFromCookie(
+  request: CookieReadableRequest,
   config: AuthboundConfig
-): Promise<AuthboundSession | null> {
+): Promise<AuthboundVerificationContext | null> {
   const token = getCookieValue(request, config);
   if (!token) return null;
 
-  return getSessionFromToken(token, config.secret);
+  return getVerificationFromToken(token, config.secret);
 }
 
 // ============================================================================
 // Cookie Writing
 // ============================================================================
 
-export interface SetSessionCookieOptions {
+export interface SetVerificationCookieOptions {
   userRef: string;
-  sessionId: string;
+  verificationId: string;
   status: "VERIFIED" | "REJECTED" | "MANUAL_REVIEW_NEEDED" | "PENDING";
   assuranceLevel: "NONE" | "LOW" | "SUBSTANTIAL" | "HIGH";
   age?: number;
@@ -93,21 +108,21 @@ export interface SetSessionCookieOptions {
 }
 
 /**
- * Create and set a session cookie on a response.
+ * Create and set a verification cookie on a response.
  */
-export async function setSessionCookie(
-  response: NextResponse,
+export async function setVerificationCookie(
+  response: CookieMutableResponse,
   config: AuthboundConfig,
-  sessionData: SetSessionCookieOptions
-): Promise<NextResponse> {
+  verificationData: SetVerificationCookieOptions
+): Promise<CookieMutableResponse> {
   const token = await createToken({
     secret: config.secret,
-    userRef: sessionData.userRef,
-    sessionId: sessionData.sessionId,
-    status: sessionData.status,
-    assuranceLevel: sessionData.assuranceLevel,
-    age: sessionData.age,
-    dateOfBirth: sessionData.dateOfBirth,
+    userRef: verificationData.userRef,
+    verificationId: verificationData.verificationId,
+    status: verificationData.status,
+    assuranceLevel: verificationData.assuranceLevel,
+    age: verificationData.age,
+    dateOfBirth: verificationData.dateOfBirth,
     expiresIn: config.cookie?.maxAge ?? getDefaultCookieOptions().maxAge,
   });
 
@@ -127,12 +142,12 @@ export async function setSessionCookie(
 }
 
 /**
- * Clear the session cookie from a response.
+ * Clear the verification cookie from a response.
  */
-export function clearSessionCookie(
-  response: NextResponse,
+export function clearVerificationCookie(
+  response: CookieMutableResponse,
   config: AuthboundConfig
-): NextResponse {
+): CookieMutableResponse {
   const cookieName = getCookieName(config);
   const cookieOptions = buildCookieOptions(config);
 
@@ -157,16 +172,18 @@ export function clearSessionCookie(
  */
 export function createRedirectResponse(
   url: string | URL,
-  request: NextRequest,
+  request: Request,
   options?: {
     clearCookie?: boolean;
     config?: AuthboundConfig;
   }
-): NextResponse {
-  const response = NextResponse.redirect(url, { status: 302 });
+): CookieMutableResponse {
+  const response = NextResponse.redirect(url, {
+    status: 302,
+  }) as CookieMutableResponse;
 
   if (options?.clearCookie && options?.config) {
-    clearSessionCookie(response, options.config);
+    clearVerificationCookie(response, options.config);
   }
 
   return response;
@@ -179,8 +196,8 @@ export function createJsonResponse<T>(
   data: T,
   status = 200,
   headers?: Record<string, string>
-): NextResponse {
-  return NextResponse.json(data, { status, headers });
+): CookieMutableResponse {
+  return NextResponse.json(data, { status, headers }) as CookieMutableResponse;
 }
 
 /**
@@ -190,7 +207,7 @@ export function createErrorResponse(
   message: string,
   status = 400,
   code?: string
-): NextResponse {
+): Response {
   return NextResponse.json(
     {
       error: message,

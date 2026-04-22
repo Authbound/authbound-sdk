@@ -8,7 +8,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResolvedConfig } from "../../client/config";
-import { asClientToken, asSessionId } from "../../types/branded";
+import { asClientToken, asVerificationId } from "../../types/branded";
 import type { StatusEvent } from "../../types/verification";
 import { createPollingSubscription } from "../polling";
 
@@ -16,10 +16,13 @@ import { createPollingSubscription } from "../polling";
 const TEST_CONFIG: ResolvedConfig = {
   gatewayUrl: "https://gateway.authbound.test",
   publishableKey: "pk_test_123" as any,
+  verificationEndpoint: "/api/authbound/verification",
+  timeout: 30_000,
+  environment: "test",
   debug: false,
 };
 
-const TEST_SESSION_ID = asSessionId("ses_test123");
+const TEST_VERIFICATION_ID = asVerificationId("vrf_test123");
 const TEST_CLIENT_TOKEN = asClientToken("token_test123");
 
 describe("createPollingSubscription - Timeout Enforcement", () => {
@@ -37,12 +40,13 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
       ok: true,
       json: () => Promise.resolve({ status: "pending" }),
     });
-    global.fetch = fetchMock;
+    vi.stubGlobal("fetch", fetchMock);
   });
 
   afterEach(() => {
     if (cleanup) cleanup();
     vi.useRealTimers();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -53,7 +57,7 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
 
       cleanup = createPollingSubscription(
         TEST_CONFIG,
-        TEST_SESSION_ID,
+        TEST_VERIFICATION_ID,
         TEST_CLIENT_TOKEN,
         (event) => events.push(event),
         {
@@ -81,7 +85,7 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
 
       cleanup = createPollingSubscription(
         TEST_CONFIG,
-        TEST_SESSION_ID,
+        TEST_VERIFICATION_ID,
         TEST_CLIENT_TOKEN,
         (event) => events.push(event),
         { pollingConfig: { maxDuration: SHORT_DURATION, initialInterval: 500 } }
@@ -124,7 +128,7 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
 
       cleanup = createPollingSubscription(
         TEST_CONFIG,
-        TEST_SESSION_ID,
+        TEST_VERIFICATION_ID,
         TEST_CLIENT_TOKEN,
         (event) => events.push(event),
         { pollingConfig: { maxDuration: SHORT_DURATION } }
@@ -144,7 +148,7 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
     it("passes AbortSignal to fetch requests", async () => {
       cleanup = createPollingSubscription(
         TEST_CONFIG,
-        TEST_SESSION_ID,
+        TEST_VERIFICATION_ID,
         TEST_CLIENT_TOKEN,
         () => {}
       );
@@ -161,11 +165,11 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
   describe("Per-Request Timeout", () => {
     it("caps individual request timeout at 30 seconds", async () => {
       // With a long maxDuration, individual requests should still timeout at 30s
-      const setTimeoutSpy = vi.spyOn(global, "setTimeout");
+      const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
 
       cleanup = createPollingSubscription(
         TEST_CONFIG,
-        TEST_SESSION_ID,
+        TEST_VERIFICATION_ID,
         TEST_CLIENT_TOKEN,
         () => {},
         { pollingConfig: { maxDuration: 60_000 } } // 60s total
@@ -175,18 +179,19 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
       await vi.advanceTimersByTimeAsync(100);
 
       // Find the abort timeout call (should be 30000ms or less)
-      const abortTimeoutCall = setTimeoutSpy.mock.calls.find(
-        ([, ms]) => typeof ms === "number" && ms <= 30_000 && ms > 1000
-      );
+      const abortTimeoutCall = setTimeoutSpy.mock.calls.find((call) => {
+        const ms = call[1];
+        return typeof ms === "number" && ms <= 30_000 && ms > 1000;
+      });
       expect(abortTimeoutCall).toBeDefined();
     });
 
     it("uses remaining time when less than 30 seconds remain", async () => {
-      const setTimeoutSpy = vi.spyOn(global, "setTimeout");
+      const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
 
       cleanup = createPollingSubscription(
         TEST_CONFIG,
-        TEST_SESSION_ID,
+        TEST_VERIFICATION_ID,
         TEST_CLIENT_TOKEN,
         () => {},
         { pollingConfig: { maxDuration: 5000, initialInterval: 100 } }
@@ -196,9 +201,10 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
       await vi.advanceTimersByTimeAsync(3100);
 
       // The abort timeout should be ~2000ms (remaining time), not 30000ms
-      const recentAbortCalls = setTimeoutSpy.mock.calls.filter(
-        ([, ms]) => typeof ms === "number" && ms < 30_000 && ms > 0
-      );
+      const recentAbortCalls = setTimeoutSpy.mock.calls.filter((call) => {
+        const ms = call[1];
+        return typeof ms === "number" && ms < 30_000 && ms > 0;
+      });
       expect(recentAbortCalls.length).toBeGreaterThan(0);
     });
   });
@@ -218,7 +224,7 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
 
       cleanup = createPollingSubscription(
         TEST_CONFIG,
-        TEST_SESSION_ID,
+        TEST_VERIFICATION_ID,
         TEST_CLIENT_TOKEN,
         (event) => events.push(event),
         { pollingConfig: { initialInterval: 100 } }
@@ -241,7 +247,7 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
     it("stops polling when cleanup is called", async () => {
       cleanup = createPollingSubscription(
         TEST_CONFIG,
-        TEST_SESSION_ID,
+        TEST_VERIFICATION_ID,
         TEST_CLIENT_TOKEN,
         () => {}
       );

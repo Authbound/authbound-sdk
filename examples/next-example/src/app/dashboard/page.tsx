@@ -1,16 +1,15 @@
-import { getSessionFromToken } from "@authbound-sdk/server/next";
+import { getVerificationFromToken } from "@authbound-sdk/server/next";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { authboundConfig } from "@/authbound.config";
 
 export default async function DashboardPage() {
-  // Get session from cookie (server-side)
   const cookieStore = await cookies();
   const token = cookieStore.get("__authbound")?.value;
 
-  let session = null;
+  let verification = null;
   if (token) {
-    session = await getSessionFromToken(token, authboundConfig.secret);
+    verification = await getVerificationFromToken(token, authboundConfig.secret);
   }
 
   return (
@@ -47,7 +46,7 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        {session && (
+        {verification && (
           <div className="card">
             <h3>Your Verification Details</h3>
             <div
@@ -63,7 +62,7 @@ export default async function DashboardPage() {
                   Status
                 </p>
                 <p style={{ color: "var(--color-success)", fontWeight: "600" }}>
-                  {session.status}
+                  {verification.status}
                 </p>
               </div>
               <div>
@@ -71,16 +70,16 @@ export default async function DashboardPage() {
                   Assurance Level
                 </p>
                 <p style={{ color: "var(--color-text)", fontWeight: "600" }}>
-                  {session.assuranceLevel}
+                  {verification.assuranceLevel}
                 </p>
               </div>
-              {session.age && (
+              {verification.age && (
                 <div>
                   <p style={{ fontSize: "0.85rem", marginBottom: "0.25rem" }}>
                     Age
                   </p>
                   <p style={{ color: "var(--color-text)", fontWeight: "600" }}>
-                    {session.age} years old
+                    {verification.age} years old
                   </p>
                 </div>
               )}
@@ -89,7 +88,7 @@ export default async function DashboardPage() {
                   Expires
                 </p>
                 <p style={{ color: "var(--color-text)", fontWeight: "600" }}>
-                  {new Date(session.expiresAt).toLocaleDateString()}
+                  {new Date(verification.expiresAt).toLocaleDateString()}
                 </p>
               </div>
             </div>

@@ -6,14 +6,14 @@
  */
 
 import { z } from "zod";
-import type { ClientToken, PolicyId, SessionId } from "./branded";
+import { isPolicyId, isVerificationId, type ClientToken, type PolicyId, type VerificationId } from "./branded";
 
 // ============================================================================
 // Verification Status
 // ============================================================================
 
 /**
- * Verification session status.
+ * Verification status.
  *
  * State machine: idle → pending → processing → verified/failed/timeout/error
  *
@@ -22,7 +22,7 @@ import type { ClientToken, PolicyId, SessionId } from "./branded";
  * - processing: Wallet presentation received, validating
  * - verified: Verification successful
  * - failed: Verification failed (user rejected, credentials invalid, etc.)
- * - timeout: Session expired without response
+ * - timeout: Verification expired without response
  * - error: Unexpected error occurred
  */
 export type EudiVerificationStatus =
@@ -144,57 +144,60 @@ export const VerificationAttributesSchema = z.object({
  * Complete verification result.
  */
 export interface VerificationResult {
-  /** Final verdict */
-  verdict: Verdict;
-  /** Boolean claims (safe for client) */
-  claims: VerificationClaims;
-  /** Full attributes (server-only, PII) */
-  attributes?: VerificationAttributes;
-  /** Credential types that were presented */
-  credential_types?: string[];
+  /** Whether the presented credential satisfied the policy */
+  verified: boolean;
+  /** Boolean assertions or policy-specific claim checks */
+  assertions?: Record<string, unknown>;
+  /** Presented attributes. May contain PII. */
+  attributes?: Record<string, unknown>;
+  /** Legacy boolean claims for older safe-result payloads */
+  claims?: VerificationClaims;
   /** Timestamp of verification */
-  verified_at?: string;
+  verifiedAt?: string;
 }
 
 export const VerificationResultSchema = z.object({
-  verdict: VerdictSchema,
-  claims: VerificationClaimsSchema,
-  attributes: VerificationAttributesSchema.optional(),
-  credential_types: z.array(z.string()).optional(),
-  verified_at: z.string().optional(),
+  verified: z.boolean(),
+  assertions: z.record(z.string(), z.unknown()).optional(),
+  attributes: z.record(z.string(), z.unknown()).optional(),
+  claims: VerificationClaimsSchema.optional(),
+  verifiedAt: z.string().optional(),
 });
 
 // ============================================================================
-// Session Types
+// Verification Request/Response Types
 // ============================================================================
 
 /**
- * Session creation request.
+ * Verification creation request.
  */
-export interface CreateSessionRequest {
+export interface CreateVerificationOptions {
   /** Policy to verify against */
   policyId: PolicyId;
   /** Optional reference to your user (for webhooks) */
   customerUserRef?: string;
   /** Optional metadata for your records */
   metadata?: Record<string, string>;
+  /** Optional provider override */
+  provider?: "auto" | "vcs" | "eudi";
   /** Override default timeout (seconds) */
   timeoutSeconds?: number;
 }
 
-export const CreateSessionRequestSchema = z.object({
-  policyId: z.string().regex(/^.+@.+$/, "Policy ID must include version"),
+export const CreateVerificationOptionsSchema = z.object({
+  policyId: z.string().refine(isPolicyId, "Invalid policy ID"),
   customerUserRef: z.string().optional(),
   metadata: z.record(z.string(), z.string()).optional(),
+  provider: z.enum(["auto", "vcs", "eudi"]).optional(),
   timeoutSeconds: z.number().int().positive().max(600).optional(),
 });
 
 /**
- * Session creation response from Gateway.
+ * Verification creation response from your server route.
  */
-export interface CreateSessionResponse {
-  /** Unique session identifier */
-  sessionId: SessionId;
+export interface CreateVerificationResponse {
+  /** Unique verification identifier */
+  verificationId: VerificationId;
   /** URL for wallet to initiate verification (encode in QR) */
   authorizationRequestUrl: string;
   /** Short-lived token for client-side status polling */
@@ -205,8 +208,8 @@ export interface CreateSessionResponse {
   deepLink?: string;
 }
 
-export const CreateSessionResponseSchema = z.object({
-  sessionId: z.string().startsWith("ses_"),
+export const CreateVerificationResponseSchema = z.object({
+  verificationId: z.string().refine(isVerificationId, "Invalid verification ID"),
   authorizationRequestUrl: z.string().url(),
   clientToken: z.string(),
   expiresAt: z.string(),
@@ -214,9 +217,9 @@ export const CreateSessionResponseSchema = z.object({
 });
 
 /**
- * Session status response.
+ * Verification status response.
  */
-export interface SessionStatusResponse {
+export interface VerificationStatusResponse {
   /** Current status */
   status: EudiVerificationStatus;
   /** Result if verification completed */
@@ -230,7 +233,7 @@ export interface SessionStatusResponse {
   timeRemaining?: number;
 }
 
-export const SessionStatusResponseSchema = z.object({
+export const VerificationStatusResponseSchema = z.object({
   status: EudiVerificationStatusSchema,
   result: VerificationResultSchema.optional(),
   error: z

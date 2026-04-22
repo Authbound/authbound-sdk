@@ -6,13 +6,13 @@ import { Suspense, useEffect, useState } from "react";
 
 type VerificationStatus = "idle" | "loading" | "verified" | "error";
 
-interface SessionStatus {
+interface VerificationStatusResponse {
   isVerified: boolean;
   session: {
     status: string;
     assuranceLevel: string;
     age?: number;
-    sessionId: string;
+    verificationId: string;
     userRef: string;
     expiresAt: string;
   } | null;
@@ -23,9 +23,8 @@ function VerifyContent() {
   const returnTo = searchParams.get("returnTo") || "/dashboard";
 
   const [status, setStatus] = useState<VerificationStatus>("idle");
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus | null>(
-    null
-  );
+  const [verificationStatus, setVerificationStatus] =
+    useState<VerificationStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Check current session status on mount
@@ -37,7 +36,7 @@ function VerifyContent() {
     try {
       const res = await fetch("/api/authbound/status");
       const data = await res.json();
-      setSessionStatus(data);
+      setVerificationStatus(data);
       if (data.isVerified) {
         setStatus("verified");
       }
@@ -51,27 +50,27 @@ function VerifyContent() {
     setError(null);
 
     try {
-      // Create a new verification session
+      // Create a new verification
       const res = await fetch("/api/authbound", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
 
       if (!res.ok) {
-        throw new Error("Failed to create session");
+        throw new Error("Failed to create verification");
       }
 
       const data = await res.json();
-      console.log("Session created:", data);
+      console.log("Verification created:", data);
 
       // In a real app, you would:
       // 1. Use the clientToken with @authbound-sdk/quickid-react
       // 2. Show the KYC flow modal
-      // 3. Wait for the webhook to update the session
+      // 3. Wait for the webhook to update the verification status
 
       // For demo purposes, simulate a successful verification
       // by calling the callback endpoint directly
-      await simulateVerification(data.sessionId);
+      await simulateVerification(data.verificationId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed");
       setStatus("error");
@@ -79,14 +78,14 @@ function VerifyContent() {
   };
 
   // Demo helper - in production, this happens via webhook
-  const simulateVerification = async (sessionId: string) => {
+  const simulateVerification = async (verificationId: string) => {
     try {
       // Simulate webhook callback
       const res = await fetch("/api/authbound/callback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          session_id: sessionId,
+          verification_id: verificationId,
           customer_user_ref: `demo_user_${Date.now()}`,
           status: "VERIFIED",
           assurance_level: "SUBSTANTIAL",
@@ -118,7 +117,7 @@ function VerifyContent() {
   const signOut = async () => {
     try {
       await fetch("/api/authbound", { method: "DELETE" });
-      setSessionStatus(null);
+      setVerificationStatus(null);
       setStatus("idle");
     } catch (err) {
       console.error("Sign out failed:", err);
@@ -145,7 +144,7 @@ function VerifyContent() {
             Complete identity verification to access protected content.
           </p>
 
-          {status === "idle" && !sessionStatus?.isVerified && (
+          {status === "idle" && !verificationStatus?.isVerified && (
             <div>
               <p style={{ marginBottom: "1.5rem" }}>
                 This demo simulates the verification process. In production,
@@ -182,7 +181,7 @@ function VerifyContent() {
             </div>
           )}
 
-          {status === "verified" && sessionStatus?.isVerified && (
+          {status === "verified" && verificationStatus?.isVerified && (
             <div>
               <div
                 style={{
@@ -205,7 +204,7 @@ function VerifyContent() {
                 }}
               >
                 <h4 style={{ marginBottom: "0.75rem", fontSize: "0.9rem" }}>
-                  Session Details
+                  Verification Details
                 </h4>
                 <div
                   style={{
@@ -216,21 +215,21 @@ function VerifyContent() {
                   }}
                 >
                   <div>
-                    <strong>Status:</strong> {sessionStatus.session?.status}
+                    <strong>Status:</strong> {verificationStatus.session?.status}
                   </div>
                   <div>
                     <strong>Assurance:</strong>{" "}
-                    {sessionStatus.session?.assuranceLevel}
+                    {verificationStatus.session?.assuranceLevel}
                   </div>
-                  {sessionStatus.session?.age && (
+                  {verificationStatus.session?.age && (
                     <div>
-                      <strong>Age:</strong> {sessionStatus.session.age} years
+                      <strong>Age:</strong> {verificationStatus.session.age} years
                     </div>
                   )}
                   <div>
-                    <strong>Session ID:</strong>{" "}
+                    <strong>Verification ID:</strong>{" "}
                     <code style={{ fontSize: "0.8rem" }}>
-                      {sessionStatus.session?.sessionId.slice(0, 8)}...
+                      {verificationStatus.session?.verificationId.slice(0, 8)}...
                     </code>
                   </div>
                 </div>

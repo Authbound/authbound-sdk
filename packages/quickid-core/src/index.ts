@@ -5,7 +5,7 @@ export {
   DocumentDataSchema,
   ErrorDetailSchema,
   VerificationStatusSchema,
-} from "@authbound-sdk/core";
+} from "./schemas";
 // Error codes
 export * from "./error-codes";
 export * from "./quickid";

@@ -172,27 +172,28 @@ export function createHttpClient(config: ResolvedConfig) {
 export type HttpClient = ReturnType<typeof createHttpClient>;
 
 // ============================================================================
-// Session Endpoint Client
+// Verification Endpoint Client
 // ============================================================================
 
 /**
- * Create a client for your server's session endpoint.
+ * Create a client for your server's verification endpoint.
  *
- * This is used by browser code to create sessions through your backend,
+ * This is used by browser code to create verifications through your backend,
  * which then uses the secret key to call the Gateway.
  */
-export function createSessionClient(config: ResolvedConfig) {
-  const endpoint = config.sessionEndpoint;
+export function createVerificationClient(config: ResolvedConfig) {
+  const endpoint = config.verificationEndpoint;
 
   /**
-   * Create a verification session through your server.
+   * Create a verification through your server.
    */
-  async function createSession(options: {
+  async function createVerification(options: {
     policyId: string;
     customerUserRef?: string;
     metadata?: Record<string, string>;
+    provider?: "auto" | "vcs" | "eudi";
   }): Promise<{
-    sessionId: string;
+    verificationId: string;
     authorizationRequestUrl: string;
     clientToken: string;
     expiresAt: string;
@@ -227,15 +228,17 @@ export function createSessionClient(config: ResolvedConfig) {
       }
 
       throw new AuthboundError(
-        "session_create_failed",
-        error instanceof Error ? error.message : "Failed to create session"
+        "verification_create_failed",
+        error instanceof Error
+          ? error.message
+          : "Failed to create verification"
       );
     }
   }
 
   return {
-    createSession,
+    createVerification,
   };
 }
 
-export type SessionClient = ReturnType<typeof createSessionClient>;
+export type VerificationClient = ReturnType<typeof createVerificationClient>;

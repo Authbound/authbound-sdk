@@ -1,15 +1,19 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import type {
   AuthboundConfig,
   MiddlewareResult,
   ProtectedRouteConfig,
 } from "../core/types";
 import { checkRequirements, parseConfig } from "../core/types";
-import { createRedirectResponse, getSessionFromCookie } from "./cookies";
+import { createRedirectResponse, getVerificationFromCookie } from "./cookies";
 
 // ============================================================================
 // Types
 // ============================================================================
+
+export interface MiddlewareRequest extends Request {
+  nextUrl: URL;
+}
 
 export interface MiddlewareOptions {
   /**
@@ -18,16 +22,16 @@ export interface MiddlewareOptions {
    * Return undefined (or don't return) to use default redirect behavior.
    */
   onVerificationRequired?: (
-    request: NextRequest,
+    request: MiddlewareRequest,
     result: MiddlewareResult
-  ) => Response | NextResponse | Promise<Response | NextResponse | void> | void;
+  ) => Response | Promise<Response | void> | void;
 
   /**
-   * Custom handler to run after session validation but before route matching.
+   * Custom handler to run after verification context validation before route matching.
    * Useful for logging or additional checks.
    */
-  onSessionValidated?: (
-    request: NextRequest,
+  onVerificationValidated?: (
+    request: MiddlewareRequest,
     result: MiddlewareResult
   ) => void | Promise<void>;
 
@@ -35,12 +39,12 @@ export interface MiddlewareOptions {
    * Skip middleware for certain paths.
    * Returns true to skip, false to process.
    */
-  skip?: (request: NextRequest) => boolean | Promise<boolean>;
+  skip?: (request: MiddlewareRequest) => boolean | Promise<boolean>;
 }
 
 export type AuthboundMiddleware = (
-  request: NextRequest
-) => Promise<Response | NextResponse>;
+  request: MiddlewareRequest
+) => Promise<Response>;
 
 // ============================================================================
 // Static File Detection
@@ -123,7 +127,7 @@ function findMatchingRoute(
  * Build the redirect URL with return path.
  */
 function buildVerifyUrl(
-  request: NextRequest,
+  request: MiddlewareRequest,
   verifyPath: string,
   returnTo?: string
 ): URL {
@@ -175,7 +179,7 @@ export function authboundMiddleware(
   // Validate config at initialization
   const validatedConfig = parseConfig(config);
 
-  return async (request: NextRequest): Promise<Response | NextResponse> => {
+  return async (request: MiddlewareRequest): Promise<Response> => {
     const { pathname } = request.nextUrl;
 
     // Check if we should skip this request
@@ -211,41 +215,47 @@ export function authboundMiddleware(
       return NextResponse.next();
     }
 
-    // Get session from cookie
-    const session = await getSessionFromCookie(request, validatedConfig);
+    // Get verification context from cookie
+    const verification = await getVerificationFromCookie(
+      request,
+      validatedConfig
+    );
 
     // Build middleware result
     const requirementsCheck = checkRequirements(
-      session,
+      verification,
       matchingRoute.requirements
     );
 
     const result: MiddlewareResult = {
       allowed: requirementsCheck.met,
-      session: session ?? undefined,
+      verification: verification ?? undefined,
       reason: requirementsCheck.reason,
       redirectUrl: requirementsCheck.met
         ? undefined
         : buildVerifyUrl(request, validatedConfig.routes.verify).toString(),
     };
 
-    // Call session validated hook
-    if (options.onSessionValidated) {
-      await options.onSessionValidated(request, result);
+    // Call verification validated hook
+    if (options.onVerificationValidated) {
+      await options.onVerificationValidated(request, result);
     }
 
     // If requirements are met, allow through
     if (result.allowed) {
-      // Optionally add session data to headers for server components
+      // Optionally add verification data to headers for server components
       const response = NextResponse.next();
 
-      if (session) {
+      if (verification) {
         response.headers.set(
           "x-authbound-verified",
-          session.isVerified.toString()
+          verification.isVerified.toString()
         );
-        response.headers.set("x-authbound-status", session.status);
-        response.headers.set("x-authbound-session-id", session.sessionId);
+        response.headers.set("x-authbound-status", verification.status);
+        response.headers.set(
+          "x-authbound-verification-id",
+          verification.verificationId
+        );
       }
 
       return response;
@@ -289,14 +299,13 @@ export function authboundMiddleware(
  */
 export function chainMiddleware(
   ...middlewares: ((
-    request: NextRequest
+    request: MiddlewareRequest
   ) =>
-    | Promise<Response | NextResponse | void>
+    | Promise<Response | void>
     | Response
-    | NextResponse
     | void)[]
-): (request: NextRequest) => Promise<Response | NextResponse> {
-  return async (request: NextRequest): Promise<Response | NextResponse> => {
+): (request: MiddlewareRequest) => Promise<Response> {
+  return async (request: MiddlewareRequest): Promise<Response> => {
     for (const middleware of middlewares) {
       const result = await middleware(request);
 

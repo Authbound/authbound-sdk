@@ -13,7 +13,7 @@ import {
   type EudiVerificationStatus,
   type PolicyId,
   type PublishableKey,
-  type SessionId,
+  type VerificationId,
   type StatusEvent,
   type VerificationResult,
 } from "@authbound-sdk/core";
@@ -42,11 +42,11 @@ import {
 // ============================================================================
 
 /**
- * Current verification session state.
+ * Current verification state.
  */
-export interface VerificationSession {
-  /** Session ID */
-  sessionId: SessionId;
+export interface VerificationState {
+  /** Verification ID */
+  verificationId: VerificationId;
   /** Current status */
   status: EudiVerificationStatus;
   /** Authorization request URL (for QR code) */
@@ -61,7 +61,7 @@ export interface VerificationSession {
   error?: AuthboundError;
   /** Time remaining in seconds */
   timeRemaining?: number;
-  /** When session expires */
+  /** When verification expires */
   expiresAt: Date;
 }
 
@@ -73,25 +73,26 @@ export interface AuthboundContextValue {
   client: AuthboundClient;
   /** Whether SDK is configured and ready */
   isReady: boolean;
-  /** Current session (if any) */
-  session: VerificationSession | null;
+  /** Current verification (if any) */
+  verification: VerificationState | null;
   /** Appearance configuration */
   appearance: AuthboundAppearance;
   /** Default policy ID */
   policyId?: PolicyId;
 
-  /** Start a new verification session */
+  /** Start a new verification */
   startVerification: (options?: {
     policyId?: PolicyId;
     customerUserRef?: string;
     metadata?: Record<string, string>;
+    provider?: "auto" | "vcs" | "eudi";
   }) => Promise<void>;
 
-  /** Reset current session */
-  resetSession: () => void;
+  /** Reset current verification */
+  resetVerification: () => void;
 
-  /** Update session state (internal use) */
-  updateSession: (update: Partial<VerificationSession>) => void;
+  /** Update verification state (internal use) */
+  updateVerification: (update: Partial<VerificationState>) => void;
 }
 
 // ============================================================================
@@ -116,8 +117,8 @@ export interface AuthboundProviderProps {
   publishableKey: PublishableKey | string;
   /** Default policy for verification */
   policyId?: PolicyId;
-  /** Session creation endpoint (default: /api/authbound/session) */
-  sessionEndpoint?: string;
+  /** Verification creation endpoint (default: /api/authbound/verification) */
+  verificationEndpoint?: string;
   /** Gateway URL override (for testing) */
   gatewayUrl?: string;
   /** Appearance customization */
@@ -155,13 +156,15 @@ export interface AuthboundProviderProps {
 export function AuthboundProvider({
   publishableKey,
   policyId,
-  sessionEndpoint,
+  verificationEndpoint,
   gatewayUrl,
   appearance: appearanceProp,
   debug = false,
   children,
 }: AuthboundProviderProps) {
-  const [session, setSession] = useState<VerificationSession | null>(null);
+  const [verification, setVerification] = useState<VerificationState | null>(
+    null
+  );
   const [isReady, setIsReady] = useState(false);
   const statusCleanupRef = useRef<(() => void) | null>(null);
 
@@ -212,7 +215,7 @@ export function AuthboundProvider({
       const config: AuthboundClientConfig = {
         publishableKey: publishableKey as PublishableKey,
         policyId,
-        sessionEndpoint,
+        verificationEndpoint,
         gatewayUrl,
         debug,
       };
@@ -223,16 +226,16 @@ export function AuthboundProvider({
       }
       throw error;
     }
-  }, [publishableKey, policyId, sessionEndpoint, gatewayUrl, debug]);
+  }, [publishableKey, policyId, verificationEndpoint, gatewayUrl, debug]);
 
   // Mark as ready after mount
   useEffect(() => {
     setIsReady(true);
   }, []);
 
-  // Update session helper
-  const updateSession = useCallback((update: Partial<VerificationSession>) => {
-    setSession((prev) => (prev ? { ...prev, ...update } : null));
+  // Update verification helper
+  const updateVerification = useCallback((update: Partial<VerificationState>) => {
+    setVerification((prev) => (prev ? { ...prev, ...update } : null));
   }, []);
 
   const cleanupStatusSubscription = useCallback(() => {
@@ -242,10 +245,10 @@ export function AuthboundProvider({
     }
   }, []);
 
-  // Reset session
-  const resetSession = useCallback(() => {
+  // Reset verification
+  const resetVerification = useCallback(() => {
     cleanupStatusSubscription();
-    setSession(null);
+    setVerification(null);
   }, [cleanupStatusSubscription]);
 
   // Start verification
@@ -254,20 +257,22 @@ export function AuthboundProvider({
       policyId?: PolicyId;
       customerUserRef?: string;
       metadata?: Record<string, string>;
+      provider?: "auto" | "vcs" | "eudi";
     }) => {
       try {
         cleanupStatusSubscription();
 
-        // Create session
+        // Create verification
         const response = await client.startVerification({
           policyId: options?.policyId ?? policyId,
           customerUserRef: options?.customerUserRef,
           metadata: options?.metadata,
+          provider: options?.provider,
         });
 
-        // Initialize session state
-        const newSession: VerificationSession = {
-          sessionId: response.sessionId as SessionId,
+        // Initialize verification state
+        const newVerification: VerificationState = {
+          verificationId: response.verificationId as VerificationId,
           status: "pending",
           authorizationRequestUrl: response.authorizationRequestUrl,
           clientToken: response.clientToken,
@@ -275,17 +280,18 @@ export function AuthboundProvider({
           expiresAt: new Date(response.expiresAt),
         };
 
-        setSession(newSession);
+        setVerification(newVerification);
 
         // Subscribe to status updates
         statusCleanupRef.current = client.subscribeToStatus(
-          response.sessionId as SessionId,
+          response.verificationId as VerificationId,
           response.clientToken as Parameters<
             typeof client.subscribeToStatus
           >[1],
           (event: StatusEvent) => {
-            setSession((prev) => {
-              if (!prev || prev.sessionId !== response.sessionId) return prev;
+            setVerification((prev) => {
+              if (!prev || prev.verificationId !== response.verificationId)
+                return prev;
 
               return {
                 ...prev,
@@ -303,8 +309,9 @@ export function AuthboundProvider({
           },
           {
             onError: (error) => {
-              setSession((prev) => {
-                if (!prev || prev.sessionId !== response.sessionId) return prev;
+              setVerification((prev) => {
+                if (!prev || prev.verificationId !== response.verificationId)
+                  return prev;
                 return {
                   ...prev,
                   status: "error",
@@ -316,8 +323,8 @@ export function AuthboundProvider({
         );
       } catch (error) {
         const authboundError = AuthboundError.from(error);
-        setSession({
-          sessionId: "ses_error" as SessionId,
+        setVerification({
+          verificationId: "vrf_error" as VerificationId,
           status: "error",
           authorizationRequestUrl: "",
           clientToken: "",
@@ -350,22 +357,22 @@ export function AuthboundProvider({
     () => ({
       client,
       isReady,
-      session,
+      verification,
       appearance,
       policyId,
       startVerification,
-      resetSession,
-      updateSession,
+      resetVerification,
+      updateVerification,
     }),
     [
       client,
       isReady,
-      session,
+      verification,
       appearance,
       policyId,
       startVerification,
-      resetSession,
-      updateSession,
+      resetVerification,
+      updateVerification,
     ]
   );
 

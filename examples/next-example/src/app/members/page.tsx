@@ -1,4 +1,4 @@
-import { getSessionFromToken } from "@authbound-sdk/server/next";
+import { getVerificationFromToken } from "@authbound-sdk/server/next";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { authboundConfig } from "@/authbound.config";
@@ -7,9 +7,9 @@ export default async function MembersPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get("__authbound")?.value;
 
-  let session = null;
+  let verification = null;
   if (token) {
-    session = await getSessionFromToken(token, authboundConfig.secret);
+    verification = await getVerificationFromToken(token, authboundConfig.secret);
   }
 
   return (
@@ -43,23 +43,25 @@ export default async function MembersPage() {
           </p>
         </div>
 
-        {session && (
+        {verification && (
           <div className="card">
             <h3>Your Membership</h3>
             <div style={{ marginTop: "1rem" }}>
               <p>
                 <strong>Status:</strong>{" "}
-                <span className="badge badge-success">{session.status}</span>
+                <span className="badge badge-success">
+                  {verification.status}
+                </span>
               </p>
               <p style={{ marginTop: "0.75rem" }}>
                 <strong>Assurance Level:</strong>{" "}
-                <span>{session.assuranceLevel}</span>
+                <span>{verification.assuranceLevel}</span>
               </p>
               <p style={{ marginTop: "0.75rem" }}>
                 <strong>Member Since:</strong>{" "}
                 <span>
                   {new Date(
-                    session.expiresAt.getTime() - 7 * 24 * 60 * 60 * 1000
+                    verification.expiresAt.getTime() - 7 * 24 * 60 * 60 * 1000
                   ).toLocaleDateString()}
                 </span>
               </p>

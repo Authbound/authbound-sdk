@@ -5,7 +5,7 @@
  */
 
 import { z } from "zod";
-import type { PolicyId, SessionId } from "./branded";
+import { isPolicyId, isVerificationId, type PolicyId, type VerificationId } from "./branded";
 import type { Verdict, VerificationClaims } from "./verification";
 
 // ============================================================================
@@ -16,14 +16,14 @@ import type { Verdict, VerificationClaims } from "./verification";
  * Claims in the ephemeral client token (safe for browser).
  *
  * This token is short-lived (15 minutes) and has limited scope:
- * - Can only poll status for the associated session
+ * - Can only poll status for the associated verification
  * - Cannot retrieve PII or full verification results
  */
 export interface ClientTokenClaims {
   /** Token type */
   typ: "client";
-  /** Subject - session ID */
-  sub: SessionId;
+  /** Subject - verification ID */
+  sub: VerificationId;
   /** Policy being verified */
   pol: PolicyId;
   /** Issuer */
@@ -40,8 +40,8 @@ export interface ClientTokenClaims {
 
 export const ClientTokenClaimsSchema = z.object({
   typ: z.literal("client"),
-  sub: z.string().startsWith("ses_"),
-  pol: z.string().regex(/^.+@.+$/),
+  sub: z.string().refine(isVerificationId),
+  pol: z.string().refine(isPolicyId),
   iss: z.string(),
   aud: z.string(),
   iat: z.number(),
@@ -64,8 +64,8 @@ export interface ResultTokenClaims {
   typ: "result";
   /** Subject - customer user reference (if provided) */
   sub?: string;
-  /** Session ID */
-  sid: SessionId;
+  /** Verification ID */
+  sid: VerificationId;
   /** Policy that was verified */
   pol: PolicyId;
   /** Verification verdict */
@@ -87,8 +87,8 @@ export interface ResultTokenClaims {
 export const ResultTokenClaimsSchema = z.object({
   typ: z.literal("result"),
   sub: z.string().optional(),
-  sid: z.string().startsWith("ses_"),
-  pol: z.string().regex(/^.+@.+$/),
+  sid: z.string().refine(isVerificationId),
+  pol: z.string().refine(isPolicyId),
   verdict: z.enum(["approved", "rejected", "inconclusive"]),
   claims: z.object({
     age_over_18: z.boolean().optional(),

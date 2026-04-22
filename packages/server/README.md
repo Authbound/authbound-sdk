@@ -10,9 +10,9 @@
 `@authbound-sdk/server` provides a complete server-side solution for protecting Next.js routes with identity and age verification. It includes:
 
 - **Middleware-based route protection** - Automatically redirect unverified users
-- **Encrypted JWT session management** - Stateless, secure cookie-based sessions
+- **Encrypted verification context cookies** - Stateless, secure route access state
 - **Flexible verification requirements** - Support for identity verification, age gating, and assurance levels
-- **Webhook handling** - Automatic session updates when verification completes
+- **Webhook handling** - Automatic verification context updates when verification completes
 - **TypeScript-first** - Full type safety with Zod validation
 
 ## Installation
@@ -123,21 +123,21 @@ export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig);
 
 ```typescript
 import { cookies } from "next/headers";
-import { getSessionFromToken } from "@authbound-sdk/server/next";
+import { getVerificationFromToken } from "@authbound-sdk/server/next";
 import { authboundConfig } from "@/authbound.config";
 
 export default async function DashboardPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get("__authbound")?.value;
-  
-  const session = token 
-    ? await getSessionFromToken(token, authboundConfig.secret)
+
+  const verification = token
+    ? await getVerificationFromToken(token, authboundConfig.secret)
     : null;
 
   return (
     <div>
-      {session?.isVerified ? (
-        <h1>Welcome, {session.userRef}!</h1>
+      {verification?.isVerified ? (
+        <h1>Welcome, {verification.userRef}!</h1>
       ) : (
         <p>Please verify your identity</p>
       )}
@@ -183,11 +183,11 @@ routes: {
 - **`minAge: number`** - Requires verified age (calculated from DOB)
 - **`assuranceLevel: "LOW" | "SUBSTANTIAL" | "HIGH"`** - Requires minimum assurance level
 
-### Session Management
+### Verification Context Cookies
 
-Sessions are stored in encrypted JWT cookies:
+Verification context is stored in encrypted JWT cookies:
 
-- **Stateless** - No server-side session storage required
+- **Stateless** - No server-side verification context storage required
 - **Encrypted** - AES-256-GCM encryption using `jose`
 - **Secure defaults** - HttpOnly, Secure (in production), SameSite=Lax
 - **Configurable expiry** - Default 7 days, customizable
@@ -235,8 +235,8 @@ interface MiddlewareOptions {
   // Custom handler when verification is required
   onVerificationRequired?: (request, result) => Response | undefined;
   
-  // Hook after session validation
-  onSessionValidated?: (request, result) => void | Promise<void>;
+  // Hook after verification context validation
+  onVerificationValidated?: (request, result) => void | Promise<void>;
   
   // Skip middleware for certain paths
   skip?: (request) => boolean | Promise<boolean>;
@@ -263,14 +263,14 @@ export default authboundMiddleware(config, {
 
 ### `createAuthboundHandlers(config, options?)`
 
-Creates API route handlers for session management.
+Creates API route handlers for verification management.
 
 **Returns:**
 
 ```typescript
 {
-  GET: (request) => Promise<NextResponse>;   // Get session status
-  POST: (request) => Promise<NextResponse>;  // Create session or handle webhook
+  GET: (request) => Promise<NextResponse>;   // Get verification status
+  POST: (request) => Promise<NextResponse>;  // Create verification or handle webhook
   DELETE: (request) => Promise<NextResponse>; // Sign out
 }
 ```
@@ -280,42 +280,42 @@ Creates API route handlers for session management.
 ```typescript
 interface HandlersOptions {
   onWebhook?: (payload: WebhookPayload) => void | Promise<void>;
-  onSessionCreated?: (response: CreateSessionResponse) => void | Promise<void>;
+  onVerificationCreated?: (response: CreateVerificationResponse) => void | Promise<void>;
   validateWebhookSignature?: (request, payload) => boolean | Promise<boolean>;
   getUserRef?: (request) => string | Promise<string>;
 }
 ```
 
-### `getSessionFromCookie(request, config)`
+### `getVerificationFromCookie(request, config)`
 
-Get session from request cookies (for middleware).
+Get verification context from request cookies (for middleware).
 
 ```typescript
-const session = await getSessionFromCookie(request, config);
-if (session?.isVerified) {
+const verification = await getVerificationFromCookie(request, config);
+if (verification?.isVerified) {
   // User is verified
 }
 ```
 
-### `getSessionFromToken(token, secret)`
+### `getVerificationFromToken(token, secret)`
 
-Get session from JWT token (for server components).
+Get verification context from JWT token (for server components).
 
 ```typescript
 const token = cookieStore.get("__authbound")?.value;
-const session = token 
-  ? await getSessionFromToken(token, secret)
+const verification = token
+  ? await getVerificationFromToken(token, secret)
   : null;
 ```
 
-### `setSessionCookie(response, config, sessionData)`
+### `setVerificationCookie(response, config, verificationData)`
 
-Set a session cookie on a response.
+Set a verification cookie on a response.
 
 ```typescript
-await setSessionCookie(response, config, {
+await setVerificationCookie(response, config, {
   userRef: "user_123",
-  sessionId: "session_456",
+  verificationId: "vrf_456",
   status: "VERIFIED",
   assuranceLevel: "SUBSTANTIAL",
   age: 25,
@@ -323,13 +323,13 @@ await setSessionCookie(response, config, {
 });
 ```
 
-### `clearSessionCookie(response, config)`
+### `clearVerificationCookie(response, config)`
 
-Clear the session cookie.
+Clear the verification cookie.
 
 ```typescript
 const response = NextResponse.json({ success: true });
-clearSessionCookie(response, config);
+clearVerificationCookie(response, config);
 return response;
 ```
 
@@ -482,7 +482,7 @@ The SDK uses secure defaults, but ensure:
 
 Consider adding rate limiting for:
 
-- Session creation endpoints
+- Verification creation endpoints
 - Webhook endpoints
 - Status check endpoints
 
@@ -584,7 +584,7 @@ export async function POST(request: NextRequest) {
 
 **Recommended Rate Limits:**
 
-- **Session Creation:** 5-10 requests per minute per IP
+- **Verification Creation:** 5-10 requests per minute per IP
 - **Status Checks:** 30-60 requests per minute per IP
 - **Webhooks:** No limit (validated by signature/IP)
 - **Sign Out:** 10-20 requests per minute per IP
@@ -648,26 +648,26 @@ Create reusable server component utilities:
 ```typescript
 // lib/authbound.ts
 import { cookies } from "next/headers";
-import { getSessionFromToken } from "@authbound-sdk/server/next";
+import { getVerificationFromToken } from "@authbound-sdk/server/next";
 import { authboundConfig } from "@/authbound.config";
 
-export async function getAuthboundSession() {
+export async function getAuthboundVerification() {
   const cookieStore = await cookies();
   const token = cookieStore.get("__authbound")?.value;
   
   if (!token) return null;
   
-  return getSessionFromToken(token, authboundConfig.secret);
+  return getVerificationFromToken(token, authboundConfig.secret);
 }
 
 export async function requireVerification() {
-  const session = await getAuthboundSession();
+  const verification = await getAuthboundVerification();
   
-  if (!session?.isVerified) {
+  if (!verification?.isVerified) {
     redirect("/verify");
   }
   
-  return session;
+  return verification;
 }
 ```
 
@@ -716,9 +716,9 @@ export const config = {
 };
 ```
 
-### Session Not Persisting
+### Verification Context Not Persisting
 
-**Problem:** Session cookie isn't being set or read.
+**Problem:** Verification cookie isn't being set or read.
 
 **Solution:**
 1. Check cookie name matches in config and reading code

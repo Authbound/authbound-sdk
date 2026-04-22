@@ -1,4 +1,4 @@
-import { getSessionFromToken } from "@authbound-sdk/server/next";
+import { getVerificationFromToken } from "@authbound-sdk/server/next";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { authboundConfig } from "@/authbound.config";
@@ -7,9 +7,9 @@ export default async function PremiumPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get("__authbound")?.value;
 
-  let session = null;
+  let verification = null;
   if (token) {
-    session = await getSessionFromToken(token, authboundConfig.secret);
+    verification = await getVerificationFromToken(token, authboundConfig.secret);
   }
 
   return (
@@ -44,18 +44,19 @@ export default async function PremiumPage() {
           </p>
         </div>
 
-        {session && (
+        {verification && (
           <div className="card">
             <h3>Verification Summary</h3>
             <div style={{ marginTop: "1rem" }}>
               <p>
                 <strong>Assurance Level:</strong>{" "}
                 <span style={{ color: "var(--color-warning)" }}>
-                  {session.assuranceLevel}
+                  {verification.assuranceLevel}
                 </span>
               </p>
               <p style={{ marginTop: "0.5rem" }}>
-                <strong>User Reference:</strong> <code>{session.userRef}</code>
+                <strong>User Reference:</strong>{" "}
+                <code>{verification.userRef}</code>
               </p>
             </div>
           </div>

@@ -1,43 +1,180 @@
-import type {
-  AssuranceLevel,
-  AuthboundSession,
-  Dob,
-  VerificationSessionStatus,
-  VerificationStatus,
-} from "@authbound-sdk/core";
-import { AssuranceLevelSchema } from "@authbound-sdk/core";
 import { z } from "zod";
 
-// Re-export core types for convenience
-export type {
-  AssuranceLevel,
-  AuthboundClaims,
-  AuthboundSession,
-  Dob,
-  LastError,
-  Sex,
-  VerificationSessionObject,
-  VerificationSessionStatus,
-  VerificationStatus,
-  VerifiedOutputs,
-  WebhookEvent,
-  WebhookEventType,
-} from "@authbound-sdk/core";
+export const VerificationStatusSchema = z.enum([
+  "VERIFIED",
+  "REJECTED",
+  "MANUAL_REVIEW_NEEDED",
+  "PENDING",
+]);
 
-export {
-  AssuranceLevelSchema,
-  AuthboundClaimsSchema,
-  calculateAge,
-  DobSchema,
-  LastErrorSchema,
-  SexSchema,
-  VerificationSessionObjectSchema,
-  VerificationSessionStatusSchema,
-  VerificationStatusSchema,
-  VerifiedOutputsSchema,
-  WebhookEventSchema,
-  WebhookEventTypeSchema,
-} from "@authbound-sdk/core";
+export type VerificationStatus = z.infer<typeof VerificationStatusSchema>;
+
+export const AssuranceLevelSchema = z.enum([
+  "NONE",
+  "LOW",
+  "SUBSTANTIAL",
+  "HIGH",
+]);
+
+export type AssuranceLevel = z.infer<typeof AssuranceLevelSchema>;
+
+export type Dob = {
+  day: number;
+  month: number;
+  year: number;
+};
+
+export const DobSchema = z.object({
+  day: z.number().int().min(1).max(31),
+  month: z.number().int().min(1).max(12),
+  year: z.number().int(),
+});
+
+export type Sex = "male" | "female" | "unspecified";
+export const SexSchema = z.enum(["male", "female", "unspecified"]);
+
+export type LastError = {
+  code: string;
+  reason: string;
+};
+
+export const LastErrorSchema = z.object({
+  code: z.string(),
+  reason: z.string(),
+});
+
+export type VerifiedOutputs = {
+  first_name?: string;
+  last_name?: string;
+  dob?: Dob;
+  sex?: Sex;
+  id_number_type?: "fi_hetu" | "us_ssn" | "other";
+  id_number_last4?: string;
+  id_number_masked?: string;
+};
+
+export const VerifiedOutputsSchema = z.object({
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+  dob: DobSchema.optional(),
+  sex: SexSchema.optional(),
+  id_number_type: z.enum(["fi_hetu", "us_ssn", "other"]).optional(),
+  id_number_last4: z.string().optional(),
+  id_number_masked: z.string().optional(),
+});
+
+export type VerificationEventStatus =
+  | "requires_input"
+  | "processing"
+  | "verified"
+  | "failed"
+  | "canceled";
+
+export const VerificationEventStatusSchema = z.enum([
+  "requires_input",
+  "processing",
+  "verified",
+  "failed",
+  "canceled",
+]);
+
+export type VerificationEventObjectType = "document" | "id_number";
+
+export const VerificationEventObjectTypeSchema = z.enum([
+  "document",
+  "id_number",
+]);
+
+export type VerificationEventObject = {
+  id: string;
+  object: "identity.verification_session";
+  created: number;
+  livemode: boolean;
+  type: VerificationEventObjectType;
+  status: VerificationEventStatus;
+  client_reference_id: string;
+  last_error?: LastError;
+  last_verification_report?: string;
+  verified_outputs?: VerifiedOutputs;
+};
+
+export const VerificationEventObjectSchema = z.object({
+  id: z.string(),
+  object: z.literal("identity.verification_session"),
+  created: z.number(),
+  livemode: z.boolean(),
+  type: VerificationEventObjectTypeSchema,
+  status: VerificationEventStatusSchema,
+  client_reference_id: z.string(),
+  last_error: LastErrorSchema.optional(),
+  last_verification_report: z.string().optional(),
+  verified_outputs: VerifiedOutputsSchema.optional(),
+});
+
+export type WebhookEventType =
+  | "identity.verification_session.processing"
+  | "identity.verification_session.verified"
+  | "identity.verification_session.requires_input"
+  | "identity.verification_session.failed"
+  | "identity.verification_session.canceled"
+  | "identity.verification_session.redacted";
+
+export const WebhookEventTypeSchema = z.enum([
+  "identity.verification_session.processing",
+  "identity.verification_session.verified",
+  "identity.verification_session.requires_input",
+  "identity.verification_session.failed",
+  "identity.verification_session.canceled",
+  "identity.verification_session.redacted",
+]);
+
+export type WebhookEvent = {
+  id: string;
+  object: "event";
+  api_version: string;
+  created: number;
+  livemode: boolean;
+  type: WebhookEventType;
+  data: {
+    object: VerificationEventObject;
+  };
+};
+
+export const WebhookEventSchema = z.object({
+  id: z.string(),
+  object: z.literal("event"),
+  api_version: z.string(),
+  created: z.number(),
+  livemode: z.boolean(),
+  type: WebhookEventTypeSchema,
+  data: z.object({
+    object: VerificationEventObjectSchema,
+  }),
+});
+
+export const AuthboundClaimsSchema = z.object({
+  sub: z.string(),
+  sid: z.string(),
+  status: VerificationStatusSchema,
+  assurance: AssuranceLevelSchema,
+  age: z.number().int().optional(),
+  dateOfBirth: z.string().optional(),
+  iat: z.number(),
+  exp: z.number(),
+});
+
+export type AuthboundClaims = z.infer<typeof AuthboundClaimsSchema>;
+
+export interface AuthboundVerificationContext {
+  isVerified: boolean;
+  status: VerificationStatus;
+  assuranceLevel: AssuranceLevel;
+  age?: number;
+  verificationId: string;
+  userRef: string;
+  dateOfBirth?: string;
+  expiresAt: Date;
+}
 
 // ============================================================================
 // Route Protection Configuration
@@ -125,22 +262,17 @@ export const AuthboundConfigSchema = z.object({
 export type AuthboundConfig = z.infer<typeof AuthboundConfigSchema>;
 
 // ============================================================================
-// JWT Claims & Session (re-exported from core)
-// ============================================================================
-// AuthboundClaims, AuthboundSession, and WebhookPayload are now imported from @authbound-sdk/core above
-
-// ============================================================================
 // API Response Types
 // ============================================================================
 
-export interface CreateSessionResponse {
+export interface CreateVerificationResponse {
   clientToken: string;
-  sessionId: string;
+  verificationId: string;
   expiresAt?: string;
 }
 
-export interface SessionStatusResponse {
-  session: AuthboundSession | null;
+export interface VerificationStatusResponse {
+  verification: AuthboundVerificationContext | null;
   isVerified: boolean;
 }
 
@@ -153,8 +285,8 @@ export interface MiddlewareResult {
   allowed: boolean;
   /** Redirect URL if not allowed */
   redirectUrl?: string;
-  /** Session data if available */
-  session?: AuthboundSession;
+  /** Verification context if available */
+  verification?: AuthboundVerificationContext;
   /** Reason for denial */
   reason?: string;
 }
@@ -162,28 +294,46 @@ export interface MiddlewareResult {
 // ============================================================================
 // Helper Functions
 // ============================================================================
-// calculateAge is now imported from @authbound-sdk/core above
+
+/**
+ * Calculate age from an ISO date string.
+ */
+export function calculateAge(dateOfBirth: string): number {
+  const today = new Date();
+  const birthDate = new Date(dateOfBirth);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && today.getDate() < birthDate.getDate())
+  ) {
+    age--;
+  }
+
+  return age;
+}
 
 /**
  * Check if verification requirements are met
  */
 export function checkRequirements(
-  session: AuthboundSession | null,
+  verification: AuthboundVerificationContext | null,
   requirements: VerificationRequirements
 ): { met: boolean; reason?: string } {
-  if (!session) {
-    return { met: false, reason: "No session found" };
+  if (!verification) {
+    return { met: false, reason: "No verification found" };
   }
 
-  if (requirements.verified && !session.isVerified) {
+  if (requirements.verified && !verification.isVerified) {
     return { met: false, reason: "Verification required" };
   }
 
   if (requirements.minAge !== undefined) {
-    if (session.age === undefined) {
+    if (verification.age === undefined) {
       return { met: false, reason: "Age verification required" };
     }
-    if (session.age < requirements.minAge) {
+    if (verification.age < requirements.minAge) {
       return {
         met: false,
         reason: `Minimum age of ${requirements.minAge} required`,
@@ -194,7 +344,7 @@ export function checkRequirements(
   if (requirements.assuranceLevel) {
     const levels: AssuranceLevel[] = ["NONE", "LOW", "SUBSTANTIAL", "HIGH"];
     const requiredIndex = levels.indexOf(requirements.assuranceLevel);
-    const currentIndex = levels.indexOf(session.assuranceLevel);
+    const currentIndex = levels.indexOf(verification.assuranceLevel);
 
     if (currentIndex < requiredIndex) {
       return {
@@ -274,11 +424,11 @@ export function calculateAgeFromDob(dob: Dob): number {
 }
 
 /**
- * Map webhook session status to internal verification status.
+ * Map webhook verification event status to internal verification status.
  * This is used when processing webhook events to determine the verification outcome.
  */
-export function mapSessionStatusToVerificationStatus(
-  status: VerificationSessionStatus
+export function mapVerificationEventStatusToVerificationStatus(
+  status: VerificationEventStatus
 ): VerificationStatus {
   switch (status) {
     case "verified":

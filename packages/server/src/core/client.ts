@@ -13,14 +13,14 @@
  *   apiUrl: process.env.AUTHBOUND_API_URL, // optional
  * });
  *
- * // Create a verification session
- * const session = await client.sessions.create({
- *   userRef: 'user_123',
- *   callbackUrl: 'https://example.com/callback',
+ * // Create a verification
+ * const verification = await client.verifications.create({
+ *   policyId: 'pol_authbound_pension_v1',
+ *   customerUserRef: 'user_123',
  * });
  *
- * // Get session status
- * const status = await client.sessions.get(session.sessionId);
+ * // Get verification status
+ * const status = await client.verifications.get(verification.id);
  * ```
  */
 
@@ -72,61 +72,81 @@ function validateApiKeyFormat(apiKey: string): boolean {
 // Request/Response Schemas
 // ============================================================================
 
-const CreateSessionRequestSchema = z.object({
-  customer_user_ref: z.string(),
-  callback_url: z.string().url().optional(),
-  policy_id: z.string().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-});
+const PublicVerificationStatusSchema = z.enum([
+  "pending",
+  "processing",
+  "verified",
+  "failed",
+  "canceled",
+  "expired",
+]);
 
-// Response schema for legacy /sessions endpoint
-const LegacyCreateSessionResponseSchema = z.object({
-  session_id: z.string(),
-  client_token: z.string(),
+const GatewayVerificationStatusSchema = z.enum([
+  "created",
+  "awaiting_user",
+  "awaiting_provider",
+  "processing",
+  "verified",
+  "failed",
+  "canceled",
+  "expired",
+]);
+
+const ClientActionSchema = z.object({
+  kind: z.enum(["qr", "link", "request_blob"]),
+  data: z.string(),
   expires_at: z.string().optional(),
-  verification_url: z.string().optional(),
-  sse_token: z.string().optional(),
 });
 
-// Response schema for new /v1/verifications endpoint (Stripe-style)
-const CreateVerificationResponseSchema = z.object({
+// Response schema for /v1/verifications endpoint.
+const VerificationSchema = z.object({
   object: z.literal("verification"),
   id: z.string(),
-  status: z.string(),
+  status: z.union([PublicVerificationStatusSchema, GatewayVerificationStatusSchema]),
   policy_id: z.string().optional(),
+  policy_hash: z.string().optional(),
   provider: z.string().optional(),
   env_mode: z.enum(["test", "live"]).optional(),
   created_at: z.string().optional(),
   expires_at: z.string().optional(),
-  client_token: z.string(),
-  client_action: z
-    .object({
-      kind: z.enum(["qr", "link", "request_blob"]),
-      data: z.string(),
-      expires_at: z.string().optional(),
-    })
-    .optional(),
+  terminal_at: z.string().optional(),
+  failure_code: z.string().optional(),
+  client_token: z.string().optional(),
+  client_action: ClientActionSchema.optional(),
   verification_url: z.string().optional(),
+  customer_user_ref: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
-// Response schema for new /v1/verifications/:id/status endpoint
-const VerificationStatusResponseSchema = z.object({
+const VerificationListSchema = z.object({
+  object: z.literal("list"),
+  data: z.array(VerificationSchema),
+  has_more: z.boolean().optional().default(false),
+  next_cursor: z.string().nullable().optional(),
+});
+
+// Response schema for /v1/verifications/:id/status endpoint.
+const VerificationStatusSchema = z.object({
   object: z.literal("verification_status"),
   id: z.string(),
-  status: z.enum([
-    "pending",
-    "processing",
-    "verified",
-    "failed",
-    "canceled",
-    "expired",
-  ]),
+  status: z.union([PublicVerificationStatusSchema, GatewayVerificationStatusSchema]),
   result: z
     .object({
       verified: z.boolean(),
       attributes: z.record(z.string(), z.unknown()).optional(),
+      assertions: z.record(z.string(), z.unknown()).optional(),
     })
     .optional(),
+  failure_code: z.string().optional(),
+  client_action: ClientActionSchema.optional(),
+});
+
+const VerificationResultSchema = z.object({
+  verification_id: z.string(),
+  status: z.enum(["verified", "failed"]),
+  result_token: z.string(),
+  assertions: z.record(z.string(), z.unknown()).optional(),
+  failure_code: z.string().optional(),
 });
 
 const PublicCredentialFormatSchema = z.enum([
@@ -205,83 +225,102 @@ const OpenId4VcIssuanceListSchema = z.object({
 // Public Types
 // ============================================================================
 
-export interface CreateSessionOptions {
+export interface CreateVerificationOptions {
   /**
-   * Customer user reference - your internal user ID.
-   * Used to correlate verification sessions with your users.
+   * Policy to use for this verification.
    */
-  userRef: string;
+  policyId: string;
 
   /**
-   * Callback URL for webhook notifications.
-   * Authbound will POST verification results to this URL.
+   * Your reference for the end user.
    */
-  callbackUrl?: string;
+  customerUserRef?: string;
 
   /**
-   * Policy ID for verification requirements.
-   * E.g., "age_gate_18", "age_gate_21", "kyc_basic".
+   * Metadata stored with the verification.
    */
+  metadata?: Record<string, unknown>;
+
+  /**
+   * Optional provider override.
+   */
+  provider?: "auto" | "vcs" | "eudi";
+
+  /**
+   * Idempotency key for safe retries.
+   */
+  idempotencyKey?: string;
+}
+
+export interface ListVerificationsOptions {
+  status?: PublicVerificationStatus;
+  limit?: number;
+  startingAfter?: string;
+  endingBefore?: string;
+}
+
+export interface CancelVerificationOptions {
+  idempotencyKey?: string;
+}
+
+export interface GetVerificationStatusOptions {
+  clientToken: string;
+  publishableKey: string;
+}
+
+export type PublicVerificationStatus = z.infer<typeof PublicVerificationStatusSchema>;
+
+export interface VerificationClientAction {
+  kind: "qr" | "link" | "request_blob";
+  data: string;
+  expiresAt?: string;
+}
+
+export interface Verification {
+  object: "verification";
+  id: string;
+  status: PublicVerificationStatus;
   policyId?: string;
-
-  /**
-   * Additional metadata to attach to the session.
-   */
+  policyHash?: string;
+  provider?: string;
+  envMode?: "test" | "live";
+  createdAt?: string;
+  expiresAt?: string;
+  terminalAt?: string;
+  failureCode?: string;
+  clientToken?: string;
+  clientAction?: VerificationClientAction;
+  verificationUrl?: string;
+  customerUserRef?: string;
   metadata?: Record<string, unknown>;
 }
 
-export interface CreateSessionResult {
-  /**
-   * Unique session ID.
-   */
-  sessionId: string;
-
-  /**
-   * Client token for browser-side operations.
-   * Pass this to the client SDK for QR code generation.
-   */
-  clientToken: string;
-
-  /**
-   * Session expiration time (ISO 8601).
-   */
-  expiresAt?: string;
-
-  /**
-   * Direct URL for verification (if available).
-   */
-  verificationUrl?: string;
-
-  /**
-   * SSE token for real-time status updates.
-   */
-  sseToken?: string;
+export interface VerificationList {
+  object: "list";
+  data: Verification[];
+  hasMore: boolean;
+  nextCursor?: string;
 }
 
-export interface GetSessionResult {
-  /**
-   * Verification ID.
-   */
+export interface VerificationStatus {
+  object: "verification_status";
   id: string;
-
-  /**
-   * Current verification status.
-   */
-  status:
-    | "pending"
-    | "processing"
-    | "verified"
-    | "failed"
-    | "canceled"
-    | "expired";
-
-  /**
-   * Verification result (only present after successful verification).
-   */
+  status: PublicVerificationStatus;
   result?: {
     verified: boolean;
     attributes?: Record<string, unknown>;
+    assertions?: Record<string, unknown>;
   };
+  failureCode?: string;
+  clientAction?: VerificationClientAction;
+}
+
+export interface SignedVerificationResult {
+  verificationId: string;
+  status: "verified" | "failed";
+  resultToken: string;
+  assertions?: Record<string, unknown>;
+  failureCode?: string;
 }
 
 export type PublicCredentialFormat = z.infer<
@@ -377,6 +416,87 @@ export class AuthboundClientError extends Error {
   }
 }
 
+function normalizeVerificationStatus(status: string): PublicVerificationStatus {
+  switch (status) {
+    case "created":
+    case "awaiting_user":
+    case "awaiting_provider":
+    case "pending":
+      return "pending";
+    case "processing":
+    case "verified":
+    case "failed":
+    case "canceled":
+    case "expired":
+      return status;
+    default:
+      throw new AuthboundClientError(
+        `Invalid verification status from API: ${status}`,
+        "INVALID_RESPONSE"
+      );
+  }
+}
+
+function mapClientAction(
+  action: z.infer<typeof ClientActionSchema> | undefined
+): VerificationClientAction | undefined {
+  if (!action) {
+    return undefined;
+  }
+
+  return {
+    kind: action.kind,
+    data: action.data,
+    expiresAt: action.expires_at,
+  };
+}
+
+function mapVerification(raw: z.infer<typeof VerificationSchema>): Verification {
+  return {
+    object: raw.object,
+    id: raw.id,
+    status: normalizeVerificationStatus(raw.status),
+    policyId: raw.policy_id,
+    policyHash: raw.policy_hash,
+    provider: raw.provider,
+    envMode: raw.env_mode,
+    createdAt: raw.created_at,
+    expiresAt: raw.expires_at,
+    terminalAt: raw.terminal_at,
+    failureCode: raw.failure_code,
+    clientToken: raw.client_token,
+    clientAction: mapClientAction(raw.client_action),
+    verificationUrl: raw.verification_url,
+    customerUserRef: raw.customer_user_ref,
+    metadata: raw.metadata,
+  };
+}
+
+function mapVerificationStatus(
+  raw: z.infer<typeof VerificationStatusSchema>
+): VerificationStatus {
+  return {
+    object: raw.object,
+    id: raw.id,
+    status: normalizeVerificationStatus(raw.status),
+    result: raw.result,
+    failureCode: raw.failure_code,
+    clientAction: mapClientAction(raw.client_action),
+  };
+}
+
+function mapSignedVerificationResult(
+  raw: z.infer<typeof VerificationResultSchema>
+): SignedVerificationResult {
+  return {
+    verificationId: raw.verification_id,
+    status: raw.status,
+    resultToken: raw.result_token,
+    assertions: raw.assertions,
+    failureCode: raw.failure_code,
+  };
+}
+
 // ============================================================================
 // AuthboundClient Class
 // ============================================================================
@@ -388,9 +508,9 @@ export class AuthboundClient {
   private readonly debug: boolean;
 
   /**
-   * Sessions API for creating and querying verification sessions.
+   * Verification APIs.
    */
-  readonly sessions: SessionsApi;
+  readonly verifications: VerificationsApi;
 
   /**
    * Webhooks API for signature verification.
@@ -425,7 +545,7 @@ export class AuthboundClient {
     this.debug = config.debug ?? false;
 
     // Initialize sub-APIs
-    this.sessions = new SessionsApi(this);
+    this.verifications = new VerificationsApi(this);
     this.webhooks = new WebhooksApi();
     this.issuer = new IssuerApi(this);
     this.openId4Vc = new OpenId4VcApi(this);
@@ -441,6 +561,7 @@ export class AuthboundClient {
     body?: unknown,
     options?: {
       headers?: Record<string, string>;
+      includeApiKey?: boolean;
     }
   ): Promise<T> {
     const url = `${this.apiUrl}${path}`;
@@ -457,7 +578,9 @@ export class AuthboundClient {
       method,
       headers: {
         "Content-Type": "application/json",
-        "X-Authbound-Key": this.apiKey,
+        ...(options?.includeApiKey === false
+          ? {}
+          : { "X-Authbound-Key": this.apiKey }),
         ...(options?.headers ?? {}),
       },
       signal: controller.signal,
@@ -541,7 +664,17 @@ export class AuthboundClient {
   }
 }
 
-function parseApiResponse<T>(schema: z.ZodSchema<T>, response: unknown): T {
+function parseApiResponse<T>(schema: z.ZodSchema<T>, response: unknown): T;
+function parseApiResponse<T, R>(
+  schema: z.ZodSchema<T>,
+  response: unknown,
+  mapper: (parsed: T) => R
+): R;
+function parseApiResponse<T, R>(
+  schema: z.ZodSchema<T>,
+  response: unknown,
+  mapper?: (parsed: T) => R
+): T | R {
   const parsed = schema.safeParse(response);
   if (!parsed.success) {
     throw new AuthboundClientError(
@@ -551,7 +684,7 @@ function parseApiResponse<T>(schema: z.ZodSchema<T>, response: unknown): T {
       parsed.error.format()
     );
   }
-  return parsed.data;
+  return mapper ? mapper(parsed.data) : parsed.data;
 }
 
 function buildQueryString(
@@ -764,41 +897,63 @@ class OpenId4VcIssuanceApi {
 }
 
 // ============================================================================
-// Sessions API
+// Verifications API
 // ============================================================================
 
-class SessionsApi {
+class VerificationsApi {
   constructor(private readonly client: AuthboundClient) {}
 
   /**
-   * Create a new verification session.
-   *
-   * @example
-   * ```ts
-   * const session = await client.sessions.create({
-   *   userRef: 'user_123',
-   *   callbackUrl: 'https://example.com/webhook',
-   *   policyId: 'age_gate_18',
-   * });
-   *
-   * console.log('Session ID:', session.sessionId);
-   * console.log('Client Token:', session.clientToken);
-   * ```
+   * Create a new verification.
    */
-  async create(options: CreateSessionOptions): Promise<CreateSessionResult> {
+  async create(options: CreateVerificationOptions): Promise<Verification> {
     const requestBody = {
-      policyId: options.policyId ?? "default",
-      ...(options.userRef && { customerId: options.userRef }),
+      policy_id: options.policyId,
+      ...(options.customerUserRef && {
+        customer_user_ref: options.customerUserRef,
+      }),
       ...(options.metadata && { metadata: options.metadata }),
+      ...(options.provider && { provider: options.provider }),
     };
 
     const response = await this.client.request<unknown>(
       "POST",
       "/v1/verifications",
-      requestBody
+      requestBody,
+      {
+        headers: options.idempotencyKey
+          ? { "Idempotency-Key": options.idempotencyKey }
+          : undefined,
+      }
     );
 
-    const parsed = CreateVerificationResponseSchema.safeParse(response);
+    return parseApiResponse(VerificationSchema, response, mapVerification);
+  }
+
+  /**
+   * List verifications.
+   */
+  async list(options?: ListVerificationsOptions): Promise<VerificationList> {
+    const params = new URLSearchParams();
+    if (options?.status) {
+      params.set("status", options.status);
+    }
+    if (options?.limit !== undefined) {
+      params.set("limit", String(options.limit));
+    }
+    if (options?.startingAfter) {
+      params.set("starting_after", options.startingAfter);
+    }
+    if (options?.endingBefore) {
+      params.set("ending_before", options.endingBefore);
+    }
+
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    const response = await this.client.request<unknown>(
+      "GET",
+      `/v1/verifications${suffix}`
+    );
+    const parsed = VerificationListSchema.safeParse(response);
     if (!parsed.success) {
       throw new AuthboundClientError(
         "Invalid response from API",
@@ -809,46 +964,80 @@ class SessionsApi {
     }
 
     return {
-      sessionId: parsed.data.id,
-      clientToken: parsed.data.client_token,
-      expiresAt: parsed.data.expires_at,
-      verificationUrl: parsed.data.verification_url,
+      object: "list",
+      data: parsed.data.data.map(mapVerification),
+      hasMore: parsed.data.has_more,
+      nextCursor: parsed.data.next_cursor ?? undefined,
     };
   }
 
   /**
-   * Get the current status of a verification session.
-   *
-   * @example
-   * ```ts
-   * const status = await client.sessions.get('vrf_abc123');
-   *
-   * if (status.status === 'verified') {
-   *   console.log('Verified:', status.result);
-   * }
-   * ```
+   * Retrieve a verification with a secret key.
    */
-  async get(sessionId: string): Promise<GetSessionResult> {
+  async get(verificationId: string): Promise<Verification> {
     const response = await this.client.request<unknown>(
       "GET",
-      `/v1/verifications/${sessionId}/status`
+      `/v1/verifications/${encodePathSegment(verificationId)}`
+    );
+    return parseApiResponse(VerificationSchema, response, mapVerification);
+  }
+
+  /**
+   * Get client-token status.
+   */
+  async getStatus(
+    verificationId: string,
+    options: GetVerificationStatusOptions
+  ): Promise<VerificationStatus> {
+    const response = await this.client.request<unknown>(
+      "GET",
+      `/v1/verifications/${encodePathSegment(verificationId)}/status`,
+      undefined,
+      {
+        includeApiKey: false,
+        headers: {
+          Authorization: `Bearer ${options.clientToken}`,
+          "X-Authbound-Publishable-Key": options.publishableKey,
+        },
+      }
     );
 
-    const parsed = VerificationStatusResponseSchema.safeParse(response);
-    if (!parsed.success) {
-      throw new AuthboundClientError(
-        "Invalid response from API",
-        "INVALID_RESPONSE",
-        undefined,
-        parsed.error.format()
-      );
-    }
+    return parseApiResponse(VerificationStatusSchema, response, mapVerificationStatus);
+  }
 
-    return {
-      id: parsed.data.id,
-      status: parsed.data.status,
-      result: parsed.data.result,
-    };
+  /**
+   * Cancel a verification with a secret key.
+   */
+  async cancel(
+    verificationId: string,
+    options?: CancelVerificationOptions
+  ): Promise<Verification> {
+    const response = await this.client.request<unknown>(
+      "POST",
+      `/v1/verifications/${encodePathSegment(verificationId)}/cancel`,
+      undefined,
+      {
+        headers: options?.idempotencyKey
+          ? { "Idempotency-Key": options.idempotencyKey }
+          : undefined,
+      }
+    );
+    return parseApiResponse(VerificationSchema, response, mapVerification);
+  }
+
+  /**
+   * Get the signed verification result with a secret key.
+   */
+  async getResult(verificationId: string): Promise<SignedVerificationResult> {
+    const response = await this.client.request<unknown>(
+      "GET",
+      `/v1/verifications/${encodePathSegment(verificationId)}/result`
+    );
+    return parseApiResponse(
+      VerificationResultSchema,
+      response,
+      mapSignedVerificationResult
+    );
   }
 }
 
@@ -947,45 +1136,83 @@ class WebhooksApi {
 // ============================================================================
 
 /**
- * Create a verification session.
+ * Create a verification.
  *
- * This is a convenience wrapper around AuthboundClient.sessions.create().
+ * This is a convenience wrapper around AuthboundClient.verifications.create().
  * For multiple API calls, prefer creating an AuthboundClient instance.
  *
  * @example
  * ```ts
- * import { createSession } from '@authbound-sdk/server';
+ * import { createVerification } from '@authbound-sdk/server';
  *
- * const session = await createSession({
+ * const verification = await createVerification({
  *   apiKey: process.env.AUTHBOUND_API_KEY!,
- *   userRef: 'user_123',
- *   callbackUrl: 'https://example.com/webhook',
+ *   policyId: 'pol_authbound_pension_v1',
+ *   customerUserRef: 'user_123',
  * });
  * ```
  */
-export async function createSession(
-  options: CreateSessionOptions & {
+export async function createVerification(
+  options: CreateVerificationOptions & {
     apiKey: string;
     apiUrl?: string;
   }
-): Promise<CreateSessionResult> {
-  const { apiKey, apiUrl, ...sessionOptions } = options;
+): Promise<Verification> {
+  const { apiKey, apiUrl, ...verificationOptions } = options;
   const client = new AuthboundClient({ apiKey, apiUrl });
-  return client.sessions.create(sessionOptions);
+  return client.verifications.create(verificationOptions);
 }
 
 /**
- * Get session status.
+ * Get verification status with a client token.
  *
- * This is a convenience wrapper around AuthboundClient.sessions.get().
+ * This is a convenience wrapper around AuthboundClient.verifications.getStatus().
  * For multiple API calls, prefer creating an AuthboundClient instance.
  */
-export async function getSessionStatus(options: {
-  apiKey: string;
+export async function getVerificationStatus(options: {
   apiUrl?: string;
-  sessionId: string;
-}): Promise<GetSessionResult> {
-  const { apiKey, apiUrl, sessionId } = options;
-  const client = new AuthboundClient({ apiKey, apiUrl });
-  return client.sessions.get(sessionId);
+  verificationId: string;
+  clientToken: string;
+  publishableKey: string;
+}): Promise<VerificationStatus> {
+  const { apiUrl, verificationId, clientToken, publishableKey } = options;
+  const response = await fetch(
+    `${apiUrl ?? DEFAULT_API_URL}/v1/verifications/${encodePathSegment(verificationId)}/status`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${clientToken}`,
+        "X-Authbound-Publishable-Key": publishableKey,
+      },
+    }
+  );
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    body = await response.text();
+  }
+
+  if (!response.ok) {
+    const publicError =
+      body &&
+      typeof body === "object" &&
+      !Array.isArray(body) &&
+      (body as Record<string, unknown>).object === "error"
+        ? (body as Record<string, unknown>)
+        : undefined;
+
+    throw new AuthboundClientError(
+      typeof publicError?.message === "string"
+        ? publicError.message
+        : `API request failed: ${response.status} ${response.statusText}`,
+      typeof publicError?.code === "string" ? publicError.code : "API_ERROR",
+      response.status,
+      body
+    );
+  }
+
+  return parseApiResponse(VerificationStatusSchema, body, mapVerificationStatus);
 }

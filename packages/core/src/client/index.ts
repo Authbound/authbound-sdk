@@ -19,9 +19,9 @@ export {
 
 export {
   createHttpClient,
-  createSessionClient,
+  createVerificationClient,
   type HttpClient,
   type HttpResponse,
   type RequestOptions,
-  type SessionClient,
+  type VerificationClient,
 } from "./http";

@@ -5,7 +5,7 @@ import { authboundConfig } from "@/authbound.config";
  * Authbound API Route Handler
  *
  * This catch-all route handles:
- * - POST /api/authbound - Create a new verification session
+ * - POST /api/authbound - Create a new verification
  * - POST /api/authbound/callback - Webhook from Authbound (sets cookie)
  * - GET /api/authbound/status - Get current verification status
  * - DELETE /api/authbound - Sign out (clear cookie)
@@ -15,12 +15,12 @@ import { authboundConfig } from "@/authbound.config";
 export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig, {
   // Called when a webhook is received
   onWebhook: async (event) => {
-    const session = event.data.object;
+    const verification = event.data.object;
     console.log("[Authbound] Webhook received:", {
       eventType: event.type,
-      sessionId: session.id,
-      status: session.status,
-      userRef: session.client_reference_id,
+      verificationId: verification.id,
+      status: verification.status,
+      userRef: verification.client_reference_id,
     });
 
     // Here you can:
@@ -29,15 +29,15 @@ export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig, {
     // - Trigger workflows
   },
 
-  // Called when a new session is created
-  onSessionCreated: async (response) => {
-    console.log("[Authbound] Session created:", response.sessionId);
+  // Called when a new verification is created
+  onVerificationCreated: async (response) => {
+    console.log("[Authbound] Verification created:", response.verificationId);
   },
 
   // Optional: Get user reference from your auth system
   // This ties the verification to your existing user
   getUserRef: async (request) => {
-    // Example: Get from your auth session
+    // Example: Get from your auth provider.
     // const session = await getServerSession();
     // return session?.user?.id;
 

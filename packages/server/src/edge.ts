@@ -13,9 +13,9 @@
 // Re-export edge-compatible JWT utilities
 export {
   type CreateTokenOptions,
-  claimsToSession,
+  claimsToVerificationContext,
   createToken,
-  getSessionFromToken,
+  getVerificationFromToken,
   isTokenExpired,
   refreshToken,
   verifyToken,
@@ -25,7 +25,7 @@ export {
 export type {
   AssuranceLevel,
   AuthboundClaims,
-  AuthboundSession,
+  AuthboundVerificationContext,
   VerificationStatus,
 } from "./core/types";
 

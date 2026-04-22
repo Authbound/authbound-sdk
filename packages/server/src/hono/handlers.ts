@@ -23,20 +23,20 @@ import { AuthboundClient, AuthboundClientError } from "../core/client";
 import { createSafeErrorResponse, logError } from "../core/error-utils";
 import type {
   AuthboundConfig,
-  CreateSessionResponse,
-  SessionStatusResponse,
+  CreateVerificationResponse,
+  VerificationStatusResponse,
   WebhookEvent,
 } from "../core/types";
 import {
   calculateAgeFromDob,
-  mapSessionStatusToVerificationStatus,
+  mapVerificationEventStatusToVerificationStatus,
   parseConfig,
   WebhookEventSchema,
 } from "../core/types";
 import {
-  clearSessionCookie,
-  getSessionFromCookie,
-  setSessionCookie,
+  clearVerificationCookie,
+  getVerificationFromCookie,
+  setVerificationCookie,
 } from "./cookies";
 
 // ============================================================================
@@ -51,9 +51,11 @@ export interface HandlersOptions {
   onWebhook?: (event: WebhookEvent) => void | Promise<void>;
 
   /**
-   * Custom handler called when a session is created.
+   * Custom handler called when a verification is created.
    */
-  onSessionCreated?: (response: CreateSessionResponse) => void | Promise<void>;
+  onVerificationCreated?: (
+    response: CreateVerificationResponse
+  ) => void | Promise<void>;
 
   /**
    * Custom handler to validate the webhook signature.
@@ -75,16 +77,17 @@ export interface HandlersOptions {
 // Request Schemas
 // ============================================================================
 
-const CreateSessionRequestSchema = z.object({
+const CreateVerificationRequestSchema = z.object({
   customer_user_ref: z.string().optional(),
   callback_url: z.string().url().optional(),
+  policy_id: z.string().optional(),
 });
 
 // ============================================================================
 // Handler Implementations
 // ============================================================================
 
-async function handleCreateSession(
+async function handleCreateVerification(
   c: Context,
   config: AuthboundConfig,
   options: HandlersOptions,
@@ -92,10 +95,10 @@ async function handleCreateSession(
 ): Promise<Response> {
   try {
     // Parse request body
-    let body: z.infer<typeof CreateSessionRequestSchema> = {};
+    let body: z.infer<typeof CreateVerificationRequestSchema> = {};
     try {
       const rawBody = await c.req.json();
-      body = CreateSessionRequestSchema.parse(rawBody);
+      body = CreateVerificationRequestSchema.parse(rawBody);
     } catch {
       // Body might be empty or invalid - use defaults
     }
@@ -117,31 +120,34 @@ async function handleCreateSession(
         ? new URL(config.routes.callback, baseUrl).toString()
         : undefined);
 
-    // Use AuthboundClient to create session
-    const result = await client.sessions.create({
-      userRef,
-      callbackUrl,
+    const result = await client.verifications.create({
+      policyId: body.policy_id ?? "default",
+      customerUserRef: userRef,
+      metadata: callbackUrl ? { callback_url: callbackUrl } : undefined,
     });
 
-    const sessionResponse: CreateSessionResponse = {
-      clientToken: result.clientToken,
-      sessionId: result.sessionId,
+    const verificationResponse: CreateVerificationResponse = {
+      clientToken: result.clientToken ?? "",
+      verificationId: result.id,
       expiresAt: result.expiresAt,
     };
 
     // Call custom handler if provided
-    if (options.onSessionCreated) {
-      await options.onSessionCreated(sessionResponse);
+    if (options.onVerificationCreated) {
+      await options.onVerificationCreated(verificationResponse);
     }
 
     if (config.debug) {
-      console.log("[Authbound] Session created:", sessionResponse.sessionId);
+      console.log(
+        "[Authbound] Verification created:",
+        verificationResponse.verificationId
+      );
     }
 
-    return c.json(sessionResponse, 200);
+    return c.json(verificationResponse, 200);
   } catch (error) {
     if (error instanceof AuthboundClientError) {
-      logError(error, "Session creation", config.debug);
+      logError(error, "Verification creation", config.debug);
       const statusCode = (error.statusCode ?? 500) as
         | 400
         | 401
@@ -158,7 +164,7 @@ async function handleCreateSession(
         statusCode
       );
     }
-    logError(error, "Session creation", config.debug);
+    logError(error, "Verification creation", config.debug);
     const safeError = createSafeErrorResponse(error, 500, config.debug);
     return c.json({ error: safeError.message, code: safeError.code }, 500);
   }
@@ -231,10 +237,10 @@ async function handleWebhook(
       : undefined;
 
     // Set the session cookie with verification data
-    await setSessionCookie(c, config, {
+    await setVerificationCookie(c, config, {
       userRef: session.client_reference_id,
-      sessionId: session.id,
-      status: mapSessionStatusToVerificationStatus(session.status),
+      verificationId: session.id,
+      status: mapVerificationEventStatusToVerificationStatus(session.status),
       assuranceLevel: "SUBSTANTIAL",
       age,
       dateOfBirth,
@@ -244,7 +250,7 @@ async function handleWebhook(
       console.log("[Authbound] Webhook processed:", {
         eventId: event.id,
         eventType: event.type,
-        sessionId: session.id,
+        verificationId: session.id,
         status: session.status,
       });
     }
@@ -262,11 +268,11 @@ async function handleGetStatus(
   config: AuthboundConfig
 ): Promise<Response> {
   try {
-    const session = await getSessionFromCookie(c, config);
+    const verification = await getVerificationFromCookie(c, config);
 
-    const statusResponse: SessionStatusResponse = {
-      session,
-      isVerified: session?.isVerified ?? false,
+    const statusResponse: VerificationStatusResponse = {
+      verification,
+      isVerified: verification?.isVerified ?? false,
     };
 
     return c.json(statusResponse, 200);
@@ -282,7 +288,7 @@ async function handleSignOut(
   config: AuthboundConfig
 ): Promise<Response> {
   try {
-    clearSessionCookie(c, config);
+    clearVerificationCookie(c, config);
 
     if (config.debug) {
       console.log("[Authbound] Session cleared");
@@ -322,7 +328,7 @@ async function handleSignOut(
  *   onWebhook: async (event) => {
  *     // Sync with your database
  *     await db.verifications.update({
- *       sessionId: event.data.object.id,
+   *       verificationId: event.data.object.id,
  *       status: event.data.object.status,
  *     });
  *   },
@@ -347,13 +353,13 @@ export function createAuthboundApp(
 
   const app = new Hono();
 
-  // Session creation
+  // Verification creation
   app.post("/", (c) =>
-    handleCreateSession(c, validatedConfig, options, client)
+    handleCreateVerification(c, validatedConfig, options, client)
   );
 
-  app.post("/session", (c) =>
-    handleCreateSession(c, validatedConfig, options, client)
+  app.post("/verification", (c) =>
+    handleCreateVerification(c, validatedConfig, options, client)
   );
 
   // Webhook callback
@@ -377,9 +383,9 @@ export function createAuthboundApp(
 // ============================================================================
 
 /**
- * Create a standalone session creation handler.
+ * Create a standalone verification creation handler.
  */
-export function createSessionHandler(
+export function createVerificationHandler(
   config: AuthboundConfig,
   options: HandlersOptions = {}
 ): (c: Context) => Promise<Response> {
@@ -395,7 +401,7 @@ export function createSessionHandler(
     debug: validatedConfig.debug,
   });
 
-  return (c) => handleCreateSession(c, validatedConfig, options, client);
+  return (c) => handleCreateVerification(c, validatedConfig, options, client);
 }
 
 /**

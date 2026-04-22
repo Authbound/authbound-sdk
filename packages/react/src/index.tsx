@@ -52,7 +52,7 @@ export {
   type AuthboundProviderProps,
   useAuthbound,
   useAuthboundOptional,
-  type VerificationSession,
+  type VerificationState,
 } from "./context/authbound-context";
 
 // ============================================================================
@@ -122,8 +122,8 @@ export {
   // Policy presets
   PolicyPresets,
   type PublishableKey,
-  type SessionId,
   type StatusEvent,
+  type VerificationId,
   type VerificationClaims,
   type VerificationResult,
 } from "@authbound-sdk/core";

@@ -1,4 +1,4 @@
-import { getSessionFromToken } from "@authbound-sdk/server/next";
+import { getVerificationFromToken } from "@authbound-sdk/server/next";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { authboundConfig } from "@/authbound.config";
@@ -7,9 +7,9 @@ export default async function AdultPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get("__authbound")?.value;
 
-  let session = null;
+  let verification = null;
   if (token) {
-    session = await getSessionFromToken(token, authboundConfig.secret);
+    verification = await getVerificationFromToken(token, authboundConfig.secret);
   }
 
   return (
@@ -43,7 +43,7 @@ export default async function AdultPage() {
           </p>
         </div>
 
-        {session && session.age && (
+        {verification && verification.age && (
           <div className="card">
             <h3>Age Verification Details</h3>
             <div style={{ marginTop: "1rem" }}>
@@ -56,13 +56,13 @@ export default async function AdultPage() {
                     fontWeight: "700",
                   }}
                 >
-                  {session.age} years old
+                  {verification.age} years old
                 </span>
               </p>
-              {session.dateOfBirth && (
+              {verification.dateOfBirth && (
                 <p style={{ marginTop: "0.5rem" }}>
                   <strong>Date of Birth:</strong>{" "}
-                  <span>{session.dateOfBirth}</span>
+                  <span>{verification.dateOfBirth}</span>
                 </p>
               )}
               <p

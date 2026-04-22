@@ -5,7 +5,7 @@ import { authboundConfig } from "./authbound.config";
  * Authbound Middleware
  *
  * This middleware runs on every matched route and:
- * 1. Checks for a valid session cookie
+ * 1. Checks for a valid verification cookie
  * 2. Validates verification requirements for the route
  * 3. Redirects to /verify if requirements are not met
  *
@@ -19,12 +19,12 @@ export default authboundMiddleware(authboundConfig, {
       `[Authbound] Verification required for ${request.nextUrl.pathname}`,
       {
         reason: result.reason,
-        hasSession: !!result.session,
+        hasVerification: !!result.verification,
       }
     );
 
     // Return undefined to use default redirect behavior
-    // Or return a custom Response/NextResponse
+    // Or return a custom Response
     return;
   },
 

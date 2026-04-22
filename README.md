@@ -185,28 +185,35 @@ await authbound.openId4Vc.issuance.update(offer.id, {
 });
 ```
 
-## Manage Issuance Sessions
+## Manage Issuance Offers
 
 ```ts
-const sessions = await authbound.openId4Vc.issuance.list({ limit: 25 });
-const session = await authbound.openId4Vc.issuance.get(sessions.data[0]!.id);
+const offers = await authbound.openId4Vc.issuance.list({ limit: 25 });
+const offer = await authbound.openId4Vc.issuance.get(offers.data[0]!.id);
 
-if (session.status === "offer_created") {
-  await authbound.openId4Vc.issuance.cancel(session.id);
+if (offer.status === "offer_created") {
+  await authbound.openId4Vc.issuance.cancel(offer.id);
 }
 ```
 
-## Verification Sessions
+## Verifications
 
-Existing verification APIs remain available through `authbound.sessions`.
+Create verifications through `authbound.verifications`. Public metadata is returned for reconciliation; do not put secrets or unnecessary PII in metadata.
 
 ```ts
-const session = await authbound.sessions.create({
-  userRef: "user_123",
-  policyId: "age_gate_18",
+const verification = await authbound.verifications.create({
+  policyId: "pol_authbound_pension_v1",
+  customerUserRef: "user_123",
+  metadata: { demo: "pension" },
+  provider: "eudi",
+  idempotencyKey: "verify_user_123",
 });
 
-const status = await authbound.sessions.get(session.sessionId);
+const status = await authbound.verifications.getStatus(verification.id, {
+  clientToken: verification.clientToken!,
+  publishableKey: process.env.AUTHBOUND_PUBLISHABLE_KEY!,
+});
+
 console.log(status.status);
 ```
 

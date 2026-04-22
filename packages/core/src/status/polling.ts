@@ -5,7 +5,7 @@
  */
 
 import type { ResolvedConfig } from "../client/config";
-import type { ClientToken, SessionId } from "../types/branded";
+import type { ClientToken, VerificationId } from "../types/branded";
 import { AuthboundError } from "../types/errors";
 import type {
   EudiVerificationStatus,
@@ -84,7 +84,7 @@ export interface PollingSubscriptionOptions {
 }
 
 /**
- * Create a polling subscription for session status updates.
+ * Create a polling subscription for verification status updates.
  *
  * Uses exponential backoff to reduce server load while maintaining responsiveness.
  *
@@ -92,7 +92,7 @@ export interface PollingSubscriptionOptions {
  */
 export function createPollingSubscription(
   config: ResolvedConfig,
-  sessionId: SessionId,
+  verificationId: VerificationId,
   clientToken: ClientToken,
   onEvent: (event: StatusEvent) => void,
   options: PollingSubscriptionOptions = {}
@@ -110,7 +110,7 @@ export function createPollingSubscription(
   const startTime = Date.now();
 
   const url = new URL(
-    `/v1/verifications/${sessionId}/status`,
+    `/v1/verifications/${verificationId}/status`,
     config.gatewayUrl
   );
 
@@ -284,7 +284,7 @@ export function createPollingSubscription(
  */
 export async function pollOnce(
   config: ResolvedConfig,
-  sessionId: SessionId,
+  verificationId: VerificationId,
   clientToken: ClientToken
 ): Promise<{
   status: EudiVerificationStatus;
@@ -293,7 +293,7 @@ export async function pollOnce(
   timeRemaining?: number;
 }> {
   const url = new URL(
-    `/v1/verifications/${sessionId}/status`,
+    `/v1/verifications/${verificationId}/status`,
     config.gatewayUrl
   );
 

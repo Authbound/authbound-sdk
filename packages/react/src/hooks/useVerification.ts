@@ -7,7 +7,7 @@
 import type {
   EudiVerificationStatus,
   PolicyId,
-  SessionId,
+  VerificationId,
   VerificationResult,
 } from "@authbound-sdk/core";
 import { AuthboundError } from "@authbound-sdk/core";
@@ -27,6 +27,8 @@ export interface UseVerificationOptions {
   customerUserRef?: string;
   /** Additional metadata */
   metadata?: Record<string, string>;
+  /** Optional provider override */
+  provider?: "auto" | "vcs" | "eudi";
   /** Callback when verification succeeds */
   onVerified?: (result: VerificationResult) => void;
   /** Callback when verification fails */
@@ -46,8 +48,8 @@ export interface UseVerificationReturn {
   isVerified: boolean;
   /** Whether verification failed */
   isFailed: boolean;
-  /** Current session ID */
-  sessionId: SessionId | null;
+  /** Current verification ID */
+  verificationId: VerificationId | null;
   /** Authorization request URL for QR code */
   authorizationRequestUrl: string | null;
   /** Deep link for mobile */
@@ -69,6 +71,41 @@ export interface UseVerificationReturn {
 // ============================================================================
 // Hook
 // ============================================================================
+
+export function isVerificationFailureStatus(
+  status: EudiVerificationStatus
+): boolean {
+  return (
+    status === "failed" ||
+    status === "error" ||
+    status === "canceled" ||
+    status === "expired" ||
+    status === "timeout"
+  );
+}
+
+function errorForTerminalStatus(
+  status: EudiVerificationStatus,
+  error: AuthboundError | null
+): AuthboundError {
+  if (error) return error;
+  if (status === "expired") {
+    return new AuthboundError("verification_expired", "Verification expired.");
+  }
+  if (status === "timeout") {
+    return new AuthboundError("wallet_timeout", "Verification timed out.");
+  }
+  if (status === "canceled") {
+    return new AuthboundError(
+      "verification_invalid_state",
+      "Verification was canceled."
+    );
+  }
+  return new AuthboundError(
+    "verification_invalid_state",
+    "Verification did not complete."
+  );
+}
 
 /**
  * Hook for managing verification flows.
@@ -110,6 +147,7 @@ export function useVerification(
     autoStart = false,
     customerUserRef,
     metadata,
+    provider,
     onVerified,
     onFailed,
     onStatusChange,
@@ -118,16 +156,17 @@ export function useVerification(
 
   const {
     client,
-    session,
+    verification,
     policyId: contextPolicyId,
     startVerification: contextStart,
-    resetSession,
+    resetVerification,
   } = useAuthbound();
 
   const policyId = optionsPolicyId ?? contextPolicyId;
 
   // Track previous status for change detection
   const prevStatusRef = useRef<EudiVerificationStatus>("idle");
+  const verifiedResultRef = useRef<VerificationResult | null>(null);
 
   // Local loading state for start operation
   const [isStarting, setIsStarting] = useState(false);
@@ -136,26 +175,26 @@ export function useVerification(
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Derive state from session
-  const status = session?.status ?? "idle";
+  // Derive state from the current verification
+  const status = verification?.status ?? "idle";
   const isLoading =
     isStarting || status === "pending" || status === "processing";
   const isVerified = status === "verified";
-  const isFailed = status === "failed" || status === "error";
-  const sessionId = session?.sessionId ?? null;
-  const authorizationRequestUrl = session?.authorizationRequestUrl ?? null;
+  const isFailed = isVerificationFailureStatus(status);
+  const verificationId = verification?.verificationId ?? null;
+  const authorizationRequestUrl = verification?.authorizationRequestUrl ?? null;
   let deepLink: string | null = null;
   try {
     deepLink =
-      session?.deepLink ??
+      verification?.deepLink ??
       (authorizationRequestUrl
         ? client.getDeepLink(authorizationRequestUrl)
         : null);
   } catch (err) {
     client.log("Failed to generate deep link:", err);
   }
-  const error = session?.error ?? null;
-  const result = session?.result ?? null;
+  const error = verification?.error ?? null;
+  const result = verification?.result ?? null;
 
   // Start verification
   const startVerification = useCallback(async () => {
@@ -168,31 +207,32 @@ export function useVerification(
         policyId,
         customerUserRef,
         metadata,
+        provider,
       });
     } catch (err) {
-      // Error is already set in session
+      // Error is already reflected in verification state
       const authboundError = AuthboundError.from(err);
       onFailed?.(authboundError);
     } finally {
       setIsStarting(false);
     }
-  }, [contextStart, policyId, customerUserRef, metadata, onFailed, isStarting]);
+  }, [contextStart, policyId, customerUserRef, metadata, provider, onFailed, isStarting]);
 
   // Retry after failure
   const retry = useCallback(async () => {
-    resetSession();
+    resetVerification();
     await startVerification();
-  }, [resetSession, startVerification]);
+  }, [resetVerification, startVerification]);
 
   // Reset to initial state
   const reset = useCallback(() => {
-    resetSession();
+    resetVerification();
     setTimeRemaining(null);
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-  }, [resetSession]);
+  }, [resetVerification]);
 
   // Handle status changes
   useEffect(() => {
@@ -200,31 +240,40 @@ export function useVerification(
       prevStatusRef.current = status;
       onStatusChange?.(status);
 
-      // Handle terminal states
-      if (status === "verified" && result) {
-        onVerified?.(result);
-      } else if (status === "failed" && error) {
-        onFailed?.(error);
-      } else if (status === "timeout") {
+      if (status === "timeout" || status === "expired") {
         onTimeout?.();
       }
+      if (isVerificationFailureStatus(status)) {
+        onFailed?.(errorForTerminalStatus(status, error));
+      }
     }
-  }, [status, result, error, onVerified, onFailed, onStatusChange, onTimeout]);
+  }, [status, error, onFailed, onStatusChange, onTimeout]);
+
+  useEffect(() => {
+    if (status !== "verified") {
+      verifiedResultRef.current = null;
+      return;
+    }
+    if (result && verifiedResultRef.current !== result) {
+      verifiedResultRef.current = result;
+      onVerified?.(result);
+    }
+  }, [status, result, onVerified]);
 
   // Countdown timer
   useEffect(() => {
     // Always clear any existing interval first to prevent race conditions
-    // where multiple intervals could stack up during rapid session changes
+    // where multiple intervals could stack up during rapid verification changes
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
 
-    if (session?.expiresAt && status === "pending") {
+    if (verification?.expiresAt && status === "pending") {
       const updateTimer = () => {
         const remaining = Math.max(
           0,
-          Math.floor((session.expiresAt.getTime() - Date.now()) / 1000)
+          Math.floor((verification.expiresAt.getTime() - Date.now()) / 1000)
         );
         setTimeRemaining(remaining);
 
@@ -245,7 +294,7 @@ export function useVerification(
       };
     }
     setTimeRemaining(null);
-  }, [session?.expiresAt, status]);
+  }, [verification?.expiresAt, status]);
 
   // Auto-start on mount
   useEffect(() => {
@@ -268,7 +317,7 @@ export function useVerification(
     isLoading,
     isVerified,
     isFailed,
-    sessionId,
+    verificationId,
     authorizationRequestUrl,
     deepLink: deepLink || null,
     error,
