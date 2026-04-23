@@ -62,7 +62,7 @@ const STATUS_CONFIG: Record<EudiVerificationStatus, StatusConfig> = {
   },
   timeout: {
     label: "Timed Out",
-    description: "Session expired, please try again",
+    description: "Verification timed out, please try again",
     icon: "⏱",
     color: "var(--ab-color-warning, #f59e0b)",
   },

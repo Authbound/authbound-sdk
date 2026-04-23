@@ -7,7 +7,7 @@ import type {
   ClientToken,
   EudiVerificationStatus,
   PolicyId,
-  SessionId,
+  VerificationId,
   VerificationResult,
 } from "@authbound-sdk/core";
 import {
@@ -16,7 +16,7 @@ import {
   isTerminalStatus,
 } from "@authbound-sdk/core";
 import { computed, onUnmounted, ref, watch } from "vue";
-import { useRouter, useRuntimeConfig } from "#app";
+import { useRouter } from "nuxt/app";
 import { useAuthbound } from "./useAuthbound";
 
 // ============================================================================
@@ -32,6 +32,8 @@ export interface UseVerificationOptions {
   customerUserRef?: string;
   /** Additional metadata */
   metadata?: Record<string, string>;
+  /** Optional provider override. The Nuxt server route may restrict this. */
+  provider?: "auto" | "vcs" | "eudi";
   /** Redirect on success */
   redirectOnSuccess?: string;
   /** Callback when verified */
@@ -40,6 +42,8 @@ export interface UseVerificationOptions {
   onFailed?: (error: AuthboundError) => void;
   /** Callback on any status change */
   onStatusChange?: (status: EudiVerificationStatus) => void;
+  /** Callback when timeout or expiration occurs */
+  onTimeout?: () => void;
 }
 
 // ============================================================================
@@ -75,11 +79,10 @@ export interface UseVerificationOptions {
 export function useVerification(options: UseVerificationOptions = {}) {
   const { client, config } = useAuthbound();
   const router = useRouter();
-  const runtimeConfig = useRuntimeConfig();
 
   // State
   const status = ref<EudiVerificationStatus>("idle");
-  const sessionId = ref<SessionId | null>(null);
+  const verificationId = ref<VerificationId | null>(null);
   const authorizationRequestUrl = ref<string | null>(null);
   const deepLink = ref<string | null>(null);
   const clientToken = ref<ClientToken | null>(null);
@@ -94,12 +97,18 @@ export function useVerification(options: UseVerificationOptions = {}) {
   );
   const isVerified = computed(() => status.value === "verified");
   const isFailed = computed(
-    () => status.value === "failed" || status.value === "error"
+    () =>
+      status.value === "failed" ||
+      status.value === "error" ||
+      status.value === "canceled" ||
+      status.value === "expired" ||
+      status.value === "timeout"
   );
   const isTerminal = computed(() => isTerminalStatus(status.value));
 
   // Timer
   let timerInterval: ReturnType<typeof setInterval> | null = null;
+  let statusCleanup: (() => void) | null = null;
 
   const startTimer = () => {
     if (timerInterval) clearInterval(timerInterval);
@@ -152,15 +161,20 @@ export function useVerification(options: UseVerificationOptions = {}) {
       if (options.redirectOnSuccess) {
         router.push(options.redirectOnSuccess);
       }
-    } else if (
-      (newStatus === "failed" || newStatus === "error") &&
-      error.value
-    ) {
-      options.onFailed?.(error.value);
-      stopTimer();
-    } else if (newStatus === "timeout") {
+    } else if (isFailed.value) {
+      if (newStatus === "timeout" || newStatus === "expired") {
+        options.onTimeout?.();
+      }
       options.onFailed?.(
-        new AuthboundError("wallet_timeout", "Session timed out")
+        error.value ??
+          new AuthboundError(
+            newStatus === "timeout" ? "wallet_timeout" : "verification_invalid_state",
+            newStatus === "expired"
+              ? "Verification expired."
+              : newStatus === "canceled"
+                ? "Verification was canceled."
+                : "Verification did not complete."
+          )
       );
       stopTimer();
     }
@@ -172,23 +186,27 @@ export function useVerification(options: UseVerificationOptions = {}) {
       status.value = "pending";
       error.value = null;
 
-      // Create session via API route
+      statusCleanup?.();
+      statusCleanup = null;
+
+      // Create verification via API route
       const response = await $fetch<{
-        sessionId: string;
+        verificationId: string;
         authorizationRequestUrl: string;
         clientToken: string;
         deepLink?: string;
         expiresAt: string;
-      }>("/api/authbound/session", {
+      }>("/api/authbound/verification", {
         method: "POST",
         body: {
           policyId: options.policyId ?? config.policyId,
           customerUserRef: options.customerUserRef,
           metadata: options.metadata,
+          provider: options.provider,
         },
       });
 
-      sessionId.value = response.sessionId as SessionId;
+      verificationId.value = response.verificationId as VerificationId;
       authorizationRequestUrl.value = response.authorizationRequestUrl;
       clientToken.value = asClientToken(response.clientToken);
       deepLink.value = response.deepLink ?? null;
@@ -197,9 +215,9 @@ export function useVerification(options: UseVerificationOptions = {}) {
       startTimer();
 
       // Subscribe to status updates if client is available
-      if (client && sessionId.value && clientToken.value) {
-        client.subscribeToStatus(
-          sessionId.value,
+      if (client && verificationId.value && clientToken.value) {
+        statusCleanup = client.subscribeToStatus(
+          verificationId.value,
           clientToken.value,
           (event) => {
             status.value = event.status;
@@ -237,13 +255,15 @@ export function useVerification(options: UseVerificationOptions = {}) {
   // Reset
   const reset = () => {
     status.value = "idle";
-    sessionId.value = null;
+    verificationId.value = null;
     authorizationRequestUrl.value = null;
     clientToken.value = null;
     deepLink.value = null;
     error.value = null;
     result.value = null;
     expiresAt.value = null;
+    statusCleanup?.();
+    statusCleanup = null;
     stopTimer();
   };
 
@@ -254,6 +274,7 @@ export function useVerification(options: UseVerificationOptions = {}) {
 
   // Cleanup
   onUnmounted(() => {
+    statusCleanup?.();
     stopTimer();
   });
 
@@ -264,8 +285,8 @@ export function useVerification(options: UseVerificationOptions = {}) {
     isVerified,
     isFailed,
     isTerminal,
-    // Session data
-    sessionId,
+    // Verification data
+    verificationId,
     authorizationRequestUrl,
     deepLink,
     error,

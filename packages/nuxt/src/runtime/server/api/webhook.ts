@@ -6,7 +6,7 @@
 
 import crypto from "crypto";
 import { createError, defineEventHandler, getHeader, readRawBody } from "h3";
-import { useRuntimeConfig } from "#imports";
+import { useRuntimeConfig } from "nuxt/app";
 
 // ============================================================================
 // Webhook Signature Verification
@@ -107,6 +107,21 @@ function verifyWebhookSignature(
   return { isValid: true };
 }
 
+function getWebhookObjectId(body: Record<string, unknown>): string | undefined {
+  const data = body.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return undefined;
+  }
+
+  const object = (data as Record<string, unknown>).object;
+  if (!object || typeof object !== "object" || Array.isArray(object)) {
+    return undefined;
+  }
+
+  const id = (object as Record<string, unknown>).id;
+  return typeof id === "string" ? id : undefined;
+}
+
 // ============================================================================
 // Webhook Handler
 // ============================================================================
@@ -166,18 +181,31 @@ export default defineEventHandler(async (event) => {
     );
   }
 
-  // Parse the body
-  const body = JSON.parse(rawBody);
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse(rawBody) as Record<string, unknown>;
+  } catch {
+    throw createError({
+      statusCode: 400,
+      message: "Invalid JSON payload",
+    });
+  }
+
+  const eventType = typeof body.type === "string" ? body.type : undefined;
+  const objectId = getWebhookObjectId(body);
 
   if (debug) {
-    console.log("[Authbound] Webhook event received:", body);
+    console.log("[Authbound] Webhook event received:", {
+      type: eventType,
+      objectId,
+    });
   }
 
   // Handle event types
-  switch (body?.type) {
+  switch (eventType) {
     case "identity.verification_session.verified":
       if (debug) {
-        console.log("[Authbound] Session verified:", body.data?.object?.id);
+        console.log("[Authbound] Verification verified:", objectId);
       }
       // Emit event for application to handle
       // Developers can use Nuxt's hooks to listen for these
@@ -185,7 +213,7 @@ export default defineEventHandler(async (event) => {
 
     case "identity.verification_session.failed":
       if (debug) {
-        console.log("[Authbound] Session failed:", body.data?.object?.id);
+        console.log("[Authbound] Verification failed:", objectId);
       }
       break;
   }

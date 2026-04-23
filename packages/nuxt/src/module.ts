@@ -16,7 +16,7 @@
  * ```
  */
 
-import type { PolicyId } from "@authbound-sdk/core";
+import type { PolicyId, PublishableKey } from "@authbound-sdk/core";
 import {
   addComponent,
   addImports,
@@ -50,6 +50,21 @@ export interface ModuleOptions {
   policyId?: PolicyId;
 
   /**
+   * Publishable key exposed to the browser SDK.
+   */
+  publishableKey?: PublishableKey | string;
+
+  /**
+   * Secret key used by server routes.
+   */
+  secret?: string;
+
+  /**
+   * Provider to use for verification creation.
+   */
+  provider?: "auto" | "vcs" | "eudi";
+
+  /**
    * Path to redirect for verification.
    * @default '/verify'
    */
@@ -60,6 +75,23 @@ export interface ModuleOptions {
    * @default 'authbound_session'
    */
   cookieName?: string;
+
+  /**
+   * Disable the production __Host- cookie prefix.
+   * @default false
+   */
+  disableSecureCookiePrefix?: boolean;
+
+  /**
+   * Webhook signing secret.
+   */
+  webhookSecret?: string;
+
+  /**
+   * Webhook timestamp tolerance in seconds.
+   * @default 300
+   */
+  webhookTolerance?: number;
 
   /**
    * Enable server middleware for route protection.
@@ -90,8 +122,14 @@ export default defineNuxtModule<ModuleOptions>({
     publicRoutes: [],
     protectedRoutes: undefined,
     policyId: undefined,
+    publishableKey: undefined,
+    secret: undefined,
+    provider: undefined,
     verifyPath: "/verify",
     cookieName: "authbound_session",
+    disableSecureCookiePrefix: false,
+    webhookSecret: undefined,
+    webhookTolerance: 300,
     middleware: true,
     debug: false,
   },
@@ -101,14 +139,25 @@ export default defineNuxtModule<ModuleOptions>({
     // Provide options to runtime
     nuxt.options.runtimeConfig.public.authbound = {
       policyId: options.policyId,
+      publishableKey:
+        options.publishableKey ??
+        process.env.NUXT_PUBLIC_AUTHBOUND_PK ??
+        process.env.VITE_AUTHBOUND_PK,
       verifyPath: options.verifyPath,
       debug: options.debug,
     };
 
     nuxt.options.runtimeConfig.authbound = {
+      policyId: options.policyId,
+      provider: options.provider,
+      secret: options.secret ?? process.env.AUTHBOUND_SECRET,
+      webhookSecret:
+        options.webhookSecret ?? process.env.AUTHBOUND_WEBHOOK_SECRET,
+      webhookTolerance: options.webhookTolerance,
       publicRoutes: options.publicRoutes,
       protectedRoutes: options.protectedRoutes,
       cookieName: options.cookieName,
+      disableSecureCookiePrefix: options.disableSecureCookiePrefix,
       middleware: options.middleware,
     };
 
@@ -165,9 +214,9 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Add server API routes
     addServerHandler({
-      route: "/api/authbound/session",
+      route: "/api/authbound/verification",
       method: "post",
-      handler: resolver.resolve("./runtime/server/api/session"),
+      handler: resolver.resolve("./runtime/server/api/verification"),
     });
 
     addServerHandler({
@@ -185,15 +234,22 @@ declare module "@nuxt/schema" {
   interface PublicRuntimeConfig {
     authbound: {
       policyId?: PolicyId;
+      publishableKey?: string;
       verifyPath?: string;
       debug?: boolean;
     };
   }
   interface RuntimeConfig {
     authbound: {
+      policyId?: PolicyId;
+      provider?: "auto" | "vcs" | "eudi";
+      secret?: string;
+      webhookSecret?: string;
+      webhookTolerance?: number;
       publicRoutes?: string[];
       protectedRoutes?: string[];
       cookieName?: string;
+      disableSecureCookiePrefix?: boolean;
       middleware?: boolean;
     };
   }

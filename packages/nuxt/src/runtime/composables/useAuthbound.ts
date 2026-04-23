@@ -3,7 +3,7 @@
  */
 
 import type { AuthboundClient } from "@authbound-sdk/core";
-import { useNuxtApp, useRuntimeConfig } from "#app";
+import { useNuxtApp, useRuntimeConfig } from "nuxt/app";
 
 export interface AuthboundContext {
   client: AuthboundClient | null;
@@ -12,6 +12,12 @@ export interface AuthboundContext {
     verifyPath?: string;
     debug?: boolean;
   };
+}
+
+declare module "nuxt/app" {
+  interface NuxtApp {
+    $authbound?: AuthboundContext;
+  }
 }
 
 /**

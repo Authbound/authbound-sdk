@@ -45,7 +45,7 @@ export {
   AuthboundKey,
   AuthboundPlugin,
   type AuthboundPluginOptions,
-  type VerificationSession,
+  type VerificationState,
 } from "./plugin";
 
 // ============================================================================
@@ -117,8 +117,8 @@ export {
   // Policy presets
   PolicyPresets,
   type PublishableKey,
-  type SessionId,
   type StatusEvent,
   type VerificationClaims,
+  type VerificationId,
   type VerificationResult,
 } from "@authbound-sdk/core";

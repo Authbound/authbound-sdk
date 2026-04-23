@@ -6,7 +6,7 @@
 
 import { verifyToken } from "@authbound-sdk/server";
 import { defineEventHandler, getCookie, getRequestURL, sendRedirect } from "h3";
-import { useRuntimeConfig } from "#imports";
+import { useRuntimeConfig } from "nuxt/app";
 
 /**
  * Check if a path matches a route pattern.

@@ -20,14 +20,14 @@ import { defineComponent, h, onMounted, type PropType, ref } from "vue";
 
 export interface DeepLinkButtonProps {
   /**
-   * Authorization request URL from the verification session.
+   * Authorization request URL from the verification.
    */
   authorizationRequestUrl: string;
 
   /**
-   * Session ID for tracking (optional).
+   * Verification ID for tracking (optional).
    */
-  sessionId?: string;
+  verificationId?: string;
 
   /**
    * Wallet scheme to use for the deep link.
@@ -64,7 +64,7 @@ export const DeepLinkButton = defineComponent({
       type: String,
       required: true,
     },
-    sessionId: {
+    verificationId: {
       type: String,
       default: undefined,
     },
@@ -142,7 +142,7 @@ export const DeepLinkButton = defineComponent({
           class: props.class,
           "aria-label": "Open wallet app",
           "data-authbound-deep-link": "",
-          "data-session-id": props.sessionId,
+          "data-verification-id": props.verificationId,
         },
         slots.default?.() ?? "Open Wallet"
       );

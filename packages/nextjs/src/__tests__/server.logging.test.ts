@@ -262,6 +262,63 @@ describe("Next.js server debug logging", () => {
     );
   });
 
+  it("resolves status route publishable key at request time", async () => {
+    const originalNextPublicPk = process.env.NEXT_PUBLIC_AUTHBOUND_PK;
+    const originalPublishableKey = process.env.AUTHBOUND_PUBLISHABLE_KEY;
+    delete process.env.NEXT_PUBLIC_AUTHBOUND_PK;
+    delete process.env.AUTHBOUND_PUBLISHABLE_KEY;
+
+    try {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          object: "verification_status",
+          id: "vrf_123",
+          status: "processing",
+        }),
+      }) as typeof fetch;
+
+      const handler = createStatusRoute({
+        gatewayUrl: "https://gateway.authbound.io",
+      });
+
+      process.env.AUTHBOUND_PUBLISHABLE_KEY = "pk_test_runtime";
+
+      await handler(
+        new Request(
+          "https://playground.authbound.io/api/authbound/status/vrf_123",
+          {
+            headers: {
+              Authorization: "Bearer client_token_123",
+            },
+          }
+        ) as never,
+        { params: Promise.resolve({ verificationId: "vrf_123" }) }
+      );
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://gateway.authbound.io/v1/verifications/vrf_123/status",
+        {
+          headers: {
+            Authorization: "Bearer client_token_123",
+            "X-Authbound-Publishable-Key": "pk_test_runtime",
+          },
+        }
+      );
+    } finally {
+      if (originalNextPublicPk === undefined) {
+        delete process.env.NEXT_PUBLIC_AUTHBOUND_PK;
+      } else {
+        process.env.NEXT_PUBLIC_AUTHBOUND_PK = originalNextPublicPk;
+      }
+      if (originalPublishableKey === undefined) {
+        delete process.env.AUTHBOUND_PUBLISHABLE_KEY;
+      } else {
+        process.env.AUTHBOUND_PUBLISHABLE_KEY = originalPublishableKey;
+      }
+    }
+  });
+
   it("logs only webhook metadata when debug logging is enabled", async () => {
     const eventPayload = JSON.stringify({
       id: "evt_1234567890abcdef",

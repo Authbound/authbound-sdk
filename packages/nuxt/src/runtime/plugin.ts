@@ -11,18 +11,14 @@ import {
   isPublishableKey,
   type PolicyId,
 } from "@authbound-sdk/core";
-import { defineNuxtPlugin, useRuntimeConfig } from "#app";
+import { defineNuxtPlugin, useRuntimeConfig } from "nuxt/app";
 
 export default defineNuxtPlugin({
   name: "authbound",
   setup() {
     const config = useRuntimeConfig();
 
-    // Get publishable key from environment
-    const rawPublishableKey =
-      (import.meta.env.NUXT_PUBLIC_AUTHBOUND_PK as string) ||
-      (import.meta.env.VITE_AUTHBOUND_PK as string) ||
-      "";
+    const rawPublishableKey = config.public.authbound?.publishableKey ?? "";
 
     if (!rawPublishableKey) {
       console.warn(
