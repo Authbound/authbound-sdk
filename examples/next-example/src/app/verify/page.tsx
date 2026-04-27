@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 
 type VerificationStatus = "idle" | "loading" | "verified" | "error";
 
-interface VerificationStatusResponse {
+type VerificationStatusResponse = {
   isVerified: boolean;
   session: {
     status: string;
@@ -16,7 +16,7 @@ interface VerificationStatusResponse {
     userRef: string;
     expiresAt: string;
   } | null;
-}
+};
 
 function VerifyContent() {
   const searchParams = useSearchParams();
@@ -27,12 +27,7 @@ function VerifyContent() {
     useState<VerificationStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Check current session status on mount
-  useEffect(() => {
-    checkStatus();
-  }, []);
-
-  const checkStatus = async () => {
+  const checkStatus = useCallback(async () => {
     try {
       const res = await fetch("/api/authbound/status");
       const data = await res.json();
@@ -43,7 +38,12 @@ function VerifyContent() {
     } catch (err) {
       console.error("Failed to check status:", err);
     }
-  };
+  }, []);
+
+  // Check current session status on mount
+  useEffect(() => {
+    checkStatus();
+  }, [checkStatus]);
 
   const startVerification = async () => {
     setStatus("loading");
@@ -64,9 +64,9 @@ function VerifyContent() {
       console.log("Verification created:", data);
 
       // In a real app, you would:
-      // 1. Use the clientToken with @authbound-sdk/quickid-react
-      // 2. Show the KYC flow modal
-      // 3. Wait for the webhook to update the verification status
+      // 1. Send the user through the configured Authbound verification flow
+      // 2. Poll the returned verification status or wait for the webhook
+      // 3. Let the callback update the encrypted session cookie
 
       // For demo purposes, simulate a successful verification
       // by calling the callback endpoint directly
@@ -78,28 +78,40 @@ function VerifyContent() {
   };
 
   // Demo helper - in production, this happens via webhook
-  const simulateVerification = async (verificationId: string) => {
-    try {
+  const simulateVerification = useCallback(
+    async (verificationId: string) => {
       // Simulate webhook callback
+      const now = Math.floor(Date.now() / 1000);
       const res = await fetch("/api/authbound/callback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          verification_id: verificationId,
-          customer_user_ref: `demo_user_${Date.now()}`,
-          status: "VERIFIED",
-          assurance_level: "SUBSTANTIAL",
-          document_data: {
-            first_name: "John",
-            last_name: "Doe",
-            date_of_birth: "1990-05-15",
-            issuing_country: "FI",
+          id: `evt_${Date.now()}`,
+          object: "event",
+          api_version: "2026-04-01",
+          created: now,
+          livemode: false,
+          type: "identity.verification_session.verified",
+          data: {
+            object: {
+              id: verificationId,
+              object: "identity.verification_session",
+              created: now,
+              livemode: false,
+              type: "id_number",
+              status: "verified",
+              client_reference_id: `demo_user_${Date.now()}`,
+              verified_outputs: {
+                first_name: "John",
+                last_name: "Doe",
+                dob: {
+                  day: 15,
+                  month: 5,
+                  year: 1990,
+                },
+              },
+            },
           },
-          biometrics: {
-            face_match_confidence: 95.5,
-            liveness_verified: true,
-          },
-          timestamp: new Date().toISOString(),
         }),
       });
 
@@ -109,10 +121,9 @@ function VerifyContent() {
 
       setStatus("verified");
       await checkStatus();
-    } catch (err) {
-      throw err;
-    }
-  };
+    },
+    [checkStatus]
+  );
 
   const signOut = async () => {
     try {
@@ -148,10 +159,14 @@ function VerifyContent() {
             <div>
               <p style={{ marginBottom: "1.5rem" }}>
                 This demo simulates the verification process. In production,
-                you&apos;d use the <code>@authbound-sdk/quickid-react</code>{" "}
-                components to capture documents and selfie.
+                you&apos;d redirect the user through your configured Authbound
+                verification experience and let the webhook update the session.
               </p>
-              <button className="btn btn-primary" onClick={startVerification}>
+              <button
+                className="btn btn-primary"
+                onClick={startVerification}
+                type="button"
+              >
                 Start Verification
               </button>
             </div>
@@ -215,7 +230,8 @@ function VerifyContent() {
                   }}
                 >
                   <div>
-                    <strong>Status:</strong> {verificationStatus.session?.status}
+                    <strong>Status:</strong>{" "}
+                    {verificationStatus.session?.status}
                   </div>
                   <div>
                     <strong>Assurance:</strong>{" "}
@@ -223,13 +239,15 @@ function VerifyContent() {
                   </div>
                   {verificationStatus.session?.age && (
                     <div>
-                      <strong>Age:</strong> {verificationStatus.session.age} years
+                      <strong>Age:</strong> {verificationStatus.session.age}{" "}
+                      years
                     </div>
                   )}
                   <div>
                     <strong>Verification ID:</strong>{" "}
                     <code style={{ fontSize: "0.8rem" }}>
-                      {verificationStatus.session?.verificationId.slice(0, 8)}...
+                      {verificationStatus.session?.verificationId.slice(0, 8)}
+                      ...
                     </code>
                   </div>
                 </div>
@@ -239,7 +257,11 @@ function VerifyContent() {
                 <Link className="btn btn-primary" href={returnTo}>
                   Continue to {returnTo} →
                 </Link>
-                <button className="btn btn-secondary" onClick={signOut}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={signOut}
+                  type="button"
+                >
                   Sign Out
                 </button>
               </div>
@@ -255,7 +277,11 @@ function VerifyContent() {
                 Verification Failed
               </div>
               <p style={{ marginBottom: "1.5rem" }}>{error}</p>
-              <button className="btn btn-primary" onClick={startVerification}>
+              <button
+                className="btn btn-primary"
+                onClick={startVerification}
+                type="button"
+              >
                 Try Again
               </button>
             </div>

@@ -238,6 +238,3 @@ See [CONTRIBUTING](./CONTRIBUTING.md) for contribution workflow and release stan
 - `@authbound-sdk/vue`
 - `@authbound-sdk/nextjs`
 - `@authbound-sdk/nuxt`
-- `@authbound-sdk/quickid-core`
-- `@authbound-sdk/quickid-react`
-- `@authbound-sdk/quickid-server`

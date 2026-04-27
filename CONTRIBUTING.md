@@ -77,6 +77,3 @@ For a multi-package release, use the same command per package in dependency orde
 - `packages/vue` — Vue package
 - `packages/nextjs` — Next.js helper package
 - `packages/nuxt` — Nuxt module
-- `packages/quickid-core` — QuickID protocol schemas
-- `packages/quickid-react` — React QuickID helpers
-- `packages/quickid-server` — server-side QuickID utilities
