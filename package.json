@@ -7,8 +7,9 @@
     "lint": "biome check --config-path ./biome.json .",
     "format": "biome check --config-path ./biome.json --write .",
     "check-types": "pnpm -r --filter './packages/*' run typecheck",
-    "release:check": "pnpm lint && pnpm check-types && pnpm test && pnpm build",
-    "test": "pnpm -r --filter './packages/*' run test"
+    "release:check": "pnpm lint && pnpm check-types && pnpm test && pnpm build && pnpm validate:artifacts",
+    "test": "pnpm -r --filter './packages/*' run test",
+    "validate:artifacts": "node scripts/validate-package-artifacts.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.11",

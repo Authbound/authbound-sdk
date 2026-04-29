@@ -125,48 +125,46 @@ export default defineEventHandler(async (event) => {
     authboundConfig.sessionSecret ?? process.env.AUTHBOUND_SESSION_SECRET;
 
   if (sessionCookie) {
-    if (!sessionSecret) {
-      // No secret configured - warn and allow through (insecure mode)
-      if (config.public.authbound?.debug) {
-        console.warn(
-          "[Authbound] Warning: No AUTHBOUND_SESSION_SECRET configured. " +
-            "Session cookies cannot be verified securely."
-        );
-      }
-      return;
-    }
+    if (sessionSecret) {
+      try {
+        // Cryptographically verify the JWT token
+        const claims = await verifyToken(sessionCookie, sessionSecret);
 
-    try {
-      // Cryptographically verify the JWT token
-      const claims = await verifyToken(sessionCookie, sessionSecret);
-
-      if (claims) {
-        // Check if token is not expired
-        const now = Math.floor(Date.now() / 1000);
-        if (claims.exp > now) {
-          // Verify the session is in a verified state
-          if (claims.status === "VERIFIED") {
-            // Store claims in event context for downstream use
-            event.context.authbound = claims;
-            return;
-          }
-          if (config.public.authbound?.debug) {
-            console.log(
-              "[Authbound] Session not verified, status:",
-              claims.status
-            );
+        if (claims) {
+          // Check if token is not expired
+          const now = Math.floor(Date.now() / 1000);
+          if (claims.exp > now) {
+            // Verify the session is in a verified state
+            if (claims.status === "VERIFIED") {
+              // Store claims in event context for downstream use
+              event.context.authbound = claims;
+              return;
+            }
+            if (config.public.authbound?.debug) {
+              console.log(
+                "[Authbound] Session not verified, status:",
+                claims.status
+              );
+            }
+          } else if (config.public.authbound?.debug) {
+            console.log("[Authbound] Session token expired");
           }
         } else if (config.public.authbound?.debug) {
-          console.log("[Authbound] Session token expired");
+          console.log(
+            "[Authbound] Invalid session token (verification failed)"
+          );
         }
-      } else if (config.public.authbound?.debug) {
-        console.log("[Authbound] Invalid session token (verification failed)");
+      } catch (error) {
+        // Token is invalid, tampered with, or corrupted
+        if (config.public.authbound?.debug) {
+          console.error("[Authbound] Session token verification error:", error);
+        }
       }
-    } catch (error) {
-      // Token is invalid, tampered with, or corrupted
-      if (config.public.authbound?.debug) {
-        console.error("[Authbound] Session token verification error:", error);
-      }
+    } else if (config.public.authbound?.debug) {
+      console.warn(
+        "[Authbound] Warning: No AUTHBOUND_SESSION_SECRET configured. " +
+          "Session cookies cannot be verified securely; redirecting to verification."
+      );
     }
   }
 
