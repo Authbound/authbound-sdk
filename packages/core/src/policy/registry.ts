@@ -86,7 +86,7 @@ let memoryCache: {
 /**
  * Fetch presets from the API with caching.
  *
- * @param gatewayUrl - Base URL of the gateway (e.g., "https://gateway.authbound.io")
+ * @param gatewayUrl - Base URL of the gateway (e.g., "https://api.authbound.io")
  * @param options - Fetch options
  * @returns The preset registry
  */

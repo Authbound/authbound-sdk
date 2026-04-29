@@ -16,7 +16,7 @@ import {
   type StatusEvent,
   type VerificationId,
   type VerificationResult,
-} from "@authbound-sdk/core";
+} from "@authbound/core";
 import {
   type App,
   type ComputedRef,
@@ -130,13 +130,14 @@ export interface AuthboundPluginOptions {
  * ```ts
  * // main.ts
  * import { createApp } from 'vue';
- * import { AuthboundPlugin } from '@authbound-sdk/vue';
+ * import { asPolicyId, AuthboundPlugin } from '@authbound/vue';
  *
+ * const policyId = asPolicyId(import.meta.env.VITE_AUTHBOUND_POLICY_ID);
  * const app = createApp(App);
  *
  * app.use(AuthboundPlugin, {
  *   publishableKey: import.meta.env.VITE_AUTHBOUND_PK,
- *   policyId: 'age-gate-18@1.0.0',
+ *   policyId,
  * });
  *
  * app.mount('#app');

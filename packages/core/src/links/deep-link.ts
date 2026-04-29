@@ -65,11 +65,9 @@ export function buildDeepLink(
   const deepLink = new URL(`${scheme}://${action}`);
 
   // If it's a request_uri reference, pass it through
-  if (arUrl.searchParams.has("request_uri")) {
-    deepLink.searchParams.set(
-      "request_uri",
-      arUrl.searchParams.get("request_uri")!
-    );
+  const requestUri = arUrl.searchParams.get("request_uri");
+  if (requestUri !== null) {
+    deepLink.searchParams.set("request_uri", requestUri);
   } else {
     // Otherwise, encode the full URL
     deepLink.searchParams.set("request_uri", authorizationRequestUrl);

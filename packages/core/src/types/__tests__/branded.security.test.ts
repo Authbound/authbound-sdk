@@ -54,7 +54,9 @@ describe("isVerificationId - Path Traversal Prevention", () => {
     });
 
     it("accepts UUID verification IDs returned by Gateway", () => {
-      expect(isVerificationId("00000000-0000-4000-8000-000000000123")).toBe(true);
+      expect(isVerificationId("00000000-0000-4000-8000-000000000123")).toBe(
+        true
+      );
     });
 
     it("accepts IDs with allowed special characters (hyphen, underscore)", () => {

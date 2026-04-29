@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { verifyWebhookSignature } from '@authbound-sdk/server';
+ * import { verifyWebhookSignature } from '@authbound/server';
  *
  * app.post('/webhook', (req, res) => {
  *   const isValid = verifyWebhookSignature({
@@ -157,7 +157,7 @@ export function verifyWebhookSignature(
 export function verifyWebhookSignatureDetailed(
   options: WebhookSignatureOptions
 ): WebhookSignatureResult {
-  const crypto = require("crypto") as typeof import("crypto");
+  const crypto = require("node:crypto") as typeof import("crypto");
 
   const { payload, signature, secret, tolerance = 300 } = options;
 
@@ -190,7 +190,7 @@ export function verifyWebhookSignatureDetailed(
   const timestamp = Number.parseInt(timestampPart.slice(2), 10);
   const expectedSignature = signaturePart.slice(3);
 
-  if (isNaN(timestamp)) {
+  if (Number.isNaN(timestamp)) {
     return { valid: false, error: "Invalid timestamp format" };
   }
 
@@ -265,7 +265,7 @@ export function generateWebhookSignature(options: {
   secret: string;
   timestamp?: number;
 }): { signature: string; timestamp: number } {
-  const crypto = require("crypto") as typeof import("crypto");
+  const crypto = require("node:crypto") as typeof import("crypto");
 
   const {
     payload,

@@ -1,64 +1,41 @@
 /**
  * Verification API Route for Nuxt
  *
- * Creates verifications by proxying to the Authbound gateway.
+ * Creates verifications by proxying to the Authbound API.
  */
 
-import type { PolicyId } from "@authbound-sdk/core";
+import type { PolicyId } from "@authbound/core";
 import { createError, defineEventHandler, getHeader, readBody } from "h3";
 import { useRuntimeConfig } from "nuxt/app";
+import {
+  type GatewayVerificationResponse,
+  mapGatewayVerificationResponse,
+} from "./verification-mapper";
 
 type CreateVerificationRequest = {
-  policyId?: PolicyId;
+  policyId?: PolicyId | string;
   customerUserRef?: string;
   metadata?: Record<string, string>;
   provider?: "auto" | "vcs" | "eudi";
 };
-
-type GatewayVerificationResponse = {
-  id?: string;
-  verificationId?: string;
-  client_token?: string;
-  clientToken?: string;
-  verification_url?: string;
-  authorizationRequestUrl?: string;
-  client_action?: {
-    data?: string;
-  };
-  expires_at?: string;
-  expiresAt?: string;
-  deepLink?: string;
-};
-
-function mapGatewayVerificationResponse(raw: GatewayVerificationResponse) {
-  return {
-    verificationId: raw.verificationId ?? raw.id,
-    authorizationRequestUrl:
-      raw.authorizationRequestUrl ??
-      raw.client_action?.data ??
-      raw.verification_url,
-    clientToken: raw.clientToken ?? raw.client_token,
-    expiresAt: raw.expiresAt ?? raw.expires_at,
-    deepLink: raw.deepLink ?? raw.client_action?.data,
-  };
-}
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig();
   const body = await readBody<CreateVerificationRequest>(event);
 
   const gatewayUrl =
-    process.env.AUTHBOUND_GATEWAY_URL ?? "https://gateway.authbound.io";
-  const secret = config.authbound?.secret ?? process.env.AUTHBOUND_SECRET;
+    process.env.AUTHBOUND_API_URL ?? "https://api.authbound.io";
+  const apiKey = config.authbound?.apiKey ?? process.env.AUTHBOUND_SECRET_KEY;
 
-  if (!secret) {
+  if (!apiKey) {
     throw createError({
       statusCode: 500,
-      message: "AUTHBOUND_SECRET not configured",
+      message: "AUTHBOUND_SECRET_KEY not configured",
     });
   }
 
-  const policyId = config.authbound?.policyId ?? config.public.authbound?.policyId;
+  const policyId =
+    config.authbound?.policyId ?? config.public.authbound?.policyId;
 
   if (!policyId) {
     throw createError({
@@ -86,7 +63,7 @@ export default defineEventHandler(async (event) => {
     const idempotencyKey = getHeader(event, "idempotency-key");
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "X-Authbound-Key": secret,
+      "X-Authbound-Key": apiKey,
     };
     if (idempotencyKey) {
       headers["Idempotency-Key"] = idempotencyKey;
@@ -127,15 +104,10 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    const rawResponse =
-      (await response.json()) as GatewayVerificationResponse;
+    const rawResponse = (await response.json()) as GatewayVerificationResponse;
     return mapGatewayVerificationResponse(rawResponse);
   } catch (error) {
-    if (
-      typeof error === "object" &&
-      error &&
-      "statusCode" in error
-    ) {
+    if (typeof error === "object" && error && "statusCode" in error) {
       throw error;
     }
     if (config.public.authbound?.debug) {

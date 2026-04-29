@@ -5,7 +5,12 @@
  */
 
 import { z } from "zod";
-import { isPolicyId, isVerificationId, type PolicyId, type VerificationId } from "./branded";
+import {
+  isPolicyId,
+  isVerificationId,
+  type PolicyId,
+  type VerificationId,
+} from "./branded";
 import type { Verdict, VerificationClaims } from "./verification";
 
 // ============================================================================
@@ -161,7 +166,7 @@ export const TOKEN_TTL = {
 /**
  * Token issuer for Authbound Gateway.
  */
-export const TOKEN_ISSUER = "https://gateway.authbound.io";
+export const TOKEN_ISSUER = "https://api.authbound.io";
 
 /**
  * Cookie name for result token.

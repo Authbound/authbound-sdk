@@ -3,11 +3,11 @@
  *
  * @example
  * ```ts
- * import { createClient } from '@authbound-sdk/core';
+ * import { asPolicyId, createClient } from '@authbound/core';
  *
  * const client = createClient({
  *   publishableKey: 'pk_live_...',
- *   policyId: 'age-gate-18@1.0.0',
+ *   policyId: asPolicyId(process.env.NEXT_PUBLIC_AUTHBOUND_POLICY_ID!),
  * });
  *
  * // Start verification
@@ -115,7 +115,7 @@ export interface AuthboundClient {
  * ```ts
  * const client = createClient({
  *   publishableKey: process.env.NEXT_PUBLIC_AUTHBOUND_PK,
- *   policyId: 'age-gate-18@1.0.0',
+ *   policyId: asPolicyId(process.env.NEXT_PUBLIC_AUTHBOUND_POLICY_ID!),
  * });
  * ```
  */
@@ -309,7 +309,7 @@ let defaultClient: AuthboundClient | null = null;
  * // In app initialization
  * configure({
  *   publishableKey: process.env.NEXT_PUBLIC_AUTHBOUND_PK,
- *   policyId: 'age-gate-18@1.0.0',
+ *   policyId: asPolicyId(process.env.NEXT_PUBLIC_AUTHBOUND_POLICY_ID!),
  * });
  *
  * // Later in code

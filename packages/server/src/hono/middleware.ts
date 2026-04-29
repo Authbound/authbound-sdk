@@ -4,7 +4,7 @@
  * @example
  * ```ts
  * import { Hono } from 'hono';
- * import { authboundMiddleware } from '@authbound-sdk/server/hono';
+ * import { authboundMiddleware } from '@authbound/server/hono';
  *
  * const app = new Hono();
  *
@@ -101,7 +101,7 @@ function matchRoute(pathname: string, pattern: string | RegExp): boolean {
   }
 
   // Exact match or prefix match with trailing slash
-  return pathname === pattern || pathname.startsWith(pattern + "/");
+  return pathname === pattern || pathname.startsWith(`${pattern}/`);
 }
 
 function findMatchingRoute(
@@ -139,12 +139,12 @@ function buildVerifyUrl(c: Context, verifyPath: string): string {
  * @example
  * ```ts
  * import { Hono } from 'hono';
- * import { authboundMiddleware } from '@authbound-sdk/server/hono';
+ * import { authboundMiddleware } from '@authbound/server/hono';
  *
  * const app = new Hono();
  *
  * app.use('/protected/*', authboundMiddleware({
- *   apiKey: process.env.AUTHBOUND_API_KEY!,
+ *   apiKey: process.env.AUTHBOUND_SECRET_KEY!,
  *   secret: process.env.AUTHBOUND_SECRET!,
  *   routes: {
  *     protected: [
@@ -196,10 +196,7 @@ export function authboundMiddleware(
       }
 
       // Get verification context from cookie
-      const verification = await getVerificationFromCookie(
-        c,
-        validatedConfig
-      );
+      const verification = await getVerificationFromCookie(c, validatedConfig);
 
       // Store verification context for downstream handlers
       c.set("authboundVerification", verification);
@@ -228,15 +225,9 @@ export function authboundMiddleware(
       if (result.allowed) {
         // Add verification data to response headers
         if (verification) {
-          c.header(
-            "x-authbound-verified",
-            verification.isVerified.toString()
-          );
+          c.header("x-authbound-verified", verification.isVerified.toString());
           c.header("x-authbound-status", verification.status);
-          c.header(
-            "x-authbound-verification-id",
-            verification.verificationId
-          );
+          c.header("x-authbound-verification-id", verification.verificationId);
         }
 
         return next();
@@ -260,7 +251,10 @@ export function authboundMiddleware(
       }
 
       // Default: redirect to verify page
-      return c.redirect(result.redirectUrl!, 302);
+      if (!result.redirectUrl) {
+        throw new Error("Missing verification redirect URL");
+      }
+      return c.redirect(result.redirectUrl, 302);
     } catch (error) {
       if (validatedConfig.debug) {
         console.error("[Authbound] Middleware error:", error);
@@ -281,7 +275,7 @@ export function authboundMiddleware(
  * @example
  * ```ts
  * import { Hono } from 'hono';
- * import { withAuthbound } from '@authbound-sdk/server/hono';
+ * import { withAuthbound } from '@authbound/server/hono';
  *
  * const app = new Hono();
  *
@@ -307,10 +301,7 @@ export function withAuthbound(
       }
 
       // Get verification context from cookie
-      const verification = await getVerificationFromCookie(
-        c,
-        validatedConfig
-      );
+      const verification = await getVerificationFromCookie(c, validatedConfig);
       c.set("authboundVerification", verification);
 
       // Check requirements
@@ -333,15 +324,9 @@ export function withAuthbound(
       // If requirements are met, allow through
       if (result.allowed) {
         if (verification) {
-          c.header(
-            "x-authbound-verified",
-            verification.isVerified.toString()
-          );
+          c.header("x-authbound-verified", verification.isVerified.toString());
           c.header("x-authbound-status", verification.status);
-          c.header(
-            "x-authbound-verification-id",
-            verification.verificationId
-          );
+          c.header("x-authbound-verification-id", verification.verificationId);
         }
         return next();
       }
@@ -363,7 +348,10 @@ export function withAuthbound(
       }
 
       // Default redirect
-      return c.redirect(result.redirectUrl!, 302);
+      if (!result.redirectUrl) {
+        throw new Error("Missing verification redirect URL");
+      }
+      return c.redirect(result.redirectUrl, 302);
     } catch (error) {
       if (validatedConfig.debug) {
         console.error("[Authbound] Middleware error:", error);

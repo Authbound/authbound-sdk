@@ -27,9 +27,9 @@ pnpm dev
 Use `--filter` for focused work:
 
 ```sh
-pnpm --filter @authbound-sdk/server test
-pnpm --filter @authbound-sdk/server typecheck
-pnpm --filter @authbound-sdk/server build
+pnpm --filter @authbound/server test
+pnpm --filter @authbound/server typecheck
+pnpm --filter @authbound/server build
 ```
 
 ## Workflow conventions
@@ -51,7 +51,7 @@ Before publishing any package, run:
 
 ## Publishing to npm
 
-Public packages are published from `packages/public-sdk` using package-level scoped names (`@authbound-sdk/*`) and are configured for public scope access.
+Public packages are published from `packages/public-sdk` using package-level scoped names (`@authbound/*`) and are configured for public scope access.
 
 Typical release flow:
 
@@ -60,10 +60,10 @@ Typical release flow:
 cd packages/public-sdk
 
 # Build package locally before publish (example)
-pnpm --filter @authbound-sdk/server build
+pnpm --filter @authbound/server build
 
 # Publish one package at a time
-pnpm --filter @authbound-sdk/server publish --access public --no-git-checks
+pnpm --filter @authbound/server publish --access public --no-git-checks
 ```
 
 For a multi-package release, use the same command per package in dependency order.
@@ -72,7 +72,6 @@ For a multi-package release, use the same command per package in dependency orde
 
 - `packages/core` — protocol-agnostic SDK core
 - `packages/server` — Authbound server SDK client
-- `packages/shared` — shared types and utilities
 - `packages/react` — React package
 - `packages/vue` — Vue package
 - `packages/nextjs` — Next.js helper package

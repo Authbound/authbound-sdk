@@ -4,7 +4,7 @@
  * Protects routes that require verification.
  */
 
-import { verifyToken } from "@authbound-sdk/server";
+import { verifyToken } from "@authbound/server";
 import { defineEventHandler, getCookie, getRequestURL, sendRedirect } from "h3";
 import { useRuntimeConfig } from "nuxt/app";
 
@@ -15,7 +15,7 @@ function matchRoute(path: string, pattern: string): boolean {
   // Wildcard support
   if (pattern.endsWith("/*")) {
     const prefix = pattern.slice(0, -2);
-    return path === prefix || path.startsWith(prefix + "/");
+    return path === prefix || path.startsWith(`${prefix}/`);
   }
 
   if (pattern.endsWith("*")) {
@@ -121,14 +121,15 @@ export default defineEventHandler(async (event) => {
     ? baseCookieName
     : getSecureCookieName(baseCookieName);
   const sessionCookie = getCookie(event, cookieName);
-  const secret = authboundConfig.secret ?? process.env.AUTHBOUND_SECRET;
+  const sessionSecret =
+    authboundConfig.sessionSecret ?? process.env.AUTHBOUND_SESSION_SECRET;
 
   if (sessionCookie) {
-    if (!secret) {
+    if (!sessionSecret) {
       // No secret configured - warn and allow through (insecure mode)
       if (config.public.authbound?.debug) {
         console.warn(
-          "[Authbound] Warning: No AUTHBOUND_SECRET configured. " +
+          "[Authbound] Warning: No AUTHBOUND_SESSION_SECRET configured. " +
             "Session cookies cannot be verified securely."
         );
       }
@@ -137,7 +138,7 @@ export default defineEventHandler(async (event) => {
 
     try {
       // Cryptographically verify the JWT token
-      const claims = await verifyToken(sessionCookie, secret);
+      const claims = await verifyToken(sessionCookie, sessionSecret);
 
       if (claims) {
         // Check if token is not expired

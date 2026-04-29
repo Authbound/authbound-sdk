@@ -1,5 +1,5 @@
 /**
- * Type exports for @authbound-sdk/core.
+ * Type exports for @authbound/core.
  *
  * This file aggregates all type definitions.
  */
@@ -69,8 +69,6 @@ export {
   type StatusEvent,
   StatusEventSchema,
   TERMINAL_STATUSES,
-  type VerificationStatusResponse,
-  VerificationStatusResponseSchema,
   type Verdict,
   VerdictSchema,
   type VerificationAttributes,
@@ -79,4 +77,6 @@ export {
   VerificationClaimsSchema,
   type VerificationResult,
   VerificationResultSchema,
+  type VerificationStatusResponse,
+  VerificationStatusResponseSchema,
 } from "./verification";

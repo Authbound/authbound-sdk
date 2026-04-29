@@ -71,12 +71,12 @@ export function createHttpClient(config: ResolvedConfig) {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Accept: "application/json",
-      "X-Authbound-Client": "@authbound-sdk/core",
+      "X-Authbound-Client": "@authbound/core",
       ...options.headers,
     };
 
     if (options.token) {
-      headers["Authorization"] = `Bearer ${options.token}`;
+      headers.Authorization = `Bearer ${options.token}`;
     }
 
     // Create abort controller for timeout
@@ -229,9 +229,7 @@ export function createVerificationClient(config: ResolvedConfig) {
 
       throw new AuthboundError(
         "verification_create_failed",
-        error instanceof Error
-          ? error.message
-          : "Failed to create verification"
+        error instanceof Error ? error.message : "Failed to create verification"
       );
     }
   }

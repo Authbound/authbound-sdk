@@ -21,7 +21,10 @@ describe("createClient", () => {
       gatewayUrl: "https://gateway.authbound.test",
     });
 
-    await client.pollStatus("vrf_test123" as never, "client_token_123" as never);
+    await client.pollStatus(
+      "vrf_test123" as never,
+      "client_token_123" as never
+    );
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://gateway.authbound.test/v1/verifications/vrf_test123/status",

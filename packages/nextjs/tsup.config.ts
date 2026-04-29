@@ -10,7 +10,7 @@ export default defineConfig({
   format: ["esm", "cjs"],
   dts: true,
   clean: true,
-  // External packages - don't bundle these
-  // @authbound-sdk/* marked external to avoid dts resolution issues with workspace subpath exports
-  external: ["react", "react-dom", "next", /^@authbound-sdk\//],
+  // External packages - don't bundle these.
+  // @authbound/* is external to avoid dts resolution issues with workspace subpath exports.
+  external: ["react", "react-dom", "next", /^@authbound\//],
 });

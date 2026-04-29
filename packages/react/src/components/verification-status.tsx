@@ -2,10 +2,7 @@
  * Verification status display components.
  */
 
-import type {
-  AuthboundError,
-  EudiVerificationStatus,
-} from "@authbound-sdk/core";
+import type { AuthboundError, EudiVerificationStatus } from "@authbound/core";
 import type { CSSProperties, ReactNode } from "react";
 
 // ============================================================================
@@ -252,6 +249,7 @@ export function VerificationStatus({
   };
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: role="status" marks this as a live region, not a form output.
     <div
       aria-live="polite"
       className={`ab-status ${className ?? ""}`}

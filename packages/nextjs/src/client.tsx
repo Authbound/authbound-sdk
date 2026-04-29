@@ -1,19 +1,19 @@
 /**
- * @authbound-sdk/nextjs/client
+ * @authbound/nextjs/client
  *
  * Client-side components and hooks for Next.js.
- * These are re-exports from @authbound-sdk/react with Next.js optimizations.
+ * These are re-exports from @authbound/react with Next.js optimizations.
  *
  * @example
  * ```tsx
  * // app/verify/page.tsx
  * 'use client';
  *
- * import { VerificationWall } from '@authbound-sdk/nextjs/client';
+ * import { VerificationWall } from '@authbound/nextjs/client';
  *
  * export default function VerifyPage() {
  *   return (
- *     <VerificationWall policyId="age-gate-18@1.0.0">
+ *     <VerificationWall policyId="YOUR_POLICY_ID">
  *       <div>Protected content here</div>
  *     </VerificationWall>
  *   );
@@ -27,6 +27,7 @@
 // Re-export all React components and hooks
 // ============================================================================
 
+export { asPolicyId } from "@authbound/core";
 export {
   // Appearance
   type AuthboundAppearance,
@@ -69,8 +70,8 @@ export {
   useDeepLinkSupport,
   // Hooks
   useVerification,
-  type VerificationId,
   type VerificationClaims,
+  type VerificationId,
   type VerificationResult,
   type VerificationState,
   VerificationStatus,
@@ -78,4 +79,4 @@ export {
   VerificationWall,
   type VerificationWallProps,
   variablesToCSSProperties,
-} from "@authbound-sdk/react";
+} from "@authbound/react";

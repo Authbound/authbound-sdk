@@ -1,5 +1,5 @@
 /**
- * @authbound-sdk/server/hono
+ * @authbound/server/hono
  *
  * Hono specific exports for the Authbound Server SDK.
  * Provides middleware, API handlers, and utilities for identity/age verification.
@@ -9,13 +9,13 @@
  * @example
  * ```ts
  * import { Hono } from 'hono';
- * import { authboundMiddleware, createAuthboundApp } from '@authbound-sdk/server/hono';
+ * import { authboundMiddleware, createAuthboundApp } from '@authbound/server/hono';
  *
  * const app = new Hono();
  *
  * // Protect routes with age verification
  * app.use('/adult-content/*', authboundMiddleware({
- *   apiKey: process.env.AUTHBOUND_API_KEY!,
+ *   apiKey: process.env.AUTHBOUND_SECRET_KEY!,
  *   secret: process.env.AUTHBOUND_SECRET!,
  *   routes: {
  *     protected: [
@@ -66,11 +66,11 @@ export type {
   ProtectedRouteConfig,
   RoutesConfig,
   Sex,
-  VerificationStatusResponse,
-  VerificationRequirements,
   VerificationEventObject,
   VerificationEventStatus,
+  VerificationRequirements,
   VerificationStatus,
+  VerificationStatusResponse,
   VerifiedOutputs,
   // Webhook types
   WebhookEvent,

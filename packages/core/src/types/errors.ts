@@ -294,7 +294,10 @@ export class AuthboundError extends Error {
 
     // Maintains proper stack trace for where error was thrown (V8 only)
     const ErrorWithCapture = Error as typeof Error & {
-      captureStackTrace?: (target: object, constructor: Function) => void;
+      captureStackTrace?: (
+        target: object,
+        constructorOpt?: typeof AuthboundError
+      ) => void;
     };
     if (ErrorWithCapture.captureStackTrace) {
       ErrorWithCapture.captureStackTrace(this, AuthboundError);
@@ -480,22 +483,22 @@ function mapHttpStatusToCode(
  * Parse Retry-After header value.
  */
 function parseRetryAfter(header: string | null): number | undefined {
-  if (!header) return undefined;
+  if (!header) return;
 
   // If it's a number, it's seconds
   const seconds = Number.parseInt(header, 10);
-  if (!isNaN(seconds)) {
+  if (!Number.isNaN(seconds)) {
     return seconds * 1000;
   }
 
   // If it's a date, calculate delay
   const date = Date.parse(header);
-  if (!isNaN(date)) {
+  if (!Number.isNaN(date)) {
     const delay = date - Date.now();
     return delay > 0 ? delay : undefined;
   }
 
-  return undefined;
+  return;
 }
 
 /**

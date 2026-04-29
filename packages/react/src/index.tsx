@@ -1,5 +1,5 @@
 /**
- * @authbound-sdk/react
+ * @authbound/react
  *
  * React SDK for Authbound EUDI wallet verification.
  *
@@ -7,16 +7,19 @@
  * ```tsx
  * import {
  *   AuthboundProvider,
+ *   asPolicyId,
  *   useVerification,
  *   VerificationWall,
- * } from '@authbound-sdk/react';
+ * } from '@authbound/react';
+ *
+ * const policyId = asPolicyId(process.env.NEXT_PUBLIC_AUTHBOUND_POLICY_ID!);
  *
  * // Wrap your app
  * function App() {
  *   return (
  *     <AuthboundProvider
  *       publishableKey={process.env.NEXT_PUBLIC_AUTHBOUND_PK!}
- *       policyId="age-gate-18@1.0.0"
+ *       policyId={policyId}
  *     >
  *       <YourApp />
  *     </AuthboundProvider>
@@ -32,7 +35,7 @@
  * // Or use the full-page component
  * function ProtectedPage() {
  *   return (
- *     <VerificationWall policyId="age-gate-18@1.0.0">
+ *     <VerificationWall policyId={policyId}>
  *       <ProtectedContent />
  *     </VerificationWall>
  *   );
@@ -106,13 +109,14 @@ export {
 } from "./types/appearance";
 
 // ============================================================================
-// Re-exports from @authbound-sdk/core
+// Re-exports from @authbound/core
 // ============================================================================
 
 export {
   // Error handling
   AuthboundError,
   type AuthboundErrorCode,
+  asPolicyId,
   type EudiVerificationStatus,
   isAuthboundError,
   // Utilities
@@ -123,7 +127,7 @@ export {
   PolicyPresets,
   type PublishableKey,
   type StatusEvent,
-  type VerificationId,
   type VerificationClaims,
+  type VerificationId,
   type VerificationResult,
-} from "@authbound-sdk/core";
+} from "@authbound/core";

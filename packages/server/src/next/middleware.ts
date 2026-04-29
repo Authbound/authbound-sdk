@@ -105,7 +105,7 @@ function matchRoute(pathname: string, pattern: string | RegExp): boolean {
   }
 
   // Exact match or prefix match with trailing slash
-  return pathname === pattern || pathname.startsWith(pattern + "/");
+  return pathname === pattern || pathname.startsWith(`${pattern}/`);
 }
 
 /**
@@ -153,10 +153,10 @@ function buildVerifyUrl(
  * @example
  * ```ts
  * // middleware.ts
- * import { authboundMiddleware } from '@authbound-sdk/server/next';
+ * import { authboundMiddleware } from '@authbound/server/next';
  *
  * export default authboundMiddleware({
- *   apiKey: process.env.AUTHBOUND_API_KEY!,
+ *   apiKey: process.env.AUTHBOUND_SECRET_KEY!,
  *   secret: process.env.AUTHBOUND_SECRET!,
  *   routes: {
  *     protected: [
@@ -300,10 +300,7 @@ export function authboundMiddleware(
 export function chainMiddleware(
   ...middlewares: ((
     request: MiddlewareRequest
-  ) =>
-    | Promise<Response | void>
-    | Response
-    | void)[]
+  ) => Promise<Response | void> | Response | void)[]
 ): (request: MiddlewareRequest) => Promise<Response> {
   return async (request: MiddlewareRequest): Promise<Response> => {
     for (const middleware of middlewares) {
@@ -356,10 +353,10 @@ export function createMatcherConfig(routes: ProtectedRouteConfig[]): string[] {
 
       // Convert string paths to Next.js matcher format
       if (route.path.endsWith("*")) {
-        return route.path.slice(0, -1) + ":path*";
+        return `${route.path.slice(0, -1)}:path*`;
       }
 
-      return route.path + "/:path*";
+      return `${route.path}/:path*`;
     })
     .filter(Boolean);
 }

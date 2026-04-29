@@ -8,12 +8,7 @@ export default defineConfig([
     dts: true,
     clean: true,
     outDir: "dist",
-    external: [
-      "next",
-      "next/server",
-      "@authbound-sdk/core",
-      "@authbound-sdk/shared",
-    ],
+    external: ["next", "next/server", "@authbound/core"],
   },
   // Next.js specific entry point
   {
@@ -21,13 +16,7 @@ export default defineConfig([
     format: ["esm", "cjs"],
     dts: true,
     outDir: "dist/next",
-    external: [
-      "next",
-      "next/server",
-      "@authbound-sdk/core",
-      "@authbound-sdk/shared",
-      "jose",
-    ],
+    external: ["next", "next/server", "@authbound/core", "jose"],
   },
   // Express.js specific entry point
   {
@@ -35,12 +24,7 @@ export default defineConfig([
     format: ["esm", "cjs"],
     dts: true,
     outDir: "dist/express",
-    external: [
-      "express",
-      "@authbound-sdk/core",
-      "@authbound-sdk/shared",
-      "jose",
-    ],
+    external: ["express", "@authbound/core", "jose"],
   },
   // Hono specific entry point
   {
@@ -48,13 +32,7 @@ export default defineConfig([
     format: ["esm", "cjs"],
     dts: true,
     outDir: "dist/hono",
-    external: [
-      "hono",
-      "hono/cookie",
-      "@authbound-sdk/core",
-      "@authbound-sdk/shared",
-      "jose",
-    ],
+    external: ["hono", "hono/cookie", "@authbound/core", "jose"],
   },
   // Edge runtime entry point
   {
@@ -62,11 +40,6 @@ export default defineConfig([
     format: ["esm"],
     dts: true,
     outDir: "dist",
-    external: [
-      "next",
-      "next/server",
-      "@authbound-sdk/core",
-      "@authbound-sdk/shared",
-    ],
+    external: ["next", "next/server", "@authbound/core"],
   },
 ]);

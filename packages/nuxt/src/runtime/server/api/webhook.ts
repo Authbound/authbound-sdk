@@ -4,7 +4,7 @@
  * Handles webhook events from Authbound.
  */
 
-import crypto from "crypto";
+import crypto from "node:crypto";
 import { createError, defineEventHandler, getHeader, readRawBody } from "h3";
 import { useRuntimeConfig } from "nuxt/app";
 
@@ -27,7 +27,7 @@ function parseSignatureHeader(
     const [key, value] = part.split("=");
     if (key === "t") {
       timestamp = Number.parseInt(value, 10);
-      if (isNaN(timestamp)) {
+      if (Number.isNaN(timestamp)) {
         return null;
       }
     } else if (key === "v1") {
@@ -110,12 +110,12 @@ function verifyWebhookSignature(
 function getWebhookObjectId(body: Record<string, unknown>): string | undefined {
   const data = body.data;
   if (!data || typeof data !== "object" || Array.isArray(data)) {
-    return undefined;
+    return;
   }
 
   const object = (data as Record<string, unknown>).object;
   if (!object || typeof object !== "object" || Array.isArray(object)) {
-    return undefined;
+    return;
   }
 
   const id = (object as Record<string, unknown>).id;
@@ -215,6 +215,8 @@ export default defineEventHandler(async (event) => {
       if (debug) {
         console.log("[Authbound] Verification failed:", objectId);
       }
+      break;
+    default:
       break;
   }
 

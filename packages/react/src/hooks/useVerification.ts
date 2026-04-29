@@ -9,8 +9,8 @@ import type {
   PolicyId,
   VerificationId,
   VerificationResult,
-} from "@authbound-sdk/core";
-import { AuthboundError } from "@authbound-sdk/core";
+} from "@authbound/core";
+import { AuthboundError } from "@authbound/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthbound } from "../context/authbound-context";
 
@@ -113,6 +113,7 @@ function errorForTerminalStatus(
  * @example
  * ```tsx
  * function VerifyPage() {
+ *   const policyId = asPolicyId(process.env.NEXT_PUBLIC_AUTHBOUND_POLICY_ID!);
  *   const {
  *     status,
  *     authorizationRequestUrl,
@@ -120,7 +121,7 @@ function errorForTerminalStatus(
  *     isVerified,
  *     error,
  *   } = useVerification({
- *     policyId: 'age-gate-18@1.0.0',
+ *     policyId,
  *     onVerified: () => router.push('/dashboard'),
  *   });
  *
@@ -216,7 +217,15 @@ export function useVerification(
     } finally {
       setIsStarting(false);
     }
-  }, [contextStart, policyId, customerUserRef, metadata, provider, onFailed, isStarting]);
+  }, [
+    contextStart,
+    policyId,
+    customerUserRef,
+    metadata,
+    provider,
+    onFailed,
+    isStarting,
+  ]);
 
   // Retry after failure
   const retry = useCallback(async () => {
@@ -304,13 +313,14 @@ export function useVerification(
   }, [autoStart, status, startVerification]);
 
   // Cleanup on unmount
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
-    };
-  }, []);
+    },
+    []
+  );
 
   return {
     status,

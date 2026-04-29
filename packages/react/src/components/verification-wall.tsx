@@ -8,7 +8,7 @@ import type {
   AuthboundError,
   PolicyId,
   VerificationResult,
-} from "@authbound-sdk/core";
+} from "@authbound/core";
 import type { CSSProperties, ReactNode } from "react";
 import { useAuthbound } from "../context/authbound-context";
 import { useVerification } from "../hooks/useVerification";
@@ -129,6 +129,7 @@ function StartButton({
         transition: "opacity 0.2s, transform 0.1s",
         minWidth: "200px",
       }}
+      type="button"
     >
       {isLoading ? (
         <>
@@ -185,6 +186,7 @@ function RetryButton({ onClick }: { onClick: () => void }) {
         cursor: "pointer",
         transition: "background-color 0.2s",
       }}
+      type="button"
     >
       <svg
         fill="none"
@@ -221,9 +223,11 @@ function RetryButton({ onClick }: { onClick: () => void }) {
  * ```tsx
  * // Protect a page with verification
  * function ProtectedPage() {
+ *   const policyId = asPolicyId(process.env.NEXT_PUBLIC_AUTHBOUND_POLICY_ID!);
+ *
  *   return (
  *     <VerificationWall
- *       policyId="age-gate-18@1.0.0"
+ *       policyId={policyId}
  *       title="Age Verification Required"
  *       description="Please verify your age to continue"
  *       onVerified={() => console.log('Verified!')}
@@ -309,11 +313,14 @@ export function VerificationWall({
         {appearance.layout?.logoImageUrl && (
           <img
             alt={appearance.layout.logoAlt ?? ""}
+            height={40}
             src={appearance.layout.logoImageUrl}
             style={{
+              height: "auto",
               maxWidth: "120px",
               marginBottom: "1.5rem",
             }}
+            width={120}
           />
         )}
 
@@ -386,47 +393,44 @@ export function VerificationWall({
         )}
 
         {/* Verified state */}
-        {status === "verified" && (
-          <>
-            {verifiedContent ?? (
-              <div style={{ textAlign: "center" }}>
-                <div
-                  style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: "50%",
-                    backgroundColor:
-                      "color-mix(in srgb, var(--ab-color-success) 15%, transparent)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    margin: "0 auto 1rem",
-                  }}
+        {status === "verified" &&
+          (verifiedContent ?? (
+            <div style={{ textAlign: "center" }}>
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: "50%",
+                  backgroundColor:
+                    "color-mix(in srgb, var(--ab-color-success) 15%, transparent)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 1rem",
+                }}
+              >
+                <svg
+                  fill="none"
+                  height="32"
+                  viewBox="0 0 32 32"
+                  width="32"
+                  xmlns="http://www.w3.org/2000/svg"
                 >
-                  <svg
-                    fill="none"
-                    height="32"
-                    viewBox="0 0 32 32"
-                    width="32"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M10 16L14 20L22 12"
-                      stroke="var(--ab-color-success)"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="3"
-                    />
-                  </svg>
-                </div>
-                <VerificationStatus
-                  status={status}
-                  style={{ marginTop: "1rem" }}
-                />
+                  <path
+                    d="M10 16L14 20L22 12"
+                    stroke="var(--ab-color-success)"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="3"
+                  />
+                </svg>
               </div>
-            )}
-          </>
-        )}
+              <VerificationStatus
+                status={status}
+                style={{ marginTop: "1rem" }}
+              />
+            </div>
+          ))}
 
         {/* Failed/Error state */}
         {isFailed && (

@@ -1,5 +1,5 @@
 {
-  "name": "@authbound-sdk/react",
+  "name": "@authbound/react",
   "version": "0.1.0",
   "description": "Authbound React 18 bindings (hooks + headless components) for verification flows.",
   "type": "module",
@@ -26,36 +26,34 @@
       "import": "./dist/testing.js",
       "require": "./dist/testing.cjs"
     },
-    "./styles.css": "./src/styles/variables.css"
+    "./styles.css": "./dist/styles.css"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist",
-    "src"
+    "dist"
   ],
   "peerDependencies": {
-    "react": "catalog:react",
-    "react-dom": "catalog:react"
+    "react": ">=18.3.0 <20",
+    "react-dom": ">=18.3.0 <20"
   },
   "dependencies": {
-    "@authbound-sdk/core": "workspace:*",
+    "@authbound/core": "workspace:*",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
-    "@authbound-sdk/tsconfig": "workspace:*",
     "@types/qrcode": "^1.5.5",
-    "@types/react": "catalog:react",
-    "@types/react-dom": "catalog:react",
-    "tsup": "catalog:",
-    "typescript": "catalog:",
-    "vitest": "catalog:",
-    "@testing-library/react": "catalog:"
+    "@types/react": "19.2.0",
+    "@types/react-dom": "19.2.0",
+    "tsup": "8.5.0",
+    "typescript": "5.9.2",
+    "vitest": "4.0.8",
+    "@testing-library/react": "16.3.0"
   },
   "scripts": {
-    "build": "tsup src/index.tsx src/testing.tsx --dts --format esm,cjs --clean",
-    "dev": "tsup src/index.tsx src/testing.tsx --dts --format esm,cjs --watch",
+    "build": "tsup src/index.tsx src/testing.tsx --dts --format esm,cjs --clean --no-config && cp src/styles/variables.css dist/styles.css",
+    "dev": "tsup src/index.tsx src/testing.tsx --dts --format esm,cjs --watch --no-config",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "ultracite lint",

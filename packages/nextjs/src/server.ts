@@ -1,12 +1,12 @@
 /**
- * @authbound-sdk/nextjs/server
+ * @authbound/nextjs/server
  *
  * Server-side utilities for Next.js App Router.
  *
  * @example
  * ```ts
  * // app/api/authbound/verification/route.ts
- * import { createVerificationRoute } from '@authbound-sdk/nextjs/server';
+ * import { createVerificationRoute } from '@authbound/nextjs/server';
  *
  * export const POST = createVerificationRoute({
  *   policyId: 'pol_authbound_pension_v1',
@@ -14,9 +14,9 @@
  * ```
  */
 
-import type { PolicyId } from "@authbound-sdk/core";
-import { verifyWebhookSignatureDetailed } from "@authbound-sdk/server";
-import { type NextRequest, NextResponse } from "next/server";
+import type { PolicyId } from "@authbound/core";
+import { verifyWebhookSignatureDetailed } from "@authbound/server";
+import { NextResponse } from "next/server";
 
 // ============================================================================
 // Types
@@ -29,8 +29,8 @@ export interface VerificationRouteOptions {
   policyId: PolicyId;
 
   /**
-   * Custom Authbound gateway URL.
-   * @default Uses AUTHBOUND_GATEWAY_URL env var
+   * Custom Authbound API URL.
+   * @default Uses AUTHBOUND_API_URL env var
    */
   gatewayUrl?: string;
 
@@ -51,7 +51,7 @@ export interface VerificationRouteOptions {
    * Allows adding metadata or modifying the request before sending to gateway.
    */
   transformRequest?: (
-    request: NextRequest,
+    request: Request,
     body: Record<string, unknown>
   ) => Record<string, unknown> | Promise<Record<string, unknown>>;
 
@@ -120,10 +120,13 @@ interface WebhookEvent {
 
 function getEnvVar(name: string, fallback?: string): string {
   const value = process.env[name];
-  if (!(value || fallback)) {
-    throw new Error(`Missing required environment variable: ${name}`);
+  if (value) {
+    return value;
   }
-  return value ?? fallback!;
+  if (fallback) {
+    return fallback;
+  }
+  throw new Error(`Missing required environment variable: ${name}`);
 }
 
 function getSecretKey(fallback?: string): string {
@@ -154,7 +157,7 @@ function getPublishableKey(fallback?: string): string {
 
 function maskIdentifier(value: string | undefined): string | undefined {
   if (!value) {
-    return undefined;
+    return;
   }
 
   if (value.length <= 8) {
@@ -258,16 +261,17 @@ function summarizeWebhookEvent(event: WebhookEvent): Record<string, unknown> {
 }
 
 // ============================================================================
-// Webhook Signature Verification (re-exported from @authbound-sdk/server)
+// Webhook Signature Verification (re-exported from @authbound/server)
 // ============================================================================
 
+export { asPolicyId } from "@authbound/core";
 export {
   generateWebhookSignature,
   verifyWebhookSignature,
   verifyWebhookSignatureDetailed,
   type WebhookSignatureOptions,
   type WebhookSignatureResult,
-} from "@authbound-sdk/server";
+} from "@authbound/server";
 
 // ============================================================================
 // Gateway Response Mapping
@@ -276,27 +280,48 @@ export {
 /**
  * Map gateway response fields to SDK-expected shape.
  *
- * Gateway returns snake_case REST conventions:
- *   { id, client_token, client_action: { data }, verification_url, expires_at }
+ * Authbound returns snake_case REST conventions:
+ *   { id, client_token, client_action: { kind, data }, verification_url, expires_at }
  *
  * SDK expects camelCase with semantic names:
  *   { verificationId, clientToken, authorizationRequestUrl, expiresAt, deepLink }
  */
+class BrowserWalletUrlError extends Error {
+  constructor() {
+    super(
+      "Authbound did not return a browser-compatible wallet URL for this verification."
+    );
+    this.name = "BrowserWalletUrlError";
+  }
+}
+
+function getString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
 function mapGatewayResponse(
   raw: Record<string, unknown>
 ): Record<string, unknown> {
-  if (raw.verificationId) return raw;
-
-  const clientAction = raw.client_action as
+  const clientAction = (raw.client_action ?? raw.clientAction) as
     | { kind?: string; data?: string; expires_at?: string }
     | undefined;
+  const linkAction =
+    clientAction?.kind === "link" ? getString(clientAction.data) : undefined;
+  const authorizationRequestUrl =
+    getString(raw.authorizationRequestUrl) ??
+    getString(raw.verification_url) ??
+    linkAction;
+
+  if (!authorizationRequestUrl) {
+    throw new BrowserWalletUrlError();
+  }
 
   return {
-    verificationId: raw.id,
-    authorizationRequestUrl: clientAction?.data ?? raw.verification_url,
-    clientToken: raw.client_token,
-    expiresAt: raw.expires_at,
-    deepLink: clientAction?.data,
+    verificationId: raw.verificationId ?? raw.id,
+    authorizationRequestUrl,
+    clientToken: raw.clientToken ?? raw.client_token,
+    expiresAt: raw.expiresAt ?? raw.expires_at,
+    deepLink: getString(raw.deepLink) ?? linkAction,
   };
 }
 
@@ -313,7 +338,7 @@ function mapGatewayResponse(
  * @example
  * ```ts
  * // app/api/authbound/verification/route.ts
- * import { createVerificationRoute } from '@authbound-sdk/nextjs/server';
+ * import { createVerificationRoute } from '@authbound/nextjs/server';
  *
  * export const POST = createVerificationRoute({
  *   policyId: 'pol_authbound_pension_v1',
@@ -337,20 +362,17 @@ function mapGatewayResponse(
  */
 export function createVerificationRoute(
   options: VerificationRouteOptions
-): (request: NextRequest) => Promise<NextResponse> {
+): (request: Request) => Promise<Response> {
   const {
     policyId,
-    gatewayUrl = getEnvVar(
-      "AUTHBOUND_GATEWAY_URL",
-      "https://gateway.authbound.io"
-    ),
+    gatewayUrl = getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io"),
     secret = getSecretKey(),
     debug = false,
     transformRequest,
     transformResponse,
   } = options;
 
-  return async (request: NextRequest): Promise<NextResponse> => {
+  return async (request: Request): Promise<Response> => {
     try {
       // Parse request body
       let body: Record<string, unknown> = {};
@@ -432,6 +454,16 @@ export function createVerificationRoute(
 
       return NextResponse.json(responseData);
     } catch (error) {
+      if (error instanceof BrowserWalletUrlError) {
+        return NextResponse.json(
+          {
+            error: error.message,
+            code: "BROWSER_WALLET_URL_MISSING",
+          },
+          { status: 502 }
+        );
+      }
+
       if (debug) {
         console.error(
           "[Authbound] Verification creation error:",
@@ -456,7 +488,7 @@ export function createVerificationRoute(
  * @example
  * ```ts
  * // app/api/authbound/webhook/route.ts
- * import { createWebhookRoute } from '@authbound-sdk/nextjs/server';
+ * import { createWebhookRoute } from '@authbound/nextjs/server';
  *
  * export const POST = createWebhookRoute({
  *   onVerified: async (event) => {
@@ -471,7 +503,7 @@ export function createVerificationRoute(
  */
 export function createWebhookRoute(
   options: WebhookRouteOptions
-): (request: NextRequest) => Promise<NextResponse> {
+): (request: Request) => Promise<Response> {
   const {
     webhookSecret = process.env.AUTHBOUND_WEBHOOK_SECRET,
     onVerified,
@@ -481,7 +513,7 @@ export function createWebhookRoute(
     debug = false,
   } = options;
 
-  return async (request: NextRequest): Promise<NextResponse> => {
+  return async (request: Request): Promise<Response> => {
     try {
       // Get the raw body for signature verification
       const rawBody = await request.text();
@@ -549,6 +581,8 @@ export function createWebhookRoute(
             await onFailed(event);
           }
           break;
+        default:
+          break;
       }
 
       return NextResponse.json({ received: true });
@@ -571,7 +605,7 @@ export function createWebhookRoute(
 export interface StatusRouteOptions {
   /**
    * Gateway URL.
-   * @default Uses AUTHBOUND_GATEWAY_URL env var
+   * @default Uses AUTHBOUND_API_URL env var
    */
   gatewayUrl?: string;
 
@@ -596,7 +630,7 @@ export interface StatusRouteOptions {
  * @example
  * ```ts
  * // app/api/authbound/status/[verificationId]/route.ts
- * import { createStatusRoute } from '@authbound-sdk/nextjs/server';
+ * import { createStatusRoute } from '@authbound/nextjs/server';
  *
  * export const GET = createStatusRoute();
  * ```
@@ -604,22 +638,19 @@ export interface StatusRouteOptions {
 export function createStatusRoute(
   options: StatusRouteOptions = {}
 ): (
-  request: NextRequest,
+  request: Request,
   context: { params: Promise<{ verificationId: string }> }
-) => Promise<NextResponse> {
+) => Promise<Response> {
   const {
-    gatewayUrl = getEnvVar(
-      "AUTHBOUND_GATEWAY_URL",
-      "https://gateway.authbound.io"
-    ),
+    gatewayUrl = getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io"),
     publishableKey: configuredPublishableKey,
     debug = false,
   } = options;
 
   return async (
-    request: NextRequest,
+    request: Request,
     context: { params: Promise<{ verificationId: string }> }
-  ): Promise<NextResponse> => {
+  ): Promise<Response> => {
     try {
       const params = await context.params;
       const { verificationId } = params;
@@ -690,7 +721,7 @@ export function createStatusRoute(
  * @example
  * ```ts
  * // In a server action
- * import { createVerification } from '@authbound-sdk/nextjs/server';
+ * import { createVerification } from '@authbound/nextjs/server';
  *
  * export async function startVerification() {
  *   'use server';
@@ -716,10 +747,7 @@ export async function createVerification(options: {
 }> {
   const {
     policyId,
-    gatewayUrl = getEnvVar(
-      "AUTHBOUND_GATEWAY_URL",
-      "https://gateway.authbound.io"
-    ),
+    gatewayUrl = getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io"),
     secret = getSecretKey(),
     customerUserRef,
     metadata,
@@ -752,7 +780,7 @@ export async function createVerification(options: {
 }
 
 // ============================================================================
-// Re-exports from @authbound-sdk/server
+// Re-exports from @authbound/server
 // ============================================================================
 
 export {
@@ -773,7 +801,7 @@ export {
   type VerificationRequirements,
   type VerificationStatus,
   verifyToken,
-} from "@authbound-sdk/server";
+} from "@authbound/server";
 
 export {
   clearVerificationCookie,
@@ -788,4 +816,4 @@ export {
   getCookieValue,
   getVerificationFromCookie,
   setVerificationCookie,
-} from "@authbound-sdk/server/next";
+} from "@authbound/server/next";

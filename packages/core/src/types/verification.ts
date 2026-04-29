@@ -6,7 +6,13 @@
  */
 
 import { z } from "zod";
-import { isPolicyId, isVerificationId, type ClientToken, type PolicyId, type VerificationId } from "./branded";
+import {
+  type ClientToken,
+  isPolicyId,
+  isVerificationId,
+  type PolicyId,
+  type VerificationId,
+} from "./branded";
 
 // ============================================================================
 // Verification Status
@@ -209,7 +215,9 @@ export interface CreateVerificationResponse {
 }
 
 export const CreateVerificationResponseSchema = z.object({
-  verificationId: z.string().refine(isVerificationId, "Invalid verification ID"),
+  verificationId: z
+    .string()
+    .refine(isVerificationId, "Invalid verification ID"),
   authorizationRequestUrl: z.string().url(),
   clientToken: z.string(),
   expiresAt: z.string(),

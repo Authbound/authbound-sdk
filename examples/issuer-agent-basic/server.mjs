@@ -1,9 +1,9 @@
 import { createServer } from "node:http";
-import { AuthboundClient, AuthboundClientError } from "@authbound-sdk/server";
+import { AuthboundClient, AuthboundClientError } from "@authbound/server";
 
-const apiKey = process.env.AUTHBOUND_API_KEY;
+const apiKey = process.env.AUTHBOUND_SECRET_KEY;
 if (!apiKey) {
-  throw new Error("AUTHBOUND_API_KEY is required");
+  throw new Error("AUTHBOUND_SECRET_KEY is required");
 }
 
 const authbound = new AuthboundClient({

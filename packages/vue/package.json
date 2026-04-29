@@ -1,5 +1,5 @@
 {
-  "name": "@authbound-sdk/vue",
+  "name": "@authbound/vue",
   "version": "0.1.0",
   "description": "Authbound Vue 3 bindings (composables + headless components) for the verification flows.",
   "type": "module",
@@ -21,32 +21,30 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
-    "./styles.css": "./src/styles/variables.css"
+    "./styles.css": "./dist/styles.css"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist",
-    "src"
+    "dist"
   ],
   "peerDependencies": {
-    "vue": "catalog:"
+    "vue": "^3.5.0"
   },
   "dependencies": {
-    "@authbound-sdk/core": "workspace:*",
+    "@authbound/core": "workspace:*",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
-    "@authbound-sdk/tsconfig": "workspace:*",
     "@types/qrcode": "^1.5.5",
-    "typescript": "catalog:",
-    "tsup": "catalog:",
-    "vitest": "catalog:"
+    "typescript": "5.9.2",
+    "tsup": "8.5.0",
+    "vitest": "4.0.8"
   },
   "scripts": {
-    "build": "tsup src/index.ts --dts --format esm,cjs --clean",
-    "dev": "tsup src/index.ts --dts --format esm,cjs --watch",
+    "build": "tsup src/index.ts --dts --format esm,cjs --clean --no-config && cp src/styles/variables.css dist/styles.css",
+    "dev": "tsup src/index.ts --dts --format esm,cjs --watch --no-config",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "ultracite lint",

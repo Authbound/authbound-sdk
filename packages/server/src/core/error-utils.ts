@@ -127,7 +127,7 @@ export function logError(error: unknown, context: string, debug = false): void {
  */
 export function createSafeErrorResponse(
   error: unknown,
-  status = 500,
+  _status = 500,
   debug = false
 ): { message: string; code: string } {
   const sanitized = sanitizeError(error, debug);

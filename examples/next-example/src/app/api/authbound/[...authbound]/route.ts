@@ -1,4 +1,4 @@
-import { createAuthboundHandlers } from "@authbound-sdk/server/next";
+import { createAuthboundHandlers } from "@authbound/server/next";
 import { authboundConfig } from "@/authbound.config";
 
 /**
@@ -36,7 +36,7 @@ export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig, {
 
   // Optional: Get user reference from your auth system
   // This ties the verification to your existing user
-  getUserRef: async (request) => {
+  getUserRef: async (_request) => {
     // Example: Get from your auth provider.
     // const session = await getServerSession();
     // return session?.user?.id;

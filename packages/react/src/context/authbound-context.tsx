@@ -13,10 +13,10 @@ import {
   type EudiVerificationStatus,
   type PolicyId,
   type PublishableKey,
-  type VerificationId,
   type StatusEvent,
+  type VerificationId,
   type VerificationResult,
-} from "@authbound-sdk/core";
+} from "@authbound/core";
 import {
   Component,
   createContext,
@@ -139,13 +139,15 @@ export interface AuthboundProviderProps {
  * @example
  * ```tsx
  * // app/layout.tsx
- * import { AuthboundProvider } from '@authbound-sdk/react';
+ * import { asPolicyId, AuthboundProvider } from '@authbound/react';
+ *
+ * const policyId = asPolicyId(process.env.NEXT_PUBLIC_AUTHBOUND_POLICY_ID!);
  *
  * export default function RootLayout({ children }) {
  *   return (
  *     <AuthboundProvider
  *       publishableKey={process.env.NEXT_PUBLIC_AUTHBOUND_PK!}
- *       policyId="age-gate-18@1.0.0"
+ *       policyId={policyId}
  *     >
  *       {children}
  *     </AuthboundProvider>
@@ -234,9 +236,12 @@ export function AuthboundProvider({
   }, []);
 
   // Update verification helper
-  const updateVerification = useCallback((update: Partial<VerificationState>) => {
-    setVerification((prev) => (prev ? { ...prev, ...update } : null));
-  }, []);
+  const updateVerification = useCallback(
+    (update: Partial<VerificationState>) => {
+      setVerification((prev) => (prev ? { ...prev, ...update } : null));
+    },
+    []
+  );
 
   const cleanupStatusSubscription = useCallback(() => {
     if (statusCleanupRef.current) {
@@ -337,11 +342,12 @@ export function AuthboundProvider({
     [cleanupStatusSubscription, client, policyId]
   );
 
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       cleanupStatusSubscription();
-    };
-  }, [cleanupStatusSubscription]);
+    },
+    [cleanupStatusSubscription]
+  );
 
   // Build CSS custom properties
   const cssProperties = useMemo(() => {
@@ -422,7 +428,7 @@ interface ErrorBoundaryState {
  *
  * @example
  * ```tsx
- * import { AuthboundErrorBoundary, AuthboundProvider } from '@authbound-sdk/react';
+ * import { AuthboundErrorBoundary, AuthboundProvider } from '@authbound/react';
  *
  * function App() {
  *   return (

@@ -1,5 +1,5 @@
 /**
- * @authbound-sdk/nextjs
+ * @authbound/nextjs
  *
  * Complete Authbound SDK for Next.js.
  *
@@ -14,7 +14,7 @@
  * @example Quick Start
  * ```tsx
  * // 1. middleware.ts
- * import { withAuthbound } from '@authbound-sdk/nextjs';
+ * import { withAuthbound } from '@authbound/nextjs';
  *
  * export default withAuthbound({
  *   publicRoutes: ['/', '/about'],
@@ -23,7 +23,7 @@
  * export const config = { matcher: ['/((?!_next|static).*)'] };
  *
  * // 2. app/api/authbound/verification/route.ts
- * import { createVerificationRoute } from '@authbound-sdk/nextjs';
+ * import { createVerificationRoute } from '@authbound/nextjs';
  *
  * export const POST = createVerificationRoute({
  *   policyId: 'pol_authbound_pension_v1',
@@ -31,7 +31,7 @@
  *
  * // 3. app/verify/page.tsx
  * 'use client';
- * import { AuthboundProvider, VerificationWall } from '@authbound-sdk/nextjs';
+ * import { AuthboundProvider, VerificationWall } from '@authbound/nextjs';
  *
  * export default function VerifyPage() {
  *   return (
@@ -46,11 +46,12 @@
  */
 
 // ============================================================================
-// Middleware (from @authbound-sdk/nextjs/middleware)
+// Middleware (from @authbound/nextjs/middleware)
 // ============================================================================
 
 export {
   type AuthboundMiddleware,
+  type AuthboundNextRequest,
   // Lower-level middleware
   authboundMiddleware,
   chainMiddleware,
@@ -61,7 +62,7 @@ export {
 } from "./middleware";
 
 // ============================================================================
-// Server (from @authbound-sdk/nextjs/server)
+// Server (from @authbound/nextjs/server)
 // ============================================================================
 
 export {
@@ -75,15 +76,15 @@ export {
   clearVerificationCookie,
   // Advanced handlers
   createAuthboundHandlers,
-  // Server utilities
-  // Zero-config route handlers
-  createVerification,
-  createVerificationRoute,
   createSignOutHandler,
   createStatusHandler,
   createStatusRoute,
   // JWT utilities
   createToken,
+  // Server utilities
+  // Zero-config route handlers
+  createVerification,
+  createVerificationRoute,
   createWebhookHandler,
   createWebhookRoute,
   // Cookie utilities
@@ -96,15 +97,15 @@ export {
   parseConfig,
   type RoutesConfig,
   type StatusRouteOptions,
-  type VerificationRouteOptions,
   setVerificationCookie,
   type VerificationRequirements,
+  type VerificationRouteOptions,
   verifyToken,
   type WebhookRouteOptions,
 } from "./server";
 
 // ============================================================================
-// Client (from @authbound-sdk/nextjs/client)
+// Client (from @authbound/nextjs/client)
 // ============================================================================
 
 // Note: Client components need 'use client' directive
@@ -126,12 +127,13 @@ export type {
 } from "./client";
 
 // ============================================================================
-// Core types (from @authbound-sdk/core)
+// Core types (from @authbound/core)
 // ============================================================================
 
 export {
   AuthboundError,
   type AuthboundErrorCode,
+  asPolicyId,
   type EudiVerificationStatus,
   isAuthboundError,
   isTerminalStatus,
@@ -139,7 +141,7 @@ export {
   PolicyPresets,
   type PublishableKey,
   type StatusEvent,
-  type VerificationId,
   type VerificationClaims,
+  type VerificationId,
   type VerificationResult,
-} from "@authbound-sdk/core";
+} from "@authbound/core";

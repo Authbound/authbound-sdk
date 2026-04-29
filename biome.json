@@ -1,9 +1,9 @@
 {
-  "root": false,
+  "root": true,
   "$schema": "https://biomejs.dev/schemas/2.3.11/schema.json",
   "extends": ["ultracite/core"],
   "javascript": {
-    "globals": ["React"]
+    "globals": ["React", "$fetch"]
   },
   "linter": {
     "enabled": true,
@@ -14,6 +14,9 @@
         "useMediaCaption": "error"
       },
       "nursery": {
+        "noIncrementDecrement": "off",
+        "noShadow": "off",
+        "useMaxParams": "off",
         "useSortedClasses": "off"
       },
       "complexity": {
@@ -27,6 +30,7 @@
       "suspicious": {
         "useAwait": "off",
         "noConsole": "off",
+        "noConfusingVoidType": "off",
         "noExplicitAny": "off",
         "noEmptyBlockStatements": "off",
         "noEmptyBlock": "off",
@@ -45,6 +49,7 @@
       "style": {
         "noNonNullAssertion": "error",
         "noParameterAssign": "error",
+        "useConsistentTypeDefinitions": "off",
         "useBlockStatements": "off",
         "useTemplate": "error",
         "noParameterProperties": "off",
@@ -52,9 +57,14 @@
         "noNestedTernary": "off",
         "noExportedImports": "off",
         "noEnum": "off",
+        "noNamespace": "off",
+        "useFilenamingConvention": "off",
         "useConsistentArrayType": { "level": "error", "options": { "syntax": "shorthand" } }
       },
       "performance": {
+        "noDelete": "off",
+        "noBarrelFile": "off",
+        "noNamespaceImport": "off",
         "useTopLevelRegex": "off",
         "noAccumulatingSpread": "off"
       }

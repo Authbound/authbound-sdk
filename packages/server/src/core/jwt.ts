@@ -1,10 +1,10 @@
+import * as jose from "jose";
 import type {
   AssuranceLevel,
   AuthboundClaims,
   AuthboundVerificationContext,
   VerificationStatus,
 } from "./types";
-import * as jose from "jose";
 
 // ============================================================================
 // Constants

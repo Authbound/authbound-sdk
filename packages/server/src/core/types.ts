@@ -247,7 +247,7 @@ export type RoutesConfig = z.infer<typeof RoutesConfigSchema>;
 export const AuthboundConfigSchema = z.object({
   /** Your Authbound API Key (server-side only) */
   apiKey: z.string().min(1, "API key is required"),
-  /** Authbound API URL. Defaults to "https://api.authbound.com" */
+  /** Authbound API URL. Defaults to "https://api.authbound.io" */
   apiUrl: z.string().url().optional(),
   /** Secret key for JWT encryption (min 32 characters recommended) */
   secret: z.string().min(32, "Secret must be at least 32 characters"),
@@ -438,7 +438,6 @@ export function mapVerificationEventStatusToVerificationStatus(
       return "REJECTED";
     case "requires_input":
       return "MANUAL_REVIEW_NEEDED";
-    case "processing":
     default:
       return "PENDING";
   }

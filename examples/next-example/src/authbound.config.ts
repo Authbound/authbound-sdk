@@ -1,4 +1,4 @@
-import type { AuthboundConfig } from "@authbound-sdk/server/next";
+import type { AuthboundConfig } from "@authbound/server/next";
 
 /**
  * Authbound SDK configuration.
@@ -9,13 +9,15 @@ import type { AuthboundConfig } from "@authbound-sdk/server/next";
  * - Cookie settings for session management
  */
 export const authboundConfig: AuthboundConfig = {
-  // Your Authbound API key (keep this secret!)
-  apiKey: process.env.AUTHBOUND_API_KEY || "",
+  // Your Authbound secret key (keep this server-side)
+  apiKey: process.env.AUTHBOUND_SECRET_KEY || "",
 
   // Secret for encrypting the session cookie (min 32 chars)
-  secret: process.env.AUTHBOUND_SECRET || "your-secret-key-at-least-32-chars!",
+  secret:
+    process.env.AUTHBOUND_COOKIE_SECRET ||
+    "your-cookie-secret-at-least-32-chars",
 
-  // Optional: Custom API URL (defaults to https://api.authbound.com)
+  // Optional: Custom API URL (defaults to https://api.authbound.io)
   apiUrl: process.env.AUTHBOUND_API_URL,
 
   // Enable debug logging in development

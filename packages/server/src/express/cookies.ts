@@ -14,7 +14,10 @@ import type {
   Response,
 } from "express";
 import { createToken, getVerificationFromToken } from "../core/jwt";
-import type { AuthboundConfig, AuthboundVerificationContext } from "../core/types";
+import type {
+  AuthboundConfig,
+  AuthboundVerificationContext,
+} from "../core/types";
 import { getDefaultCookieOptions } from "../core/types";
 
 // ============================================================================

@@ -9,14 +9,14 @@ import type {
   PolicyId,
   VerificationId,
   VerificationResult,
-} from "@authbound-sdk/core";
+} from "@authbound/core";
 import {
   AuthboundError,
   asClientToken,
   isTerminalStatus,
-} from "@authbound-sdk/core";
-import { computed, onUnmounted, ref, watch } from "vue";
+} from "@authbound/core";
 import { useRouter } from "nuxt/app";
+import { computed, onUnmounted, ref, watch } from "vue";
 import { useAuthbound } from "./useAuthbound";
 
 // ============================================================================
@@ -25,7 +25,7 @@ import { useAuthbound } from "./useAuthbound";
 
 export interface UseVerificationOptions {
   /** Policy ID to use (overrides config default) */
-  policyId?: PolicyId;
+  policyId?: PolicyId | string;
   /** Auto-start verification on mount */
   autoStart?: boolean;
   /** Customer user reference for linking */
@@ -168,7 +168,9 @@ export function useVerification(options: UseVerificationOptions = {}) {
       options.onFailed?.(
         error.value ??
           new AuthboundError(
-            newStatus === "timeout" ? "wallet_timeout" : "verification_invalid_state",
+            newStatus === "timeout"
+              ? "wallet_timeout"
+              : "verification_invalid_state",
             newStatus === "expired"
               ? "Verification expired."
               : newStatus === "canceled"

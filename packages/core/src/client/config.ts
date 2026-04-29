@@ -21,7 +21,7 @@ export interface AuthboundClientConfig {
   /** Default policy ID for verification (can be overridden per-call) */
   policyId?: PolicyId;
 
-  /** Gateway URL (defaults to production) */
+  /** Authbound API URL (defaults to production) */
   gatewayUrl?: string;
 
   /** Verification creation endpoint on your server */
@@ -54,7 +54,7 @@ export const AuthboundClientConfigSchema = z.object({
  * Default configuration values.
  */
 export const DEFAULT_CONFIG = {
-  gatewayUrl: "https://gateway.authbound.io",
+  gatewayUrl: "https://api.authbound.io",
   verificationEndpoint: "/api/authbound/verification",
   timeout: 30_000,
   debug: false,
@@ -117,7 +117,7 @@ export function resolveConfig(config: AuthboundClientConfig): ResolvedConfig {
  *
  * Looks for:
  * - NEXT_PUBLIC_AUTHBOUND_PK / NUXT_PUBLIC_AUTHBOUND_PK / AUTHBOUND_PK
- * - AUTHBOUND_GATEWAY_URL
+ * - AUTHBOUND_API_URL
  *
  * Note: This function is environment-agnostic and won't throw in browsers.
  */
@@ -133,7 +133,7 @@ export function getConfigFromEnv(): Partial<AuthboundClientConfig> {
       ).process;
       return proc?.env?.[key];
     } catch {
-      return undefined;
+      return;
     }
   };
 
@@ -147,7 +147,7 @@ export function getConfigFromEnv(): Partial<AuthboundClientConfig> {
     config.publishableKey = pkKey;
   }
 
-  const gatewayUrl = getEnvVar("AUTHBOUND_GATEWAY_URL");
+  const gatewayUrl = getEnvVar("AUTHBOUND_API_URL");
 
   if (gatewayUrl) {
     config.gatewayUrl = gatewayUrl;

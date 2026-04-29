@@ -4,7 +4,7 @@
  * @example
  * ```ts
  * import express from 'express';
- * import { createAuthboundRouter } from '@authbound-sdk/server/express';
+ * import { createAuthboundRouter } from '@authbound/server/express';
  *
  * const app = express();
  * app.use(express.json());
@@ -273,7 +273,7 @@ async function handleGetStatus(
 }
 
 async function handleSignOut(
-  req: Request,
+  _req: Request,
   res: Response,
   config: AuthboundConfig
 ): Promise<void> {
@@ -309,7 +309,7 @@ async function handleSignOut(
  * ```ts
  * import express from 'express';
  * import cookieParser from 'cookie-parser';
- * import { createAuthboundRouter } from '@authbound-sdk/server/express';
+ * import { createAuthboundRouter } from '@authbound/server/express';
  *
  * const app = express();
  * app.use(express.json());
@@ -319,7 +319,7 @@ async function handleSignOut(
  *   onWebhook: async (event) => {
  *     // Sync with your database
  *     await db.verifications.update({
-   *       verificationId: event.data.object.id,
+ *       verificationId: event.data.object.id,
  *       status: event.data.object.status,
  *     });
  *   },
@@ -338,7 +338,7 @@ export function createAuthboundRouter(
     apiUrl:
       validatedConfig.apiUrl ??
       process.env.AUTHBOUND_API_URL ??
-      "https://api.authbound.com",
+      "https://api.authbound.io",
     debug: validatedConfig.debug,
   });
 
@@ -398,7 +398,7 @@ export function createVerificationHandler(
     apiUrl:
       validatedConfig.apiUrl ??
       process.env.AUTHBOUND_API_URL ??
-      "https://api.authbound.com",
+      "https://api.authbound.io",
     debug: validatedConfig.debug,
   });
 

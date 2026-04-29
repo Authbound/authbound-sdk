@@ -1,5 +1,5 @@
 {
-  "name": "@authbound-sdk/nextjs",
+  "name": "@authbound/nextjs",
   "version": "0.1.0",
   "description": "Authbound Next.js SDK - Complete verification for Next.js with middleware, handlers, and React components.",
   "type": "module",
@@ -42,31 +42,29 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist",
-    "src"
+    "dist"
   ],
   "dependencies": {
-    "@authbound-sdk/core": "workspace:*",
-    "@authbound-sdk/react": "workspace:*",
-    "@authbound-sdk/server": "workspace:*"
+    "@authbound/core": "workspace:*",
+    "@authbound/react": "workspace:*",
+    "@authbound/server": "workspace:*"
   },
   "peerDependencies": {
     "next": ">=16.1.0",
-    "react": "catalog:react",
-    "react-dom": "catalog:react"
+    "react": ">=18.3.0 <20",
+    "react-dom": ">=18.3.0 <20"
   },
   "devDependencies": {
-    "@authbound-sdk/tsconfig": "workspace:*",
-    "@types/react": "catalog:react",
-    "@types/react-dom": "catalog:react",
+    "@types/react": "19.2.0",
+    "@types/react-dom": "19.2.0",
     "next": "^16.1.6",
-    "tsup": "catalog:",
-    "typescript": "catalog:",
-    "vitest": "catalog:"
+    "tsup": "8.5.0",
+    "typescript": "5.9.2",
+    "vitest": "4.0.8"
   },
   "scripts": {
-    "build": "tsup && cp src/styles.css dist/styles.css",
-    "dev": "tsup --watch",
+    "build": "tsup --config tsup.config.ts && cp src/styles.css dist/styles.css",
+    "dev": "tsup --config tsup.config.ts --watch",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "ultracite lint",

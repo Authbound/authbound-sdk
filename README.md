@@ -5,16 +5,16 @@ TypeScript SDK packages for Authbound verification and OpenID4VC credential issu
 ## Install
 
 ```sh
-pnpm add @authbound-sdk/server
+pnpm add @authbound/server
 ```
 
 ## Initialize
 
 ```ts
-import { AuthboundClient } from "@authbound-sdk/server";
+import { AuthboundClient } from "@authbound/server";
 
 const authbound = new AuthboundClient({
-  apiKey: process.env.AUTHBOUND_API_KEY!,
+  apiKey: process.env.AUTHBOUND_SECRET_KEY!,
 });
 ```
 
@@ -28,7 +28,7 @@ The smallest runnable issuer-agent example lives in [`examples/issuer-agent-basi
 cd examples/issuer-agent-basic
 pnpm install
 cp .env.example .env
-AUTHBOUND_API_KEY=sk_test_... pnpm dev
+AUTHBOUND_SECRET_KEY=sk_test_... pnpm dev
 ```
 
 Open `http://localhost:3000`, click **Create wallet offer**, and the server will:
@@ -220,9 +220,9 @@ console.log(status.status);
 ## Development
 
 ```sh
-pnpm --filter @authbound-sdk/server test
-pnpm --filter @authbound-sdk/server typecheck
-pnpm --filter @authbound-sdk/server build
+pnpm --filter @authbound/server test
+pnpm --filter @authbound/server typecheck
+pnpm --filter @authbound/server build
 ```
 
 ## Contributing and Publishing
@@ -231,10 +231,9 @@ See [CONTRIBUTING](./CONTRIBUTING.md) for contribution workflow and release stan
 
 ### Publishable packages
 
-- `@authbound-sdk/core`
-- `@authbound-sdk/server`
-- `@authbound-sdk/shared`
-- `@authbound-sdk/react`
-- `@authbound-sdk/vue`
-- `@authbound-sdk/nextjs`
-- `@authbound-sdk/nuxt`
+- `@authbound/core`
+- `@authbound/server`
+- `@authbound/react`
+- `@authbound/vue`
+- `@authbound/nextjs`
+- `@authbound/nuxt`

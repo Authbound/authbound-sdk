@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createToken, getVerificationFromToken } from "../core/jwt";
-import type { AuthboundConfig, AuthboundVerificationContext } from "../core/types";
+import type {
+  AuthboundConfig,
+  AuthboundVerificationContext,
+} from "../core/types";
 import { getDefaultCookieOptions } from "../core/types";
 
 export interface CookieReadableRequest extends Request {
@@ -172,7 +175,7 @@ export function clearVerificationCookie(
  */
 export function createRedirectResponse(
   url: string | URL,
-  request: Request,
+  _request: Request,
   options?: {
     clearCookie?: boolean;
     config?: AuthboundConfig;

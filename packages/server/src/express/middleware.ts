@@ -5,7 +5,7 @@
  * ```ts
  * import express from 'express';
  * import cookieParser from 'cookie-parser';
- * import { authboundMiddleware } from '@authbound-sdk/server/express';
+ * import { authboundMiddleware } from '@authbound/server/express';
  *
  * const app = express();
  * app.use(cookieParser());
@@ -110,7 +110,7 @@ function matchRoute(pathname: string, pattern: string | RegExp): boolean {
   }
 
   // Exact match or prefix match with trailing slash
-  return pathname === pattern || pathname.startsWith(pattern + "/");
+  return pathname === pattern || pathname.startsWith(`${pattern}/`);
 }
 
 function findMatchingRoute(
@@ -149,13 +149,13 @@ function buildVerifyUrl(req: Request, verifyPath: string): string {
  * ```ts
  * import express from 'express';
  * import cookieParser from 'cookie-parser';
- * import { authboundMiddleware } from '@authbound-sdk/server/express';
+ * import { authboundMiddleware } from '@authbound/server/express';
  *
  * const app = express();
  * app.use(cookieParser());
  *
  * app.use('/protected', authboundMiddleware({
- *   apiKey: process.env.AUTHBOUND_API_KEY!,
+ *   apiKey: process.env.AUTHBOUND_SECRET_KEY!,
  *   secret: process.env.AUTHBOUND_SECRET!,
  *   routes: {
  *     protected: [
@@ -277,7 +277,10 @@ export function authboundMiddleware(
       }
 
       // Default: redirect to verify page
-      res.redirect(302, result.redirectUrl!);
+      if (!result.redirectUrl) {
+        throw new Error("Missing verification redirect URL");
+      }
+      res.redirect(302, result.redirectUrl);
     } catch (error) {
       if (validatedConfig.debug) {
         console.error("[Authbound] Middleware error:", error);
@@ -381,7 +384,10 @@ export function withAuthbound(
       }
 
       // Default redirect
-      res.redirect(302, result.redirectUrl!);
+      if (!result.redirectUrl) {
+        throw new Error("Missing verification redirect URL");
+      }
+      res.redirect(302, result.redirectUrl);
     } catch (error) {
       if (validatedConfig.debug) {
         console.error("[Authbound] Middleware error:", error);

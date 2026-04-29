@@ -7,7 +7,7 @@ Small Node server that creates an Authbound credential definition, maps app data
 ```sh
 pnpm install
 cp .env.example .env
-AUTHBOUND_API_KEY=sk_test_... pnpm dev
+AUTHBOUND_SECRET_KEY=sk_test_... pnpm dev
 ```
 
 Open `http://localhost:3000`, click **Create wallet offer**, then encode the returned `offerUri` as a QR code or open it with a compatible wallet.

@@ -9,8 +9,8 @@ import type {
   PolicyId,
   VerificationId,
   VerificationResult,
-} from "@authbound-sdk/core";
-import { AuthboundError, isTerminalStatus } from "@authbound-sdk/core";
+} from "@authbound/core";
+import { AuthboundError, isTerminalStatus } from "@authbound/core";
 import {
   type ComputedRef,
   computed,
@@ -92,7 +92,7 @@ export interface UseVerificationReturn {
  * @example
  * ```vue
  * <script setup>
- * import { useVerification } from '@authbound-sdk/vue';
+ * import { useVerification } from '@authbound/vue';
  *
  * const {
  *   status,
@@ -101,7 +101,7 @@ export interface UseVerificationReturn {
  *   startVerification,
  *   retry,
  * } = useVerification({
- *   policyId: 'age-gate-18@1.0.0',
+ *   policyId: asPolicyId(import.meta.env.VITE_AUTHBOUND_POLICY_ID),
  *   onVerified: (result) => {
  *     router.push('/dashboard');
  *   },
@@ -131,51 +131,40 @@ export function useVerification(
   let timerInterval: ReturnType<typeof setInterval> | null = null;
 
   // Computed state from the active verification
-  const status = computed<EudiVerificationStatus>(() => {
-    return verification.value?.status ?? "idle";
-  });
+  const status = computed<EudiVerificationStatus>(
+    () => verification.value?.status ?? "idle"
+  );
 
-  const isLoading = computed(() => {
-    return status.value === "pending" || status.value === "processing";
-  });
+  const isLoading = computed(
+    () => status.value === "pending" || status.value === "processing"
+  );
 
-  const isVerified = computed(() => {
-    return status.value === "verified";
-  });
+  const isVerified = computed(() => status.value === "verified");
 
-  const isFailed = computed(() => {
-    return (
+  const isFailed = computed(
+    () =>
       status.value === "failed" ||
       status.value === "error" ||
       status.value === "canceled" ||
       status.value === "expired" ||
       status.value === "timeout"
-    );
-  });
+  );
 
-  const isTerminal = computed(() => {
-    return isTerminalStatus(status.value);
-  });
+  const isTerminal = computed(() => isTerminalStatus(status.value));
 
-  const verificationId = computed(() => {
-    return verification.value?.verificationId ?? null;
-  });
+  const verificationId = computed(
+    () => verification.value?.verificationId ?? null
+  );
 
-  const authorizationRequestUrl = computed(() => {
-    return verification.value?.authorizationRequestUrl ?? null;
-  });
+  const authorizationRequestUrl = computed(
+    () => verification.value?.authorizationRequestUrl ?? null
+  );
 
-  const deepLink = computed(() => {
-    return verification.value?.deepLink ?? null;
-  });
+  const deepLink = computed(() => verification.value?.deepLink ?? null);
 
-  const error = computed(() => {
-    return verification.value?.error ?? null;
-  });
+  const error = computed(() => verification.value?.error ?? null);
 
-  const result = computed(() => {
-    return verification.value?.result ?? null;
-  });
+  const result = computed(() => verification.value?.result ?? null);
 
   // Timer management
   const startTimer = () => {

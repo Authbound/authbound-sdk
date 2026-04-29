@@ -1,5 +1,5 @@
 /**
- * @authbound-sdk/server/express
+ * @authbound/server/express
  *
  * Express.js specific exports for the Authbound Server SDK.
  * Provides middleware, API handlers, and utilities for identity/age verification.
@@ -8,7 +8,7 @@
  * ```ts
  * import express from 'express';
  * import cookieParser from 'cookie-parser';
- * import { authboundMiddleware, createAuthboundRouter } from '@authbound-sdk/server/express';
+ * import { authboundMiddleware, createAuthboundRouter } from '@authbound/server/express';
  *
  * const app = express();
  * app.use(express.json());
@@ -16,7 +16,7 @@
  *
  * // Protect routes with age verification
  * app.use('/adult-content', authboundMiddleware({
- *   apiKey: process.env.AUTHBOUND_API_KEY!,
+ *   apiKey: process.env.AUTHBOUND_SECRET_KEY!,
  *   secret: process.env.AUTHBOUND_SECRET!,
  *   routes: {
  *     protected: [
@@ -65,11 +65,11 @@ export type {
   ProtectedRouteConfig,
   RoutesConfig,
   Sex,
-  VerificationStatusResponse,
-  VerificationRequirements,
   VerificationEventObject,
   VerificationEventStatus,
+  VerificationRequirements,
   VerificationStatus,
+  VerificationStatusResponse,
   VerifiedOutputs,
   // Webhook types
   WebhookEvent,

@@ -7,7 +7,7 @@
  *
  * @example
  * ```ts
- * import { asPolicyId, asVerificationId, type PolicyId, type VerificationId } from '@authbound-sdk/core';
+ * import { asPolicyId, asVerificationId, type PolicyId, type VerificationId } from '@authbound/core';
  *
  * const policyId = asPolicyId('pol_authbound_pension_v1'); // Creates PolicyId
  * const verificationId = asVerificationId('vrf_abc123');    // Creates VerificationId

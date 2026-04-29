@@ -1,5 +1,5 @@
 {
-  "name": "@authbound-sdk/server",
+  "name": "@authbound/server",
   "version": "0.1.0",
   "description": "Authbound server SDK: middleware, API handlers, and JWT utilities for identity/age verification.",
   "type": "module",
@@ -45,12 +45,10 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist",
-    "src"
+    "dist"
   ],
   "dependencies": {
-    "@authbound-sdk/core": "workspace:*",
-    "@authbound-sdk/shared": "workspace:*",
+    "@authbound/core": "workspace:*",
     "jose": "^5.10.0"
   },
   "peerDependencies": {
@@ -71,18 +69,18 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
-    "@types/node": "catalog:",
+    "@types/node": "24.10.1",
     "express": "^5.0.1",
     "hono": "4.11.3",
     "next": "^16.1.0",
-    "tsup": "catalog:",
-    "typescript": "catalog:",
-    "vitest": "catalog:",
-    "zod": "catalog:"
+    "tsup": "8.5.0",
+    "typescript": "5.9.2",
+    "vitest": "4.0.8",
+    "zod": "4.1.12"
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsup --config tsup.config.ts",
+    "dev": "tsup --config tsup.config.ts --watch",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "ultracite lint",

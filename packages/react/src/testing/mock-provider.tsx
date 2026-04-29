@@ -10,11 +10,11 @@ import type {
   ClientToken,
   EudiVerificationStatus,
   PolicyId,
-  VerificationId,
   VerificationClaims,
+  VerificationId,
   VerificationResult,
-} from "@authbound-sdk/core";
-import { AuthboundError } from "@authbound-sdk/core";
+} from "@authbound/core";
+import { AuthboundError } from "@authbound/core";
 import {
   createContext,
   type ReactNode,
@@ -189,7 +189,7 @@ export interface MockAuthboundProviderProps {
  *
  * @example
  * ```tsx
- * import { MockAuthboundProvider, MockScenarios } from '@authbound-sdk/react/testing';
+ * import { MockAuthboundProvider, MockScenarios } from '@authbound/react/testing';
  *
  * // Test successful verification
  * <MockAuthboundProvider config={{ scenario: 'normalSuccess' }}>
@@ -293,7 +293,7 @@ export function MockAuthboundProvider({
       verificationId: `vrf_mock_${Date.now()}` as VerificationId,
       status: "pending",
       authorizationRequestUrl: `https://mock.authbound.io/v?verification=mock_${Date.now()}`,
-      clientToken: "mock_token_" + Date.now(),
+      clientToken: `mock_token_${Date.now()}`,
       expiresAt: new Date(Date.now() + 5 * 60 * 1000),
     };
 
@@ -317,6 +317,8 @@ export function MockAuthboundProvider({
             break;
           case "timeout":
             triggerTimeout();
+            break;
+          default:
             break;
         }
       }, delay);

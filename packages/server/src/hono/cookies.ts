@@ -6,7 +6,7 @@
  * @example
  * ```ts
  * import { Hono } from 'hono';
- * import { getVerificationFromCookie } from '@authbound-sdk/server/hono';
+ * import { getVerificationFromCookie } from '@authbound/server/hono';
  *
  * const app = new Hono();
  *
@@ -21,7 +21,10 @@ import type { Context } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { CookieOptions as HonoCookieOptions } from "hono/utils/cookie";
 import { createToken, getVerificationFromToken } from "../core/jwt";
-import type { AuthboundConfig, AuthboundVerificationContext } from "../core/types";
+import type {
+  AuthboundConfig,
+  AuthboundVerificationContext,
+} from "../core/types";
 import { getDefaultCookieOptions } from "../core/types";
 
 // ============================================================================
@@ -129,7 +132,10 @@ export async function setVerificationCookie(
 /**
  * Clear the session cookie from a Hono context.
  */
-export function clearVerificationCookie(c: Context, config: AuthboundConfig): void {
+export function clearVerificationCookie(
+  c: Context,
+  config: AuthboundConfig
+): void {
   const cookieName = getCookieName(config);
   const cookieOptions = buildCookieOptions(config);
 

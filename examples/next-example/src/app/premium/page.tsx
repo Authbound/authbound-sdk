@@ -1,4 +1,4 @@
-import { getVerificationFromToken } from "@authbound-sdk/server/next";
+import { getVerificationFromToken } from "@authbound/server/next";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { authboundConfig } from "@/authbound.config";
@@ -9,7 +9,10 @@ export default async function PremiumPage() {
 
   let verification = null;
   if (token) {
-    verification = await getVerificationFromToken(token, authboundConfig.secret);
+    verification = await getVerificationFromToken(
+      token,
+      authboundConfig.secret
+    );
   }
 
   return (

@@ -4,7 +4,7 @@
  * @example
  * ```ts
  * import { Hono } from 'hono';
- * import { createAuthboundApp } from '@authbound-sdk/server/hono';
+ * import { createAuthboundApp } from '@authbound/server/hono';
  *
  * const app = new Hono();
  *
@@ -320,7 +320,7 @@ async function handleSignOut(
  * @example
  * ```ts
  * import { Hono } from 'hono';
- * import { createAuthboundApp } from '@authbound-sdk/server/hono';
+ * import { createAuthboundApp } from '@authbound/server/hono';
  *
  * const app = new Hono();
  *
@@ -328,7 +328,7 @@ async function handleSignOut(
  *   onWebhook: async (event) => {
  *     // Sync with your database
  *     await db.verifications.update({
-   *       verificationId: event.data.object.id,
+ *       verificationId: event.data.object.id,
  *       status: event.data.object.status,
  *     });
  *   },
@@ -347,7 +347,7 @@ export function createAuthboundApp(
     apiUrl:
       validatedConfig.apiUrl ??
       process.env.AUTHBOUND_API_URL ??
-      "https://api.authbound.com",
+      "https://api.authbound.io",
     debug: validatedConfig.debug,
   });
 
@@ -397,7 +397,7 @@ export function createVerificationHandler(
     apiUrl:
       validatedConfig.apiUrl ??
       process.env.AUTHBOUND_API_URL ??
-      "https://api.authbound.com",
+      "https://api.authbound.io",
     debug: validatedConfig.debug,
   });
 

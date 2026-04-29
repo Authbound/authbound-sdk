@@ -14,10 +14,10 @@ import {
   WebhookEventSchema,
 } from "../core/types";
 import {
+  type CookieReadableRequest,
   clearVerificationCookie,
   createErrorResponse,
   createJsonResponse,
-  type CookieReadableRequest,
   getVerificationFromCookie,
   setVerificationCookie,
 } from "./cookies";
@@ -107,7 +107,7 @@ function detectRouteAction(request: Request): RouteAction {
 
   // Infer from path segments
   const segments = pathname.split("/").filter(Boolean);
-  const lastSegment = segments[segments.length - 1];
+  const lastSegment = segments.at(-1);
 
   if (lastSegment === "callback" || pathname.includes("/callback")) {
     return "callback";
@@ -139,7 +139,7 @@ function detectRouteAction(request: Request): RouteAction {
  * @example
  * ```ts
  * // app/api/authbound/[...authbound]/route.ts
- * import { createAuthboundHandlers } from '@authbound-sdk/server/next';
+ * import { createAuthboundHandlers } from '@authbound/server/next';
  * import { authboundConfig } from '@/authbound.config';
  *
  * export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig);
@@ -158,7 +158,7 @@ export function createAuthboundHandlers(
     apiUrl:
       validatedConfig.apiUrl ??
       process.env.AUTHBOUND_API_URL ??
-      "https://api.authbound.com",
+      "https://api.authbound.io",
     debug: validatedConfig.debug,
   });
 
@@ -182,17 +182,15 @@ export function createAuthboundHandlers(
   // GET Handler
   // ============================================================================
 
-  const GET = async (request: Request): Promise<Response> => {
-    return handleGetStatus(request, validatedConfig);
-  };
+  const GET = async (request: Request): Promise<Response> =>
+    handleGetStatus(request, validatedConfig);
 
   // ============================================================================
   // DELETE Handler
   // ============================================================================
 
-  const DELETE = async (request: Request): Promise<Response> => {
-    return handleSignOut(request, validatedConfig);
-  };
+  const DELETE = async (request: Request): Promise<Response> =>
+    handleSignOut(request, validatedConfig);
 
   return { GET, POST, DELETE };
 }
@@ -390,7 +388,7 @@ async function handleGetStatus(
 }
 
 async function handleSignOut(
-  request: Request,
+  _request: Request,
   config: AuthboundConfig
 ): Promise<Response> {
   try {
@@ -428,7 +426,7 @@ export function createVerificationHandler(
     apiUrl:
       validatedConfig.apiUrl ??
       process.env.AUTHBOUND_API_URL ??
-      "https://api.authbound.com",
+      "https://api.authbound.io",
     debug: validatedConfig.debug,
   });
 

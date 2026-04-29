@@ -9,7 +9,7 @@ Minimal server-side example for the issuer-agent flow:
 5. Return the `offerUri` for wallet handoff.
 
 ```sh
-AUTHBOUND_API_KEY=sk_test_... pnpm tsx server.ts
+AUTHBOUND_SECRET_KEY=sk_test_... pnpm tsx server.ts
 ```
 
 Open `http://localhost:3000/offer` to create and return a wallet offer URI.

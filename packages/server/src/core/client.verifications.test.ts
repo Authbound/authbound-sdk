@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AuthboundClient, createVerification, getVerificationStatus } from "./client";
+import {
+  AuthboundClient,
+  createVerification,
+  getVerificationStatus,
+} from "./client";
 
 const apiKey = `sk_test_${"x".repeat(32)}`;
 const publishableKey = `pk_test_${"x".repeat(32)}`;
@@ -50,7 +54,9 @@ describe("AuthboundClient verifications API", () => {
   });
 
   it("creates a verification with the v1 REST contract and idempotency header", async () => {
-    const fetchMock = vi.fn(async () => jsonResponse(verificationResponse, 201));
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(verificationResponse, 201)
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await createClient().verifications.create({
@@ -101,9 +107,19 @@ describe("AuthboundClient verifications API", () => {
   it("lists, gets, cancels, and fetches signed results with secret-key endpoints", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ object: "list", data: [verificationResponse], has_more: true }))
-      .mockResolvedValueOnce(jsonResponse({ ...verificationResponse, status: "processing" }))
-      .mockResolvedValueOnce(jsonResponse({ ...verificationResponse, status: "canceled" }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          object: "list",
+          data: [verificationResponse],
+          has_more: true,
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ ...verificationResponse, status: "processing" })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ ...verificationResponse, status: "canceled" })
+      )
       .mockResolvedValueOnce(
         jsonResponse({
           verification_id: "vrf_123",
@@ -152,9 +168,11 @@ describe("AuthboundClient verifications API", () => {
       [`${apiUrl}/v1/verifications/vrf_123/cancel`, "POST"],
       [`${apiUrl}/v1/verifications/vrf_123/result`, "GET"],
     ]);
-    expect((fetchMock.mock.calls[2]?.[1] as RequestInit).headers).toMatchObject({
-      "Idempotency-Key": "cancel_123",
-    });
+    expect((fetchMock.mock.calls[2]?.[1] as RequestInit).headers).toMatchObject(
+      {
+        "Idempotency-Key": "cancel_123",
+      }
+    );
   });
 
   it("gets client-token status with publishable-key scoped headers", async () => {

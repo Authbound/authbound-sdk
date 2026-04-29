@@ -101,7 +101,7 @@ export function buildWalletUniversalLink(
 
   const params = { ...rest.params };
   if (preferredWallet) {
-    params["wallet"] = preferredWallet;
+    params.wallet = preferredWallet;
   }
 
   return buildUniversalLink(authorizationRequestUrl, {

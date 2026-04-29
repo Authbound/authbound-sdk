@@ -1,5 +1,5 @@
 /**
- * @authbound-sdk/vue
+ * @authbound/vue
  *
  * Vue 3 SDK for Authbound EUDI wallet verification.
  *
@@ -7,14 +7,15 @@
  * ```ts
  * // main.ts
  * import { createApp } from 'vue';
- * import { AuthboundPlugin } from '@authbound-sdk/vue';
+ * import { asPolicyId, AuthboundPlugin } from '@authbound/vue';
  * import App from './App.vue';
  *
+ * const policyId = asPolicyId(import.meta.env.VITE_AUTHBOUND_POLICY_ID);
  * const app = createApp(App);
  *
  * app.use(AuthboundPlugin, {
  *   publishableKey: import.meta.env.VITE_AUTHBOUND_PK,
- *   policyId: 'age-gate-18@1.0.0',
+ *   policyId,
  * });
  *
  * app.mount('#app');
@@ -23,7 +24,7 @@
  * @example
  * ```vue
  * <script setup>
- * import { useVerification, VerificationWall } from '@authbound-sdk/vue';
+ * import { useVerification, VerificationWall } from '@authbound/vue';
  *
  * const { status, startVerification, authorizationRequestUrl } = useVerification();
  * </script>
@@ -101,13 +102,14 @@ export {
 } from "./types/appearance";
 
 // ============================================================================
-// Re-exports from @authbound-sdk/core
+// Re-exports from @authbound/core
 // ============================================================================
 
 export {
   // Error handling
   AuthboundError,
   type AuthboundErrorCode,
+  asPolicyId,
   type EudiVerificationStatus,
   isAuthboundError,
   // Utilities
@@ -121,4 +123,4 @@ export {
   type VerificationClaims,
   type VerificationId,
   type VerificationResult,
-} from "@authbound-sdk/core";
+} from "@authbound/core";

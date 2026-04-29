@@ -1,5 +1,5 @@
 {
-  "name": "@authbound-sdk/core",
+  "name": "@authbound/core",
   "version": "0.1.0",
   "description": "Authbound core SDK: framework-agnostic verification flows and protocol logic (OIDC4VP, SD-JWT VC).",
   "type": "module",
@@ -26,23 +26,20 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist",
-    "src"
+    "dist"
   ],
   "dependencies": {
-    "@authbound-sdk/shared": "workspace:*",
-    "zod": "catalog:"
+    "zod": "4.1.12"
   },
   "peerDependencies": {},
   "devDependencies": {
-    "@authbound-sdk/tsconfig": "workspace:*",
-    "tsup": "catalog:",
-    "typescript": "catalog:",
-    "vitest": "catalog:"
+    "tsup": "8.5.0",
+    "typescript": "5.9.2",
+    "vitest": "4.0.8"
   },
   "scripts": {
-    "build": "tsup src/index.ts --dts --format esm,cjs --clean",
-    "dev": "tsup src/index.ts --dts --format esm,cjs --watch",
+    "build": "tsup src/index.ts --dts --format esm,cjs --clean --no-config",
+    "dev": "tsup src/index.ts --dts --format esm,cjs --watch --no-config",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "ultracite lint",

@@ -1,5 +1,5 @@
 /**
- * @authbound-sdk/server
+ * @authbound/server
  *
  * Server-side SDK for Authbound identity and age verification.
  *
@@ -10,17 +10,17 @@
  * - Framework-agnostic core utilities
  *
  * For framework-specific integrations, import from the appropriate subpath:
- * - `@authbound-sdk/server/next` - Next.js middleware and handlers
- * - `@authbound-sdk/server/express` - Express.js middleware and handlers
- * - `@authbound-sdk/server/hono` - Hono middleware and handlers
+ * - `@authbound/server/next` - Next.js middleware and handlers
+ * - `@authbound/server/express` - Express.js middleware and handlers
+ * - `@authbound/server/hono` - Hono middleware and handlers
  *
  * @example
  * ```ts
  * // API Client (manual orchestration)
- * import { AuthboundClient } from '@authbound-sdk/server';
+ * import { AuthboundClient } from '@authbound/server';
  *
  * const client = new AuthboundClient({
- *   apiKey: process.env.AUTHBOUND_API_KEY!,
+ *   apiKey: process.env.AUTHBOUND_SECRET_KEY!,
  * });
  *
  * const verification = await client.verifications.create({
@@ -29,7 +29,7 @@
  * });
  *
  * // Webhook verification
- * import { verifyWebhookSignature } from '@authbound-sdk/server';
+ * import { verifyWebhookSignature } from '@authbound/server';
  *
  * const isValid = verifyWebhookSignature({
  *   payload: rawBody,
@@ -38,7 +38,7 @@
  * });
  *
  * // Framework-specific
- * import { authboundMiddleware } from '@authbound-sdk/server/express';
+ * import { authboundMiddleware } from '@authbound/server/express';
  * ```
  */
 
@@ -73,9 +73,9 @@ export type {
   ProtectedRouteConfig,
   RoutesConfig,
   Sex,
-  VerificationRequirements,
   VerificationEventObject,
   VerificationEventStatus,
+  VerificationRequirements,
   VerificationStatus,
   VerificationStatusResponse,
   VerifiedOutputs,
@@ -100,9 +100,9 @@ export {
   parseConfig,
   RoutesConfigSchema,
   SexSchema,
-  VerificationRequirementsSchema,
   VerificationEventObjectSchema,
   VerificationEventStatusSchema,
+  VerificationRequirementsSchema,
   VerificationStatusSchema,
   VerifiedOutputsSchema,
   // Webhook schemas
@@ -130,16 +130,16 @@ export {
   type CredentialDefinitionList,
   // Standalone functions
   createVerification,
-  getVerificationStatus,
   type GetVerificationStatusOptions,
+  getVerificationStatus,
   type ListOpenId4VcIssuanceOptions,
   type ListVerificationsOptions,
   type OpenId4VcIssuanceCredential,
   type OpenId4VcIssuanceList,
   type OpenId4VcIssuanceOffer,
   type OpenId4VcIssuanceStatus,
-  type PublicVerificationStatus,
   type PublicCredentialFormat,
+  type PublicVerificationStatus,
   type SignedVerificationResult,
   type UpdateCredentialDefinitionOptions,
   type UpdateOpenId4VcIssuanceOptions,

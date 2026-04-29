@@ -11,7 +11,7 @@ import {
   detectMobilePlatform,
   supportsDeepLinks,
   type WalletScheme,
-} from "@authbound-sdk/core";
+} from "@authbound/core";
 import { defineComponent, h, onMounted, type PropType, ref } from "vue";
 
 // ============================================================================

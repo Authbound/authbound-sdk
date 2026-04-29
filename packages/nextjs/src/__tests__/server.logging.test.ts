@@ -1,4 +1,4 @@
-import type { PolicyId } from "@authbound-sdk/core";
+import type { PolicyId } from "@authbound/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createStatusRoute,
@@ -23,7 +23,7 @@ describe("Next.js server debug logging", () => {
         client_token: "client_token_secret_value",
         client_action: {
           kind: "link",
-          data: "https://gateway.authbound.io/verify/secret",
+          data: "https://api.authbound.io/verify/secret",
           expires_at: "2026-03-09T12:00:00.000Z",
         },
         expires_at: "2026-03-09T12:00:00.000Z",
@@ -34,7 +34,7 @@ describe("Next.js server debug logging", () => {
 
     const handler = createVerificationRoute({
       policyId: "pol_age_over_18_v1" as PolicyId,
-      gatewayUrl: "https://gateway.authbound.io",
+      gatewayUrl: "https://api.authbound.io",
       secret: "sk_test_secret",
       debug: true,
     });
@@ -101,7 +101,7 @@ describe("Next.js server debug logging", () => {
 
     const handler = createVerificationRoute({
       policyId: "pol_authbound_pension_v1" as PolicyId,
-      gatewayUrl: "https://gateway.authbound.io",
+      gatewayUrl: "https://api.authbound.io",
       secret: "sk_test_secret",
     });
 
@@ -126,7 +126,7 @@ describe("Next.js server debug logging", () => {
         "openid4vp://authorize?request_uri=https%3A%2F%2Fgateway.example.com",
     });
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://gateway.authbound.io/v1/verifications",
+      "https://api.authbound.io/v1/verifications",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
@@ -135,6 +135,93 @@ describe("Next.js server debug logging", () => {
         }),
       })
     );
+  });
+
+  it("prefers verification_url when client_action is not a browser URL", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        object: "verification",
+        id: "00000000-0000-4000-8000-000000000123",
+        policy_id: "pol_authbound_pension_v1",
+        status: "awaiting_user",
+        client_token: "client_token_secret_value",
+        verification_url:
+          "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.io%2Frequest%2F123",
+        client_action: {
+          kind: "qr",
+          data: "iVBORw0KGgoAAAANSUhEUgAA",
+          expires_at: "2026-03-09T12:00:00.000Z",
+        },
+        expires_at: "2026-03-09T12:00:00.000Z",
+      }),
+    }) as typeof fetch;
+
+    const handler = createVerificationRoute({
+      policyId: "pol_authbound_pension_v1" as PolicyId,
+      gatewayUrl: "https://api.authbound.io",
+      secret: "sk_test_secret",
+    });
+
+    const response = await handler(
+      new Request(
+        "https://playground.authbound.io/api/authbound/verification",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ customerUserRef: "demo-user" }),
+        }
+      ) as never
+    );
+
+    expect(await response.json()).toEqual({
+      verificationId: "00000000-0000-4000-8000-000000000123",
+      authorizationRequestUrl:
+        "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.io%2Frequest%2F123",
+      clientToken: "client_token_secret_value",
+      expiresAt: "2026-03-09T12:00:00.000Z",
+    });
+  });
+
+  it("returns a clear server error when the API response has no browser URL", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        object: "verification",
+        id: "vrf_123",
+        client_token: "client_token_secret_value",
+        client_action: {
+          kind: "request_blob",
+          data: "eyJ0eXAiOiJvcGVuaWQ0dnAtcmVxdWVzdCJ9",
+          expires_at: "2026-03-09T12:00:00.000Z",
+        },
+        expires_at: "2026-03-09T12:00:00.000Z",
+      }),
+    }) as typeof fetch;
+
+    const handler = createVerificationRoute({
+      policyId: "pol_authbound_pension_v1" as PolicyId,
+      gatewayUrl: "https://api.authbound.io",
+      secret: "sk_test_secret",
+    });
+
+    const response = await handler(
+      new Request(
+        "https://playground.authbound.io/api/authbound/verification",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({}),
+        }
+      ) as never
+    );
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({
+      error:
+        "Authbound did not return a browser-compatible wallet URL for this verification.",
+      code: "BROWSER_WALLET_URL_MISSING",
+    });
   });
 
   it("does not let browser request bodies override the route policy", async () => {
@@ -155,7 +242,7 @@ describe("Next.js server debug logging", () => {
 
     const handler = createVerificationRoute({
       policyId: "pol_authbound_pension_v1" as PolicyId,
-      gatewayUrl: "https://gateway.authbound.io",
+      gatewayUrl: "https://api.authbound.io",
       secret: "sk_test_secret",
     });
 
@@ -171,7 +258,7 @@ describe("Next.js server debug logging", () => {
     );
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://gateway.authbound.io/v1/verifications",
+      "https://api.authbound.io/v1/verifications",
       expect.objectContaining({
         body: JSON.stringify({
           policy_id: "pol_authbound_pension_v1",
@@ -198,23 +285,26 @@ describe("Next.js server debug logging", () => {
 
     const handler = createVerificationRoute({
       policyId: "pol_authbound_pension_v1" as PolicyId,
-      gatewayUrl: "https://gateway.authbound.io",
+      gatewayUrl: "https://api.authbound.io",
       secret: "sk_test_secret",
     });
 
     await handler(
-      new Request("https://playground.authbound.io/api/authbound/verification", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "Idempotency-Key": "idem_123",
-        },
-        body: JSON.stringify({}),
-      }) as never
+      new Request(
+        "https://playground.authbound.io/api/authbound/verification",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "Idempotency-Key": "idem_123",
+          },
+          body: JSON.stringify({}),
+        }
+      ) as never
     );
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://gateway.authbound.io/v1/verifications",
+      "https://api.authbound.io/v1/verifications",
       expect.objectContaining({
         headers: expect.objectContaining({
           "Idempotency-Key": "idem_123",
@@ -234,7 +324,7 @@ describe("Next.js server debug logging", () => {
     }) as typeof fetch;
 
     const handler = createStatusRoute({
-      gatewayUrl: "https://gateway.authbound.io",
+      gatewayUrl: "https://api.authbound.io",
       publishableKey: "pk_test_configured",
     });
 
@@ -252,7 +342,7 @@ describe("Next.js server debug logging", () => {
     );
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://gateway.authbound.io/v1/verifications/vrf_123/status",
+      "https://api.authbound.io/v1/verifications/vrf_123/status",
       {
         headers: {
           Authorization: "Bearer client_token_123",
@@ -279,7 +369,7 @@ describe("Next.js server debug logging", () => {
       }) as typeof fetch;
 
       const handler = createStatusRoute({
-        gatewayUrl: "https://gateway.authbound.io",
+        gatewayUrl: "https://api.authbound.io",
       });
 
       process.env.AUTHBOUND_PUBLISHABLE_KEY = "pk_test_runtime";
@@ -297,7 +387,7 @@ describe("Next.js server debug logging", () => {
       );
 
       expect(global.fetch).toHaveBeenCalledWith(
-        "https://gateway.authbound.io/v1/verifications/vrf_123/status",
+        "https://api.authbound.io/v1/verifications/vrf_123/status",
         {
           headers: {
             Authorization: "Bearer client_token_123",

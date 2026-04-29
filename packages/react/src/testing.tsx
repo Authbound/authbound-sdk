@@ -1,11 +1,11 @@
 /**
- * @authbound-sdk/react/testing
+ * @authbound/react/testing
  *
  * Testing utilities for Authbound React SDK.
  *
  * @example
  * ```tsx
- * import { MockAuthboundProvider, MockScenarios, useMockAuthbound } from '@authbound-sdk/react/testing';
+ * import { MockAuthboundProvider, MockScenarios, useMockAuthbound } from '@authbound/react/testing';
  *
  * describe('VerificationFlow', () => {
  *   it('handles successful verification', async () => {

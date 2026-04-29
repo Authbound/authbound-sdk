@@ -1,12 +1,12 @@
 /**
  * Security tests for webhook signature verification.
  *
- * Target: verifyWebhookSignatureDetailed() re-exported from @authbound-sdk/server
+ * Target: verifyWebhookSignatureDetailed() re-exported from @authbound/server
  * Purpose: Prevent webhook replay attacks via future timestamps
  *          (attacker sends webhook with future timestamp, replays later)
  */
 
-import crypto from "crypto";
+import crypto from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { verifyWebhookSignatureDetailed } from "../server";
 

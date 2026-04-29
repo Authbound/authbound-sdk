@@ -4,13 +4,14 @@
   "scripts": {
     "build": "pnpm -r --filter './packages/*' run build",
     "dev": "pnpm -r --filter './packages/*' run dev",
-    "lint": "ultracite lint",
-    "format": "ultracite format",
-    "check-types": "pnpm -r --filter './packages/*' run check-types",
-    "release:check": "pnpm lint && pnpm check-types && pnpm build"
+    "lint": "biome check --config-path ./biome.json .",
+    "format": "biome check --config-path ./biome.json --write .",
+    "check-types": "pnpm -r --filter './packages/*' run typecheck",
+    "release:check": "pnpm lint && pnpm check-types && pnpm test && pnpm build",
+    "test": "pnpm -r --filter './packages/*' run test"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.5",
+    "@biomejs/biome": "2.3.11",
     "@types/node": "catalog:",
     "changesets": "^1.0.2",
     "tsup": "catalog:",

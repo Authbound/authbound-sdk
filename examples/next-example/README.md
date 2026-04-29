@@ -29,8 +29,9 @@ cp .env.example .env.local
 Edit `.env.local` with your Authbound credentials:
 
 ```env
-AUTHBOUND_API_KEY=your_api_key_here
-AUTHBOUND_SECRET=your-super-secret-key-at-least-32-characters
+AUTHBOUND_SECRET_KEY=sk_test_...
+AUTHBOUND_COOKIE_SECRET=your-cookie-secret-at-least-32-characters
+NEXT_PUBLIC_AUTHBOUND_PK=pk_test_...
 ```
 
 ### 3. Run the development server
@@ -134,5 +135,4 @@ The SDK provides a catch-all API route handler that manages:
 
 - [Authbound Documentation](https://docs.authbound.com)
 - [Next.js Middleware](https://nextjs.org/docs/app/building-your-application/routing/middleware)
-- [@authbound-sdk/server API Reference](../../packages/server/README.md)
-
+- [@authbound/server API Reference](../../packages/server/README.md)

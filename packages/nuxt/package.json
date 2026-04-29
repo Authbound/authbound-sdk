@@ -1,5 +1,5 @@
 {
-  "name": "@authbound-sdk/nuxt",
+  "name": "@authbound/nuxt",
   "version": "0.1.0",
   "description": "Authbound Nuxt 3 module - Complete verification for Nuxt with auto-imports and server middleware.",
   "type": "module",
@@ -16,39 +16,43 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/types.d.ts",
+      "types": "./dist/module.d.ts",
       "import": "./dist/module.mjs",
       "require": "./dist/module.cjs"
     }
   },
   "main": "./dist/module.cjs",
   "module": "./dist/module.mjs",
-  "types": "./dist/types.d.ts",
+  "types": "./dist/module.d.ts",
   "files": [
     "dist"
   ],
   "dependencies": {
-    "@authbound-sdk/core": "workspace:*",
-    "@authbound-sdk/server": "workspace:*",
-    "@authbound-sdk/vue": "workspace:*",
-    "@nuxt/kit": "^3.17.4"
+    "@authbound/core": "workspace:*",
+    "@authbound/server": "workspace:*",
+    "@authbound/vue": "workspace:*",
+    "@nuxt/kit": "^3.17.4",
+    "h3": "^1.15.4"
   },
   "peerDependencies": {
-    "nuxt": "^3.0.0"
+    "nuxt": "^3.0.0",
+    "vue": "^3.5.0"
   },
   "devDependencies": {
-    "@authbound-sdk/tsconfig": "workspace:*",
     "@nuxt/module-builder": "^0.8.4",
     "@nuxt/schema": "^3.17.4",
     "nuxt": "^3.17.4",
-    "sass": "catalog:",
-    "typescript": "catalog:",
-    "unbuild": "^3.5.0"
+    "sass": "^1.92.1",
+    "typescript": "5.9.2",
+    "unbuild": "^3.5.0",
+    "vitest": "4.0.8",
+    "vue": "3.5.26"
   },
   "scripts": {
-    "build": "npx nuxt-module-build build",
-    "dev": "npx nuxt-module-build build --stub",
-    "prepack": "npx nuxt-module-build build",
+    "build": "nuxt-module-build build",
+    "dev": "nuxt-module-build build --stub",
+    "prepack": "nuxt-module-build build",
+    "test": "vitest run src --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {

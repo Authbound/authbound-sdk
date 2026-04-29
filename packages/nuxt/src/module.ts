@@ -1,5 +1,5 @@
 /**
- * @authbound-sdk/nuxt
+ * @authbound/nuxt
  *
  * Nuxt 3 module for Authbound EUDI wallet verification.
  *
@@ -7,16 +7,16 @@
  * ```ts
  * // nuxt.config.ts
  * export default defineNuxtConfig({
- *   modules: ['@authbound-sdk/nuxt'],
+ *   modules: ['@authbound/nuxt'],
  *   authbound: {
  *     publicRoutes: ['/', '/about'],
- *     policyId: 'age-gate-18@1.0.0',
+ *     policyId: 'YOUR_POLICY_ID',
  *   },
  * });
  * ```
  */
 
-import type { PolicyId, PublishableKey } from "@authbound-sdk/core";
+import type { PolicyId, PublishableKey } from "@authbound/core";
 import {
   addComponent,
   addImports,
@@ -25,6 +25,8 @@ import {
   createResolver,
   defineNuxtModule,
 } from "@nuxt/kit";
+
+export { asPolicyId } from "@authbound/core";
 
 // ============================================================================
 // Module Options
@@ -47,7 +49,7 @@ export interface ModuleOptions {
   /**
    * Default policy ID for verification.
    */
-  policyId?: PolicyId;
+  policyId?: PolicyId | string;
 
   /**
    * Publishable key exposed to the browser SDK.
@@ -55,9 +57,14 @@ export interface ModuleOptions {
   publishableKey?: PublishableKey | string;
 
   /**
-   * Secret key used by server routes.
+   * Authbound secret key used by server routes.
    */
-  secret?: string;
+  apiKey?: string;
+
+  /**
+   * Application secret used to verify local session cookies.
+   */
+  sessionSecret?: string;
 
   /**
    * Provider to use for verification creation.
@@ -106,13 +113,23 @@ export interface ModuleOptions {
   debug?: boolean;
 }
 
+declare module "@nuxt/schema" {
+  interface NuxtConfig {
+    authbound?: ModuleOptions;
+  }
+
+  interface NuxtOptions {
+    authbound?: ModuleOptions;
+  }
+}
+
 // ============================================================================
 // Module Definition
 // ============================================================================
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
-    name: "@authbound-sdk/nuxt",
+    name: "@authbound/nuxt",
     configKey: "authbound",
     compatibility: {
       nuxt: "^3.0.0",
@@ -123,7 +140,8 @@ export default defineNuxtModule<ModuleOptions>({
     protectedRoutes: undefined,
     policyId: undefined,
     publishableKey: undefined,
-    secret: undefined,
+    apiKey: undefined,
+    sessionSecret: undefined,
     provider: undefined,
     verifyPath: "/verify",
     cookieName: "authbound_session",
@@ -150,7 +168,9 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.options.runtimeConfig.authbound = {
       policyId: options.policyId,
       provider: options.provider,
-      secret: options.secret ?? process.env.AUTHBOUND_SECRET,
+      apiKey: options.apiKey ?? process.env.AUTHBOUND_SECRET_KEY,
+      sessionSecret:
+        options.sessionSecret ?? process.env.AUTHBOUND_SESSION_SECRET,
       webhookSecret:
         options.webhookSecret ?? process.env.AUTHBOUND_WEBHOOK_SECRET,
       webhookTolerance: options.webhookTolerance,
@@ -233,7 +253,7 @@ export default defineNuxtModule<ModuleOptions>({
 declare module "@nuxt/schema" {
   interface PublicRuntimeConfig {
     authbound: {
-      policyId?: PolicyId;
+      policyId?: PolicyId | string;
       publishableKey?: string;
       verifyPath?: string;
       debug?: boolean;
@@ -241,9 +261,10 @@ declare module "@nuxt/schema" {
   }
   interface RuntimeConfig {
     authbound: {
-      policyId?: PolicyId;
+      policyId?: PolicyId | string;
       provider?: "auto" | "vcs" | "eudi";
-      secret?: string;
+      apiKey?: string;
+      sessionSecret?: string;
       webhookSecret?: string;
       webhookTolerance?: number;
       publicRoutes?: string[];

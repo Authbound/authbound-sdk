@@ -6,7 +6,7 @@ import {
   detectMobilePlatform,
   supportsDeepLinks,
   type WalletScheme,
-} from "@authbound-sdk/core";
+} from "@authbound/core";
 import * as React from "react";
 
 // ============================================================================

@@ -1,12 +1,12 @@
 /**
- * @authbound-sdk/nextjs/middleware
+ * @authbound/nextjs/middleware
  *
  * Simplified Next.js middleware for Authbound verification.
  *
  * @example
  * ```ts
  * // middleware.ts
- * import { withAuthbound } from '@authbound-sdk/nextjs/middleware';
+ * import { withAuthbound } from '@authbound/nextjs/middleware';
  *
  * export default withAuthbound({
  *   publicRoutes: ['/', '/about', '/pricing'],
@@ -18,9 +18,9 @@
  * ```
  */
 
-import type { PolicyId } from "@authbound-sdk/core";
-import { type AuthboundClaims, verifyToken } from "@authbound-sdk/server";
-import { type NextRequest, NextResponse } from "next/server";
+import type { PolicyId } from "@authbound/core";
+import { type AuthboundClaims, verifyToken } from "@authbound/server";
+import { NextResponse } from "next/server";
 
 // ============================================================================
 // Types
@@ -30,6 +30,16 @@ import { type NextRequest, NextResponse } from "next/server";
  * Default cookie name without prefix.
  */
 const DEFAULT_COOKIE_NAME = "authbound_session";
+
+export interface AuthboundNextRequest extends Request {
+  nextUrl: {
+    pathname: string;
+    search: string;
+  };
+  cookies: {
+    get(name: string): { value: string } | undefined;
+  };
+}
 
 /**
  * Get the secure cookie name with __Host- prefix in production.
@@ -108,21 +118,21 @@ export interface WithAuthboundOptions {
    * Custom handler for when verification is required.
    */
   onVerificationRequired?: (
-    request: NextRequest
-  ) => Response | NextResponse | Promise<Response | NextResponse | void> | void;
+    request: AuthboundNextRequest
+  ) => Response | Promise<Response | void> | void;
 
   /**
    * Custom function to check if user is verified.
    * Useful for integrating with custom session management.
    */
-  isVerified?: (request: NextRequest) => boolean | Promise<boolean>;
+  isVerified?: (request: AuthboundNextRequest) => boolean | Promise<boolean>;
 
   /**
    * Callback when a valid session is found.
    * Useful for passing claims to downstream handlers.
    */
   onVerified?: (
-    request: NextRequest,
+    request: AuthboundNextRequest,
     claims: AuthboundClaims
   ) => void | Promise<void>;
 }
@@ -142,7 +152,7 @@ function matchRoute(pathname: string, pattern: string | RegExp): boolean {
   // Wildcard support
   if (pattern.endsWith("/*")) {
     const prefix = pattern.slice(0, -2);
-    return pathname === prefix || pathname.startsWith(prefix + "/");
+    return pathname === prefix || pathname.startsWith(`${prefix}/`);
   }
 
   if (pattern.endsWith("*")) {
@@ -188,13 +198,13 @@ const STATIC_EXTENSIONS =
 /**
  * Create a simplified Authbound middleware for Next.js.
  *
- * This is a higher-level API than `authboundMiddleware` from `@authbound-sdk/server`.
+ * This is a higher-level API than `authboundMiddleware` from `@authbound/server`.
  * It provides sensible defaults and a simpler configuration.
  *
  * @example
  * ```ts
  * // middleware.ts - 3 lines!
- * import { withAuthbound } from '@authbound-sdk/nextjs';
+ * import { withAuthbound } from '@authbound/nextjs';
  *
  * export default withAuthbound({
  *   publicRoutes: ['/', '/about', '/api/*'],
@@ -206,7 +216,7 @@ const STATIC_EXTENSIONS =
  * @example
  * ```ts
  * // With custom verification check
- * import { withAuthbound } from '@authbound-sdk/nextjs';
+ * import { withAuthbound } from '@authbound/nextjs';
  *
  * export default withAuthbound({
  *   publicRoutes: ['/', '/about'],
@@ -220,7 +230,7 @@ const STATIC_EXTENSIONS =
  */
 export function withAuthbound(
   options: WithAuthboundOptions = {}
-): (request: NextRequest) => Promise<Response | NextResponse> {
+): (request: AuthboundNextRequest) => Promise<Response> {
   const {
     publicRoutes = [],
     protectedRoutes,
@@ -257,7 +267,7 @@ export function withAuthbound(
     ...publicRoutes,
   ];
 
-  return async (request: NextRequest): Promise<Response | NextResponse> => {
+  return async (request: AuthboundNextRequest): Promise<Response> => {
     const { pathname } = request.nextUrl;
 
     // Skip static files
@@ -367,7 +377,7 @@ export function withAuthbound(
 }
 
 // ============================================================================
-// Re-exports from @authbound-sdk/server/next
+// Re-exports from @authbound/server/next
 // ============================================================================
 
 export {
@@ -376,4 +386,4 @@ export {
   chainMiddleware,
   createMatcherConfig,
   type MiddlewareOptions,
-} from "@authbound-sdk/server/next";
+} from "@authbound/server/next";

@@ -6,10 +6,10 @@
  *
  * @example
  * ```ts
- * import { AuthboundClient } from '@authbound-sdk/server';
+ * import { AuthboundClient } from '@authbound/server';
  *
  * const client = new AuthboundClient({
- *   apiKey: process.env.AUTHBOUND_API_KEY!,
+ *   apiKey: process.env.AUTHBOUND_SECRET_KEY!,
  *   apiUrl: process.env.AUTHBOUND_API_URL, // optional
  * });
  *
@@ -40,7 +40,7 @@ export interface AuthboundClientConfig {
 
   /**
    * Authbound API URL.
-   * Defaults to "https://api.authbound.com" if not specified.
+   * Defaults to "https://api.authbound.io" if not specified.
    */
   apiUrl?: string;
 
@@ -57,7 +57,7 @@ export interface AuthboundClientConfig {
   debug?: boolean;
 }
 
-const DEFAULT_API_URL = "https://api.authbound.com";
+const DEFAULT_API_URL = "https://api.authbound.io";
 const DEFAULT_TIMEOUT = 30_000; // 30 seconds
 
 /**
@@ -102,7 +102,10 @@ const ClientActionSchema = z.object({
 const VerificationSchema = z.object({
   object: z.literal("verification"),
   id: z.string(),
-  status: z.union([PublicVerificationStatusSchema, GatewayVerificationStatusSchema]),
+  status: z.union([
+    PublicVerificationStatusSchema,
+    GatewayVerificationStatusSchema,
+  ]),
   policy_id: z.string().optional(),
   policy_hash: z.string().optional(),
   provider: z.string().optional(),
@@ -129,7 +132,10 @@ const VerificationListSchema = z.object({
 const VerificationStatusSchema = z.object({
   object: z.literal("verification_status"),
   id: z.string(),
-  status: z.union([PublicVerificationStatusSchema, GatewayVerificationStatusSchema]),
+  status: z.union([
+    PublicVerificationStatusSchema,
+    GatewayVerificationStatusSchema,
+  ]),
   result: z
     .object({
       verified: z.boolean(),
@@ -268,7 +274,9 @@ export interface GetVerificationStatusOptions {
   publishableKey: string;
 }
 
-export type PublicVerificationStatus = z.infer<typeof PublicVerificationStatusSchema>;
+export type PublicVerificationStatus = z.infer<
+  typeof PublicVerificationStatusSchema
+>;
 
 export interface VerificationClientAction {
   kind: "qr" | "link" | "request_blob";
@@ -441,7 +449,7 @@ function mapClientAction(
   action: z.infer<typeof ClientActionSchema> | undefined
 ): VerificationClientAction | undefined {
   if (!action) {
-    return undefined;
+    return;
   }
 
   return {
@@ -451,7 +459,9 @@ function mapClientAction(
   };
 }
 
-function mapVerification(raw: z.infer<typeof VerificationSchema>): Verification {
+function mapVerification(
+  raw: z.infer<typeof VerificationSchema>
+): Verification {
   return {
     object: raw.object,
     id: raw.id,
@@ -1002,7 +1012,11 @@ class VerificationsApi {
       }
     );
 
-    return parseApiResponse(VerificationStatusSchema, response, mapVerificationStatus);
+    return parseApiResponse(
+      VerificationStatusSchema,
+      response,
+      mapVerificationStatus
+    );
   }
 
   /**
@@ -1143,10 +1157,10 @@ class WebhooksApi {
  *
  * @example
  * ```ts
- * import { createVerification } from '@authbound-sdk/server';
+ * import { createVerification } from '@authbound/server';
  *
  * const verification = await createVerification({
- *   apiKey: process.env.AUTHBOUND_API_KEY!,
+ *   apiKey: process.env.AUTHBOUND_SECRET_KEY!,
  *   policyId: 'pol_authbound_pension_v1',
  *   customerUserRef: 'user_123',
  * });
@@ -1214,5 +1228,9 @@ export async function getVerificationStatus(options: {
     );
   }
 
-  return parseApiResponse(VerificationStatusSchema, body, mapVerificationStatus);
+  return parseApiResponse(
+    VerificationStatusSchema,
+    body,
+    mapVerificationStatus
+  );
 }

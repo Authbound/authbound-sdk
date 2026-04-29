@@ -2,7 +2,7 @@
  * useAuthbound - Access Authbound context in Nuxt.
  */
 
-import type { AuthboundClient } from "@authbound-sdk/core";
+import type { AuthboundClient } from "@authbound/core";
 import { useNuxtApp, useRuntimeConfig } from "nuxt/app";
 
 export interface AuthboundContext {
