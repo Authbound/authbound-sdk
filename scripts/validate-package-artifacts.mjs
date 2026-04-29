@@ -5,6 +5,10 @@ const packageNames = ["core", "server", "react", "nextjs", "vue", "nuxt"];
 const authboundScope = "@authbound";
 const forbiddenText = [`${authboundScope}-sdk/`, `${authboundScope}/shared`];
 
+function preservesCssSideEffects(sideEffects) {
+  return Array.isArray(sideEffects) && sideEffects.includes("**/*.css");
+}
+
 function collectExportTargets(exportsField, prefix = "exports") {
   if (typeof exportsField === "string") {
     return [[prefix, exportsField]];
@@ -47,6 +51,16 @@ for (const packageName of packageNames) {
       hasFailure = true;
       console.error(`${manifest.name} manifest contains ${needle}`);
     }
+  }
+
+  if (
+    manifest.exports?.["./styles.css"] &&
+    !preservesCssSideEffects(manifest.sideEffects)
+  ) {
+    hasFailure = true;
+    console.error(
+      `${manifest.name} exports CSS but does not preserve CSS side effects`
+    );
   }
 }
 

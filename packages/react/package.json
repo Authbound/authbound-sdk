@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "description": "Authbound React 18 bindings (hooks + headless components) for verification flows.",
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "**/*.css"
+  ],
   "license": "MIT",
   "author": "Authbound",
   "homepage": "https://github.com/authbound/sdk",
