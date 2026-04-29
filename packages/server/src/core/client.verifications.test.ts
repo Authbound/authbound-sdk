@@ -157,7 +157,7 @@ describe("AuthboundClient verifications API", () => {
     });
   });
 
-  it("gets client-token status with publishable-key scoped headers", async () => {
+  it("gets client-token status with publishable-key scoped headers and strips result data", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         object: "verification_status",
@@ -168,6 +168,10 @@ describe("AuthboundClient verifications API", () => {
           attributes: { "Pension.startDate": "2025-01-01" },
           assertions: { "Pension.startDate": "2025-01-01" },
         },
+        client_action: {
+          kind: "link",
+          data: "openid4vp://authorize?request_uri=https%3A%2F%2Fgateway.example.com%2Frequest",
+        },
       })
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -175,18 +179,19 @@ describe("AuthboundClient verifications API", () => {
     const status = await createClient().verifications.getStatus("vrf_123", {
       clientToken: "client_token_123",
       publishableKey,
+      origin: "https://app.example.com",
     });
 
-    expect(status).toEqual({
+    expect(status).toMatchObject({
       object: "verification_status",
       id: "vrf_123",
       status: "verified",
-      result: {
-        verified: true,
-        attributes: { "Pension.startDate": "2025-01-01" },
-        assertions: { "Pension.startDate": "2025-01-01" },
+      clientAction: {
+        kind: "link",
+        data: "openid4vp://authorize?request_uri=https%3A%2F%2Fgateway.example.com%2Frequest",
       },
     });
+    expect(status).not.toHaveProperty("result");
     expect(fetchMock).toHaveBeenCalledWith(
       `${apiUrl}/v1/verifications/vrf_123/status`,
       expect.objectContaining({ method: "GET" })
@@ -197,6 +202,7 @@ describe("AuthboundClient verifications API", () => {
     ];
     expect(request.headers).toMatchObject({
       Authorization: "Bearer client_token_123",
+      Origin: "https://app.example.com",
       "X-Authbound-Publishable-Key": publishableKey,
     });
     expect(request.headers).not.toHaveProperty("X-Authbound-Key");
@@ -225,12 +231,16 @@ describe("AuthboundClient verifications API", () => {
       verificationId: "vrf_123",
       clientToken: "client_token_123",
       publishableKey,
+      origin: "https://app.example.com",
     });
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(`${apiUrl}/v1/verifications`);
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
       `${apiUrl}/v1/verifications/vrf_123/status`
     );
+    expect((fetchMock.mock.calls[1]?.[1] as RequestInit).headers).toMatchObject({
+      Origin: "https://app.example.com",
+    });
   });
 
   it("preserves public API error codes", async () => {

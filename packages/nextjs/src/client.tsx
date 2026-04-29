@@ -71,7 +71,6 @@ export {
   useVerification,
   type VerificationId,
   type VerificationClaims,
-  type VerificationResult,
   type VerificationState,
   VerificationStatus,
   type VerificationStatusProps,
@@ -79,3 +78,5 @@ export {
   type VerificationWallProps,
   variablesToCSSProperties,
 } from "@authbound-sdk/react";
+
+export type { VerificationSuccess } from "@authbound-sdk/core";

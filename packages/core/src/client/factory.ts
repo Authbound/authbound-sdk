@@ -29,6 +29,7 @@ import type {
   CreateVerificationResponse,
   EudiVerificationStatus,
   StatusEvent,
+  VerificationStatusResponse,
 } from "../types/verification";
 import {
   CreateVerificationResponseSchema,
@@ -86,7 +87,7 @@ export interface AuthboundClient {
   pollStatus(
     verificationId: VerificationId,
     clientToken: ClientToken
-  ): Promise<{ status: EudiVerificationStatus; result?: unknown }>;
+  ): Promise<VerificationStatusResponse>;
 
   /**
    * Generate a deep link for mobile wallet.
@@ -270,7 +271,8 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
     async pollStatus(verificationId, clientToken) {
       const response = await httpClient.get<{
         status: EudiVerificationStatus;
-        result?: unknown;
+        error?: { code: string; message: string };
+        timeRemaining?: number;
       }>(`/v1/verifications/${verificationId}/status`, {
         token: clientToken,
         headers: {
@@ -278,7 +280,13 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
         },
       });
 
-      return response.data;
+      return {
+        status: response.data.status,
+        ...(response.data.error ? { error: response.data.error } : {}),
+        ...(response.data.timeRemaining !== undefined
+          ? { timeRemaining: response.data.timeRemaining }
+          : {}),
+      };
     },
 
     getDeepLink(authorizationRequestUrl) {

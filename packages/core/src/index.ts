@@ -19,7 +19,7 @@
  * // Subscribe to status updates (SSE with polling fallback)
  * const cleanup = client.subscribeToStatus(verificationId, clientToken, (event) => {
  *   if (event.status === 'verified') {
- *     console.log('Verification successful!', event.result);
+ *     console.log('Verification successful!');
  *   }
  * });
  * ```
@@ -89,9 +89,6 @@ export {
 export {
   type ClientTokenClaims,
   ClientTokenClaimsSchema,
-  RESULT_COOKIE_NAME,
-  type ResultTokenClaims,
-  ResultTokenClaimsSchema,
   TOKEN_ISSUER,
   TOKEN_TTL,
   type WebhookTokenClaims,
@@ -111,14 +108,11 @@ export {
   TERMINAL_STATUSES,
   type VerificationStatusResponse,
   VerificationStatusResponseSchema,
+  type VerificationSuccess,
   type Verdict,
   VerdictSchema,
-  type VerificationAttributes,
-  VerificationAttributesSchema,
   type VerificationClaims,
   VerificationClaimsSchema,
-  type VerificationResult,
-  VerificationResultSchema,
 } from "./types/verification";
 
 // ============================================================================

@@ -1,8 +1,14 @@
 {
   "extends": "@authbound-sdk/tsconfig/base.json",
   "compilerOptions": {
+    "baseUrl": ".",
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": "..",
+    "paths": {
+      "@authbound-sdk/core": ["../core/src/index.ts"],
+      "@authbound-sdk/server": ["../server/src/index.ts"],
+      "@authbound-sdk/vue": ["../vue/src/index.ts"]
+    },
     "types": ["node"]
   },
   "include": ["src"],

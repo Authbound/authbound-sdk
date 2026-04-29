@@ -125,5 +125,5 @@ export {
   type StatusEvent,
   type VerificationId,
   type VerificationClaims,
-  type VerificationResult,
+  type VerificationSuccess,
 } from "@authbound-sdk/core";

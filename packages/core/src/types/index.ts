@@ -49,9 +49,6 @@ export {
 export {
   type ClientTokenClaims,
   ClientTokenClaimsSchema,
-  RESULT_COOKIE_NAME,
-  type ResultTokenClaims,
-  ResultTokenClaimsSchema,
   TOKEN_ISSUER,
   TOKEN_TTL,
   type WebhookTokenClaims,
@@ -71,12 +68,9 @@ export {
   TERMINAL_STATUSES,
   type VerificationStatusResponse,
   VerificationStatusResponseSchema,
+  type VerificationSuccess,
   type Verdict,
   VerdictSchema,
-  type VerificationAttributes,
-  VerificationAttributesSchema,
   type VerificationClaims,
   VerificationClaimsSchema,
-  type VerificationResult,
-  VerificationResultSchema,
 } from "./verification";

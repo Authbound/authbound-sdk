@@ -212,6 +212,7 @@ const verification = await authbound.verifications.create({
 const status = await authbound.verifications.getStatus(verification.id, {
   clientToken: verification.clientToken!,
   publishableKey: process.env.AUTHBOUND_PUBLISHABLE_KEY!,
+  origin: "https://app.example.com",
 });
 
 console.log(status.status);
