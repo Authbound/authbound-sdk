@@ -178,6 +178,27 @@ function summarizeError(error: unknown): { name: string; message: string } {
   };
 }
 
+function normalizeBrowserOrigin(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const origin = new URL(value).origin;
+    return origin === "null" ? null : origin;
+  } catch {
+    return null;
+  }
+}
+
+function originForStatusProxy(request: NextRequest): string {
+  return (
+    normalizeBrowserOrigin(request.headers.get("Origin")) ??
+    normalizeBrowserOrigin(request.url) ??
+    ""
+  );
+}
+
 function summarizeVerificationRequest(
   policyId: PolicyId,
   body: Record<string, unknown>
@@ -653,6 +674,7 @@ export function createStatusRoute(
         {
           headers: {
             Authorization: authorization,
+            Origin: originForStatusProxy(request),
             "X-Authbound-Publishable-Key": publishableKey,
           },
         }

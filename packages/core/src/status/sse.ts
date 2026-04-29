@@ -131,15 +131,13 @@ async function fetchLatestStatus(
 
   const data = (await response.json()) as {
     status?: string;
-    result?: StatusEvent["result"];
     error?: StatusEvent["error"];
   };
   const status = mapGatewayStatus(data.status ?? "pending");
 
   return {
-    type: data.result ? "result" : data.error ? "error" : "status",
+    type: data.error ? "error" : "status",
     status,
-    ...(data.result ? { result: data.result } : {}),
     ...(data.error ? { error: data.error } : {}),
     timestamp: new Date().toISOString(),
   };
@@ -297,16 +295,19 @@ export function createStatusSubscription(
               (parsed.updatedAt as string) ??
               new Date().toISOString();
             const statusEvent: StatusEvent = {
-              ...parsed,
               status: mappedStatus,
-              type: (event ?? parsed.type ?? "status") as StatusEvent["type"],
+              type:
+                event === "error" || parsed.type === "error"
+                  ? "error"
+                  : "status",
+              ...(parsed.error ? { error: parsed.error as StatusEvent["error"] } : {}),
               timestamp,
             };
 
             // Stop on terminal status (check raw status for terminal detection)
             if (isTerminalStatus(parsed.status as string)) {
               const finalEvent =
-                statusEvent.result || statusEvent.error
+                statusEvent.error
                   ? null
                   : await fetchLatestStatus(
                       config,

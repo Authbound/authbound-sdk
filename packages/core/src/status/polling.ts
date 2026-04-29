@@ -159,7 +159,6 @@ export function createPollingSubscription(
 
       const data = (await response.json()) as {
         status: string;
-        result?: unknown;
         error?: { code: string; message: string };
         timeRemaining?: number;
       };
@@ -169,9 +168,8 @@ export function createPollingSubscription(
 
       // Create event based on response
       const event: StatusEvent = {
-        type: data.result ? "result" : data.error ? "error" : "status",
+        type: data.error ? "error" : "status",
         status: mappedStatus,
-        result: data.result as StatusEvent["result"],
         error: data.error,
         timestamp: new Date().toISOString(),
       };
@@ -288,7 +286,6 @@ export async function pollOnce(
   clientToken: ClientToken
 ): Promise<{
   status: EudiVerificationStatus;
-  result?: unknown;
   error?: { code: string; message: string };
   timeRemaining?: number;
 }> {
@@ -311,13 +308,13 @@ export async function pollOnce(
 
   const data = (await response.json()) as {
     status: string;
-    result?: unknown;
     error?: { code: string; message: string };
     timeRemaining?: number;
   };
 
   return {
-    ...data,
     status: mapGatewayStatus(data.status),
+    ...(data.error ? { error: data.error } : {}),
+    ...(data.timeRemaining !== undefined ? { timeRemaining: data.timeRemaining } : {}),
   };
 }

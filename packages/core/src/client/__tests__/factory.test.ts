@@ -34,6 +34,38 @@ describe("createClient", () => {
     );
   });
 
+  it("does not expose result data from browser status polling", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: "verified",
+          result: {
+            attributes: { family_name: "Example" },
+            assertions: { age_over_18: true },
+          },
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createClient({
+      publishableKey: "pk_test_public123" as never,
+      gatewayUrl: "https://gateway.authbound.test",
+    });
+
+    const status = await client.pollStatus(
+      "vrf_test123" as never,
+      "client_token_123" as never
+    );
+
+    expect(status).toEqual({ status: "verified" });
+    expect(status).not.toHaveProperty("result");
+  });
+
   it("sends provider preference through the configured verification endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(

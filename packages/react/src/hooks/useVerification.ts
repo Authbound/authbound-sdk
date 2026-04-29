@@ -8,7 +8,7 @@ import type {
   EudiVerificationStatus,
   PolicyId,
   VerificationId,
-  VerificationResult,
+  VerificationSuccess,
 } from "@authbound-sdk/core";
 import { AuthboundError } from "@authbound-sdk/core";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -30,7 +30,7 @@ export interface UseVerificationOptions {
   /** Optional provider override */
   provider?: "auto" | "vcs" | "eudi";
   /** Callback when verification succeeds */
-  onVerified?: (result: VerificationResult) => void;
+  onVerified?: (verification: VerificationSuccess) => void;
   /** Callback when verification fails */
   onFailed?: (error: AuthboundError) => void;
   /** Callback when status changes */
@@ -56,8 +56,6 @@ export interface UseVerificationReturn {
   deepLink: string | null;
   /** Error if verification failed */
   error: AuthboundError | null;
-  /** Verification result if successful */
-  result: VerificationResult | null;
   /** Seconds remaining until timeout */
   timeRemaining: number | null;
   /** Start verification flow */
@@ -166,7 +164,7 @@ export function useVerification(
 
   // Track previous status for change detection
   const prevStatusRef = useRef<EudiVerificationStatus>("idle");
-  const verifiedResultRef = useRef<VerificationResult | null>(null);
+  const verifiedVerificationIdRef = useRef<VerificationId | null>(null);
 
   // Local loading state for start operation
   const [isStarting, setIsStarting] = useState(false);
@@ -194,7 +192,6 @@ export function useVerification(
     client.log("Failed to generate deep link:", err);
   }
   const error = verification?.error ?? null;
-  const result = verification?.result ?? null;
 
   // Start verification
   const startVerification = useCallback(async () => {
@@ -251,14 +248,14 @@ export function useVerification(
 
   useEffect(() => {
     if (status !== "verified") {
-      verifiedResultRef.current = null;
+      verifiedVerificationIdRef.current = null;
       return;
     }
-    if (result && verifiedResultRef.current !== result) {
-      verifiedResultRef.current = result;
-      onVerified?.(result);
+    if (verificationId && verifiedVerificationIdRef.current !== verificationId) {
+      verifiedVerificationIdRef.current = verificationId;
+      onVerified?.({ verificationId, status: "verified" });
     }
-  }, [status, result, onVerified]);
+  }, [status, verificationId, onVerified]);
 
   // Countdown timer
   useEffect(() => {
@@ -321,7 +318,6 @@ export function useVerification(
     authorizationRequestUrl,
     deepLink: deepLink || null,
     error,
-    result,
     timeRemaining,
     startVerification,
     retry,

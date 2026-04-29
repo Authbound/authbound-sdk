@@ -7,7 +7,7 @@
 import type {
   AuthboundError,
   PolicyId,
-  VerificationResult,
+  VerificationSuccess,
 } from "@authbound-sdk/core";
 import type { CSSProperties, ReactNode } from "react";
 import { useAuthbound } from "../context/authbound-context";
@@ -29,7 +29,7 @@ export interface VerificationWallProps {
   /** Button text for starting verification */
   buttonText?: string;
   /** Callback when verification succeeds */
-  onVerified?: (result: VerificationResult) => void;
+  onVerified?: (verification: VerificationSuccess) => void;
   /** Callback when verification fails */
   onFailed?: (error: AuthboundError) => void;
   /** Custom content to show when verified */
@@ -258,7 +258,6 @@ export function VerificationWall({
     authorizationRequestUrl,
     deepLink,
     error,
-    result,
     timeRemaining,
     startVerification,
     retry,

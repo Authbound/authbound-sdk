@@ -244,6 +244,7 @@ describe("Next.js server debug logging", () => {
         {
           headers: {
             Authorization: "Bearer client_token_123",
+            Origin: "https://playground.authbound.io",
             "X-Authbound-Publishable-Key": "pk_test_browser_supplied",
           },
         }
@@ -256,6 +257,7 @@ describe("Next.js server debug logging", () => {
       {
         headers: {
           Authorization: "Bearer client_token_123",
+          Origin: "https://playground.authbound.io",
           "X-Authbound-Publishable-Key": "pk_test_configured",
         },
       }
@@ -301,6 +303,7 @@ describe("Next.js server debug logging", () => {
         {
           headers: {
             Authorization: "Bearer client_token_123",
+            Origin: "https://playground.authbound.io",
             "X-Authbound-Publishable-Key": "pk_test_runtime",
           },
         }

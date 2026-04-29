@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResolvedConfig } from "../../client/config";
 import { asClientToken, asVerificationId } from "../../types/branded";
 import type { StatusEvent } from "../../types/verification";
-import { createPollingSubscription } from "../polling";
+import { createPollingSubscription, pollOnce } from "../polling";
 
 // Test fixtures
 const TEST_CONFIG: ResolvedConfig = {
@@ -219,7 +219,14 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
         })
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ status: "verified", result: {} }),
+          json: () =>
+            Promise.resolve({
+              status: "verified",
+              result: {
+                verified: true,
+                attributes: { "Pension.startDate": "2025-01-01" },
+              },
+            }),
         });
 
       cleanup = createPollingSubscription(
@@ -235,11 +242,33 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
 
       // Should have received verified status
       expect(events.some((e) => e.status === "verified")).toBe(true);
+      expect(events.find((e) => e.status === "verified")).not.toHaveProperty("result");
 
       // Advance more time - should not make more requests
       const callsAfterVerified = fetchMock.mock.calls.length;
       await vi.advanceTimersByTimeAsync(1000);
       expect(fetchMock.mock.calls.length).toBe(callsAfterVerified);
+    });
+  });
+
+  describe("Manual Polling", () => {
+    it("does not expose result data from single status polls", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            status: "verified",
+            result: {
+              attributes: { family_name: "Example" },
+              assertions: { age_over_18: true },
+            },
+          }),
+      });
+
+      const status = await pollOnce(TEST_CONFIG, TEST_VERIFICATION_ID, TEST_CLIENT_TOKEN);
+
+      expect(status).toEqual({ status: "verified" });
+      expect(status).not.toHaveProperty("result");
     });
   });
 

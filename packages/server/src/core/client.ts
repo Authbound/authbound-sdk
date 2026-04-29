@@ -130,13 +130,6 @@ const VerificationStatusSchema = z.object({
   object: z.literal("verification_status"),
   id: z.string(),
   status: z.union([PublicVerificationStatusSchema, GatewayVerificationStatusSchema]),
-  result: z
-    .object({
-      verified: z.boolean(),
-      attributes: z.record(z.string(), z.unknown()).optional(),
-      assertions: z.record(z.string(), z.unknown()).optional(),
-    })
-    .optional(),
   failure_code: z.string().optional(),
   client_action: ClientActionSchema.optional(),
 });
@@ -266,6 +259,7 @@ export interface CancelVerificationOptions {
 export interface GetVerificationStatusOptions {
   clientToken: string;
   publishableKey: string;
+  origin: string;
 }
 
 export type PublicVerificationStatus = z.infer<typeof PublicVerificationStatusSchema>;
@@ -306,11 +300,6 @@ export interface VerificationStatus {
   object: "verification_status";
   id: string;
   status: PublicVerificationStatus;
-  result?: {
-    verified: boolean;
-    attributes?: Record<string, unknown>;
-    assertions?: Record<string, unknown>;
-  };
   failureCode?: string;
   clientAction?: VerificationClientAction;
 }
@@ -416,6 +405,21 @@ export class AuthboundClientError extends Error {
   }
 }
 
+function normalizeBrowserOrigin(origin: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(origin);
+  } catch {
+    throw new AuthboundClientError("Origin must be a valid URL origin", "INVALID_ORIGIN");
+  }
+
+  if (parsed.origin === "null" || !["http:", "https:"].includes(parsed.protocol)) {
+    throw new AuthboundClientError("Origin must be a valid URL origin", "INVALID_ORIGIN");
+  }
+
+  return parsed.origin;
+}
+
 function normalizeVerificationStatus(status: string): PublicVerificationStatus {
   switch (status) {
     case "created":
@@ -479,7 +483,6 @@ function mapVerificationStatus(
     object: raw.object,
     id: raw.id,
     status: normalizeVerificationStatus(raw.status),
-    result: raw.result,
     failureCode: raw.failure_code,
     clientAction: mapClientAction(raw.client_action),
   };
@@ -997,6 +1000,7 @@ class VerificationsApi {
         includeApiKey: false,
         headers: {
           Authorization: `Bearer ${options.clientToken}`,
+          Origin: normalizeBrowserOrigin(options.origin),
           "X-Authbound-Publishable-Key": options.publishableKey,
         },
       }
@@ -1174,8 +1178,9 @@ export async function getVerificationStatus(options: {
   verificationId: string;
   clientToken: string;
   publishableKey: string;
+  origin: string;
 }): Promise<VerificationStatus> {
-  const { apiUrl, verificationId, clientToken, publishableKey } = options;
+  const { apiUrl, verificationId, clientToken, publishableKey, origin } = options;
   const response = await fetch(
     `${apiUrl ?? DEFAULT_API_URL}/v1/verifications/${encodePathSegment(verificationId)}/status`,
     {
@@ -1183,6 +1188,7 @@ export async function getVerificationStatus(options: {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${clientToken}`,
+        Origin: normalizeBrowserOrigin(origin),
         "X-Authbound-Publishable-Key": publishableKey,
       },
     }
