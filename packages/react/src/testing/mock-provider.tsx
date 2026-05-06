@@ -12,7 +12,6 @@ import type {
   PolicyId,
   VerificationClaims,
   VerificationId,
-  VerificationResult,
 } from "@authbound/core";
 import { AuthboundError } from "@authbound/core";
 import {
@@ -104,8 +103,6 @@ export interface MockConfig {
   initialStatus?: EudiVerificationStatus;
   /** Custom delay in ms */
   delay?: number;
-  /** Custom verification result */
-  customResult?: VerificationResult;
   /** Custom error */
   customError?: AuthboundError;
   /** Whether to auto-advance through states */
@@ -118,7 +115,7 @@ export interface MockConfig {
 
 interface MockContextValue {
   /** Trigger verified state */
-  triggerVerified: (result?: VerificationResult) => void;
+  triggerVerified: () => void;
   /** Trigger failed state */
   triggerFailed: (error?: AuthboundError) => void;
   /** Trigger timeout */
@@ -141,7 +138,7 @@ const MockContext = createContext<MockContextValue | null>(null);
  * const { triggerVerified, triggerFailed } = useMockAuthbound();
  *
  * // Simulate successful verification
- * await triggerVerified({ verified: true, assertions: { age_over_18: true } });
+ * await triggerVerified();
  *
  * // Simulate failure
  * await triggerFailed(new AuthboundError('wallet_rejected'));
@@ -166,7 +163,6 @@ interface MockVerification {
   status: EudiVerificationStatus;
   authorizationRequestUrl: string;
   clientToken: string;
-  result?: VerificationResult;
   error?: AuthboundError;
   expiresAt: Date;
 }
@@ -220,23 +216,15 @@ export function MockAuthboundProvider({
   }, [config.scenario]);
 
   // Trigger state changes
-  const triggerVerified = useCallback(
-    (result?: VerificationResult) => {
-      setSession((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          status: "verified",
-          result: result ??
-            config.customResult ?? {
-              verified: true,
-              assertions: { age_over_18: true },
-            },
-        };
-      });
-    },
-    [config.customResult]
-  );
+  const triggerVerified = useCallback(() => {
+    setSession((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        status: "verified",
+      };
+    });
+  }, []);
 
   const triggerFailed = useCallback(
     (error?: AuthboundError) => {
@@ -306,10 +294,7 @@ export function MockAuthboundProvider({
       setTimeout(() => {
         switch (scenario.result) {
           case "verified":
-            triggerVerified({
-              verified: true,
-              assertions: scenario.claims ? { ...scenario.claims } : {},
-            });
+            triggerVerified();
             break;
           case "failed":
           case "error":
@@ -363,7 +348,6 @@ export function MockAuthboundProvider({
             status: session.status,
             authorizationRequestUrl: session.authorizationRequestUrl,
             clientToken: session.clientToken as ClientToken,
-            result: session.result,
             error: session.error,
             expiresAt: session.expiresAt,
           } as VerificationState)
@@ -455,19 +439,6 @@ export function waitForStatus(
 
     check();
   });
-}
-
-/**
- * Create a mock verification result.
- */
-export function createMockResult(
-  claims: VerificationClaims = { age_over_18: true }
-): VerificationResult {
-  return {
-    verified: true,
-    assertions: { ...claims },
-    verifiedAt: new Date().toISOString(),
-  };
 }
 
 /**

@@ -193,6 +193,7 @@ describe("AuthboundClient verifications API", () => {
     const status = await createClient().verifications.getStatus("vrf_123", {
       clientToken: "client_token_123",
       publishableKey,
+      origin: "https://app.example.com/path?ignored=true",
     });
 
     expect(status).toEqual({
@@ -215,6 +216,7 @@ describe("AuthboundClient verifications API", () => {
     ];
     expect(request.headers).toMatchObject({
       Authorization: "Bearer client_token_123",
+      Origin: "https://app.example.com",
       "X-Authbound-Publishable-Key": publishableKey,
     });
     expect(request.headers).not.toHaveProperty("X-Authbound-Key");

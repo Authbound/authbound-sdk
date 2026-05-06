@@ -255,7 +255,7 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
         })
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ status: "verified", result: {} }),
+          json: () => Promise.resolve({ status: "verified" }),
         });
 
       cleanup = createPollingSubscription(

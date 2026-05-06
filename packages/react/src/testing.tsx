@@ -28,7 +28,6 @@
 
 export {
   createMockError,
-  createMockResult,
   MockAuthboundProvider,
   type MockAuthboundProviderProps,
   type MockConfig,
