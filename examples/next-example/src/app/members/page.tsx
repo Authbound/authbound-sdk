@@ -1,4 +1,4 @@
-import { getVerificationFromToken } from "@authbound/server/next";
+import { getVerificationFromToken } from "@authbound/nextjs/server";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { authboundConfig } from "@/authbound.config";

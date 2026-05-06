@@ -28,15 +28,21 @@ import { AuthboundError } from "../types/errors";
 import type {
   CreateVerificationResponse,
   EudiVerificationStatus,
+  FinalizeVerificationResponse,
   StatusEvent,
 } from "../types/verification";
 import {
   CreateVerificationResponseSchema,
+  FinalizeVerificationResponseSchema,
   StatusEventSchema,
 } from "../types/verification";
 import type { AuthboundClientConfig, ResolvedConfig } from "./config";
 import { resolveConfig } from "./config";
-import { createHttpClient, createVerificationClient } from "./http";
+import {
+  createHttpClient,
+  createSessionClient,
+  createVerificationClient,
+} from "./http";
 
 // ============================================================================
 // Client Interface
@@ -89,6 +95,16 @@ export interface AuthboundClient {
   ): Promise<{ status: EudiVerificationStatus; result?: unknown }>;
 
   /**
+   * Finalize a verified browser session through your server.
+   *
+   * The server verifies the client token/status and sets an HttpOnly cookie.
+   */
+  finalizeVerification(
+    verificationId: VerificationId,
+    clientToken: ClientToken
+  ): Promise<FinalizeVerificationResponse>;
+
+  /**
    * Generate a deep link for mobile wallet.
    */
   getDeepLink(authorizationRequestUrl: string): string;
@@ -123,6 +139,7 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
   const resolvedConfig = resolveConfig(config);
   const httpClient = createHttpClient(resolvedConfig);
   const verificationClient = createVerificationClient(resolvedConfig);
+  const sessionClient = createSessionClient(resolvedConfig);
 
   // Debug logger
   function log(...args: unknown[]): void {
@@ -279,6 +296,28 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
       });
 
       return response.data;
+    },
+
+    async finalizeVerification(verificationId, clientToken) {
+      log("Finalizing verification session:", verificationId);
+
+      const response = await sessionClient.finalizeVerification({
+        verificationId,
+        clientToken,
+      });
+
+      const parsed = FinalizeVerificationResponseSchema.safeParse(response);
+      if (!parsed.success) {
+        throw new AuthboundError(
+          "internal_error",
+          "Invalid verification finalization response",
+          {
+            details: { issues: parsed.error.issues },
+          }
+        );
+      }
+
+      return parsed.data as FinalizeVerificationResponse;
     },
 
     getDeepLink(authorizationRequestUrl) {

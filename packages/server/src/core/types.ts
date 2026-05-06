@@ -247,10 +247,18 @@ export type RoutesConfig = z.infer<typeof RoutesConfigSchema>;
 export const AuthboundConfigSchema = z.object({
   /** Your Authbound API Key (server-side only) */
   apiKey: z.string().min(1, "API key is required"),
+  /** Publishable key used to verify client-token status requests */
+  publishableKey: z.string().optional(),
   /** Authbound API URL. Defaults to "https://api.authbound.io" */
   apiUrl: z.string().url().optional(),
   /** Secret key for JWT encryption (min 32 characters recommended) */
   secret: z.string().min(32, "Secret must be at least 32 characters"),
+  /** Webhook signing secret. Required unless unsafeSkipWebhookSignatureVerification is true. */
+  webhookSecret: z.string().optional(),
+  /** Webhook timestamp tolerance in seconds. Defaults to 300. */
+  webhookTolerance: z.number().int().positive().optional(),
+  /** Explicit test/demo escape hatch for unsigned webhooks. Never use in production. */
+  unsafeSkipWebhookSignatureVerification: z.boolean().optional(),
   /** Cookie configuration */
   cookie: CookieOptionsSchema.optional(),
   /** Routes configuration */
@@ -268,7 +276,9 @@ export type AuthboundConfig = z.infer<typeof AuthboundConfigSchema>;
 export interface CreateVerificationResponse {
   clientToken: string;
   verificationId: string;
-  expiresAt?: string;
+  authorizationRequestUrl: string;
+  expiresAt: string;
+  deepLink?: string;
 }
 
 export interface VerificationStatusResponse {

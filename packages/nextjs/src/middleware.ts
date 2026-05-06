@@ -27,9 +27,9 @@ import { NextResponse } from "next/server";
 // ============================================================================
 
 /**
- * Default cookie name without prefix.
+ * Default SDK verification cookie name.
  */
-const DEFAULT_COOKIE_NAME = "authbound_session";
+const DEFAULT_COOKIE_NAME = "__authbound";
 
 export interface AuthboundNextRequest extends Request {
   nextUrl: {
@@ -42,23 +42,11 @@ export interface AuthboundNextRequest extends Request {
 }
 
 /**
- * Get the secure cookie name with __Host- prefix in production.
- *
- * The __Host- prefix provides additional security:
- * - Must have Secure flag
- * - Must have Path=/
- * - Cannot be set by subdomains
- *
- * This protects against subdomain takeover attacks.
+ * Resolve the SDK verification cookie name.
  */
 export function getSecureCookieName(
   baseName: string = DEFAULT_COOKIE_NAME
 ): string {
-  // Use __Host- prefix in production for maximum security
-  // In development, we skip it because localhost doesn't support Secure cookies
-  if (process.env.NODE_ENV === "production") {
-    return `__Host-${baseName}`;
-  }
   return baseName;
 }
 
@@ -89,14 +77,12 @@ export interface WithAuthboundOptions {
 
   /**
    * Cookie name for session storage.
-   * In production, automatically prefixed with __Host- for security.
-   * @default 'authbound_session' (or '__Host-authbound_session' in production)
+   * @default '__authbound'
    */
   cookieName?: string;
 
   /**
-   * Disable the __Host- prefix for cookies.
-   * Only use this if you have a specific reason (e.g., subdomain sharing).
+   * @deprecated Cookie names are no longer automatically prefixed.
    * @default false
    */
   disableSecureCookiePrefix?: boolean;
@@ -104,7 +90,7 @@ export interface WithAuthboundOptions {
   /**
    * Secret key for JWT verification.
    * Required for secure session validation.
-   * @default process.env.AUTHBOUND_SECRET
+   * @default process.env.AUTHBOUND_SESSION_SECRET ?? process.env.AUTHBOUND_SECRET
    */
   secret?: string;
 
@@ -236,26 +222,21 @@ export function withAuthbound(
     protectedRoutes,
     verifyPath = "/verify",
     cookieName: customCookieName,
-    disableSecureCookiePrefix = false,
-    secret = process.env.AUTHBOUND_SECRET,
+    secret = process.env.AUTHBOUND_SESSION_SECRET ??
+      process.env.AUTHBOUND_SECRET,
     debug = false,
     onVerificationRequired,
     onVerified,
     isVerified: customIsVerified,
   } = options;
 
-  // Determine cookie name with optional __Host- prefix
-  const cookieName = customCookieName
-    ? disableSecureCookiePrefix
-      ? customCookieName
-      : getSecureCookieName(customCookieName)
-    : getSecureCookieName();
+  const cookieName = getSecureCookieName(customCookieName);
 
   // Validate secret is provided for secure operation
   if (!(secret || customIsVerified)) {
     console.warn(
-      "[Authbound] Warning: No AUTHBOUND_SECRET configured. " +
-        "Set AUTHBOUND_SECRET environment variable or provide a custom isVerified function. " +
+      "[Authbound] Warning: No AUTHBOUND_SESSION_SECRET configured. " +
+        "Set AUTHBOUND_SESSION_SECRET or provide a custom isVerified function. " +
         "Without this, session cookies cannot be verified securely."
     );
   }

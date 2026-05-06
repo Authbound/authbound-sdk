@@ -95,6 +95,7 @@ export {
 export {
   type AuthboundHandlers,
   createAuthboundHandlers,
+  createSessionHandler,
   createSignOutHandler,
   createStatusHandler,
   createVerificationHandler,

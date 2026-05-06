@@ -9,8 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@authbound/core": "workspace:*",
-    "@authbound/server": "workspace:*",
+    "@authbound/nextjs": "workspace:*",
     "next": "^16.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

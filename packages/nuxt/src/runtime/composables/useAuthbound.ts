@@ -10,6 +10,9 @@ export interface AuthboundContext {
   config: {
     policyId?: string;
     verifyPath?: string;
+    verificationEndpoint?: string;
+    sessionEndpoint?: string;
+    sessionMode?: "sdk" | "manual";
     debug?: boolean;
   };
 }

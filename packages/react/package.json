@@ -45,13 +45,14 @@
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
+    "@testing-library/react": "16.3.0",
     "@types/qrcode": "^1.5.5",
     "@types/react": "19.2.0",
     "@types/react-dom": "19.2.0",
+    "happy-dom": "^20.9.0",
     "tsup": "8.5.0",
     "typescript": "5.9.2",
-    "vitest": "4.0.8",
-    "@testing-library/react": "16.3.0"
+    "vitest": "4.0.8"
   },
   "scripts": {
     "build": "tsup src/index.tsx src/testing.tsx --dts --format esm,cjs --clean --no-config && cp src/styles/variables.css dist/styles.css",

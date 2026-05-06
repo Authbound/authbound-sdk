@@ -18,6 +18,8 @@ const TEST_CONFIG: ResolvedConfig = {
   gatewayUrl: "https://gateway.authbound.test",
   publishableKey: "pk_test_123" as any,
   verificationEndpoint: "/api/authbound/verification",
+  sessionEndpoint: "/api/authbound/session",
+  sessionMode: "sdk",
   timeout: 30_000,
   environment: "test",
   debug: false,
@@ -307,6 +309,78 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
           attributes: { "Pension.startDate": "2025-01-01" },
         },
       });
+    });
+
+    it.each([
+      "created",
+      "awaiting_user",
+      "awaiting_provider",
+    ])("normalizes gateway pre-terminal SSE status %s to pending", async (gatewayStatus) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          body: createMockStream([
+            `event: status\ndata: {"status":"${gatewayStatus}"}\n\n`,
+          ]),
+        })
+      );
+
+      cleanup = createStatusSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          onError: (error) => errors.push(error),
+          autoReconnect: false,
+        }
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(errors).toEqual([]);
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: "status",
+          status: "pending",
+        })
+      );
+    });
+
+    it("reports unknown SSE statuses instead of mapping them to pending", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          body: createMockStream([
+            'event: status\ndata: {"status":"awaiting_provider_review"}\n\n',
+          ]),
+        })
+      );
+
+      cleanup = createStatusSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          onError: (error) => errors.push(error),
+          autoReconnect: false,
+        }
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          status: "error",
+          error: expect.objectContaining({
+            code: "verification_invalid_state",
+          }),
+        })
+      );
     });
   });
 

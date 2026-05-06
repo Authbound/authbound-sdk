@@ -27,15 +27,14 @@ import type {
   VerificationStatusResponse,
   WebhookEvent,
 } from "../core/types";
+import { calculateAge, parseConfig, WebhookEventSchema } from "../core/types";
+import { verifyWebhookSignatureDetailed } from "../core/webhooks";
 import {
-  calculateAgeFromDob,
-  mapVerificationEventStatusToVerificationStatus,
-  parseConfig,
-  WebhookEventSchema,
-} from "../core/types";
-import {
+  clearPendingVerificationCookie,
   clearVerificationCookie,
+  getPendingVerificationFromCookie,
   getVerificationFromCookie,
+  setPendingVerificationCookie,
   setVerificationCookie,
 } from "./cookies";
 
@@ -63,7 +62,7 @@ export interface HandlersOptions {
    */
   validateWebhookSignature?: (
     c: Context,
-    event: WebhookEvent
+    rawBody: string
   ) => boolean | Promise<boolean>;
 
   /**
@@ -78,14 +77,103 @@ export interface HandlersOptions {
 // ============================================================================
 
 const CreateVerificationRequestSchema = z.object({
-  customer_user_ref: z.string().optional(),
-  callback_url: z.string().url().optional(),
-  policy_id: z.string().optional(),
+  policyId: z.string(),
+  customerUserRef: z.string().optional(),
+  metadata: z.record(z.string(), z.string()).optional(),
+  provider: z.enum(["auto", "vcs", "eudi"]).optional(),
 });
+
+const FinalizeVerificationRequestSchema = z.object({
+  verificationId: z.string(),
+  clientToken: z.string(),
+});
+
+function isSameOriginSessionRequest(c: Context): boolean {
+  const origin = c.req.header("origin");
+  if (origin && origin !== new URL(c.req.url).origin) {
+    return false;
+  }
+
+  return c.req.header("sec-fetch-site") !== "cross-site";
+}
 
 // ============================================================================
 // Handler Implementations
 // ============================================================================
+
+class BrowserVerificationResponseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BrowserVerificationResponseError";
+  }
+}
+
+function getBrowserWalletUrl(result: {
+  verificationUrl?: string;
+  clientAction?: { kind: string; data: string };
+}): { authorizationRequestUrl: string; deepLink?: string } {
+  const linkAction =
+    result.clientAction?.kind === "link" ? result.clientAction.data : undefined;
+  const authorizationRequestUrl = result.verificationUrl ?? linkAction;
+
+  if (!authorizationRequestUrl) {
+    throw new BrowserVerificationResponseError(
+      "Authbound did not return a browser-compatible wallet URL for this verification."
+    );
+  }
+
+  return {
+    authorizationRequestUrl,
+    deepLink: linkAction,
+  };
+}
+
+function toBrowserVerificationResponse(result: {
+  id: string;
+  clientToken?: string;
+  expiresAt?: string;
+  verificationUrl?: string;
+  clientAction?: { kind: string; data: string; expiresAt?: string };
+}): CreateVerificationResponse {
+  const { authorizationRequestUrl, deepLink } = getBrowserWalletUrl(result);
+  const expiresAt = result.expiresAt ?? result.clientAction?.expiresAt;
+
+  if (!(result.clientToken && expiresAt)) {
+    throw new BrowserVerificationResponseError(
+      "Authbound verification response is missing client token or expiry."
+    );
+  }
+
+  return {
+    verificationId: result.id,
+    authorizationRequestUrl,
+    clientToken: result.clientToken,
+    expiresAt,
+    deepLink,
+  };
+}
+
+function getPublishableKey(config: AuthboundConfig): string | undefined {
+  return (
+    config.publishableKey ??
+    process.env.AUTHBOUND_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_AUTHBOUND_PK ??
+    process.env.NUXT_PUBLIC_AUTHBOUND_PK ??
+    process.env.VITE_AUTHBOUND_PK
+  );
+}
+
+function getBirthDate(
+  attributes: Record<string, unknown> | undefined
+): string | undefined {
+  if (typeof attributes?.birth_date === "string") {
+    return attributes.birth_date;
+  }
+  if (typeof attributes?.dateOfBirth === "string") {
+    return attributes.dateOfBirth;
+  }
+  return;
+}
 
 async function handleCreateVerification(
   c: Context,
@@ -94,43 +182,20 @@ async function handleCreateVerification(
   client: AuthboundClient
 ): Promise<Response> {
   try {
-    // Parse request body
-    let body: z.infer<typeof CreateVerificationRequestSchema> = {};
-    try {
-      const rawBody = await c.req.json();
-      body = CreateVerificationRequestSchema.parse(rawBody);
-    } catch {
-      // Body might be empty or invalid - use defaults
-    }
-
-    // Get user ref from custom handler or generate one
+    const rawBody = await c.req.json().catch(() => ({}));
+    const body = CreateVerificationRequestSchema.parse(rawBody);
     const userRef =
-      body.customer_user_ref ??
-      (options.getUserRef
-        ? await options.getUserRef(c)
-        : `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`);
-
-    // Build callback URL if configured
-    const url = new URL(c.req.url);
-    const baseUrl = `${url.protocol}//${url.host}`;
-
-    const callbackUrl =
-      body.callback_url ??
-      (config.routes.callback
-        ? new URL(config.routes.callback, baseUrl).toString()
-        : undefined);
+      body.customerUserRef ??
+      (options.getUserRef ? await options.getUserRef(c) : undefined);
 
     const result = await client.verifications.create({
-      policyId: body.policy_id ?? "default",
+      policyId: body.policyId,
       customerUserRef: userRef,
-      metadata: callbackUrl ? { callback_url: callbackUrl } : undefined,
+      metadata: body.metadata,
+      provider: body.provider,
     });
 
-    const verificationResponse: CreateVerificationResponse = {
-      clientToken: result.clientToken ?? "",
-      verificationId: result.id,
-      expiresAt: result.expiresAt,
-    };
+    const verificationResponse = toBrowserVerificationResponse(result);
 
     // Call custom handler if provided
     if (options.onVerificationCreated) {
@@ -144,8 +209,31 @@ async function handleCreateVerification(
       );
     }
 
+    await setPendingVerificationCookie(c, config, {
+      userRef: userRef ?? result.id,
+      verificationId: verificationResponse.verificationId,
+    });
+
     return c.json(verificationResponse, 200);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json(
+        {
+          error: "Invalid request",
+          code: "INVALID_REQUEST",
+        },
+        400
+      );
+    }
+    if (error instanceof BrowserVerificationResponseError) {
+      return c.json(
+        {
+          error: error.message,
+          code: "INVALID_GATEWAY_RESPONSE",
+        },
+        502
+      );
+    }
     if (error instanceof AuthboundClientError) {
       logError(error, "Verification creation", config.debug);
       const statusCode = (error.statusCode ?? 500) as
@@ -176,8 +264,62 @@ async function handleWebhook(
   options: HandlersOptions
 ): Promise<Response> {
   try {
-    const rawBody = await c.req.json();
-    const parsed = WebhookEventSchema.safeParse(rawBody);
+    const rawBody = await c.req.text();
+
+    if (options.validateWebhookSignature) {
+      const isValid = await options.validateWebhookSignature(c, rawBody);
+      if (!isValid) {
+        logError(
+          new Error("Invalid webhook signature"),
+          "Webhook",
+          config.debug
+        );
+        return c.json(
+          {
+            error: "Invalid signature",
+            code: "INVALID_SIGNATURE",
+          },
+          401
+        );
+      }
+    } else if (!config.unsafeSkipWebhookSignatureVerification) {
+      if (!config.webhookSecret) {
+        return c.json(
+          {
+            error: "Webhook secret is required",
+            code: "WEBHOOK_SECRET_MISSING",
+          },
+          500
+        );
+      }
+      const signature = c.req.header("x-authbound-signature");
+      if (!signature) {
+        return c.json(
+          {
+            error: "Missing signature",
+            code: "MISSING_SIGNATURE",
+          },
+          401
+        );
+      }
+      const verification = verifyWebhookSignatureDetailed({
+        payload: rawBody,
+        signature,
+        secret: config.webhookSecret,
+        tolerance: config.webhookTolerance,
+      });
+      if (!verification.valid) {
+        return c.json(
+          {
+            error: verification.error ?? "Invalid signature",
+            code: "INVALID_SIGNATURE",
+          },
+          401
+        );
+      }
+    }
+
+    const parsed = WebhookEventSchema.safeParse(JSON.parse(rawBody));
 
     if (!parsed.success) {
       logError(
@@ -195,69 +337,165 @@ async function handleWebhook(
     }
 
     const event = parsed.data;
-    const session = event.data.object;
-
-    // Validate signature if handler provided
-    if (options.validateWebhookSignature) {
-      const isValid = await options.validateWebhookSignature(c, event);
-      if (!isValid) {
-        logError(
-          new Error("Invalid webhook signature"),
-          "Webhook",
-          config.debug
-        );
-        return c.json(
-          {
-            error: "Invalid signature",
-            code: "INVALID_SIGNATURE",
-          },
-          401
-        );
-      }
-    }
 
     // Call custom webhook handler
     if (options.onWebhook) {
       await options.onWebhook(event);
     }
 
-    // Calculate age from DOB if available
-    let age: number | undefined;
-    if (session.verified_outputs?.dob) {
-      try {
-        age = calculateAgeFromDob(session.verified_outputs.dob);
-      } catch (error) {
-        logError(error, "Age calculation from DOB", config.debug);
-      }
-    }
-
-    // Format DOB as ISO string
-    const dateOfBirth = session.verified_outputs?.dob
-      ? `${session.verified_outputs.dob.year}-${String(session.verified_outputs.dob.month).padStart(2, "0")}-${String(session.verified_outputs.dob.day).padStart(2, "0")}`
-      : undefined;
-
-    // Set the session cookie with verification data
-    await setVerificationCookie(c, config, {
-      userRef: session.client_reference_id,
-      verificationId: session.id,
-      status: mapVerificationEventStatusToVerificationStatus(session.status),
-      assuranceLevel: "SUBSTANTIAL",
-      age,
-      dateOfBirth,
-    });
-
     if (config.debug) {
       console.log("[Authbound] Webhook processed:", {
         eventId: event.id,
         eventType: event.type,
-        verificationId: session.id,
-        status: session.status,
+        verificationId: event.data.object.id,
+        status: event.data.object.status,
       });
     }
 
-    return c.json({ success: true }, 200);
+    return c.json({ received: true }, 200);
   } catch (error) {
     logError(error, "Webhook", config.debug);
+    const safeError = createSafeErrorResponse(error, 500, config.debug);
+    return c.json({ error: safeError.message, code: safeError.code }, 500);
+  }
+}
+
+async function handleFinalizeSession(
+  c: Context,
+  config: AuthboundConfig,
+  options: HandlersOptions,
+  client: AuthboundClient
+): Promise<Response> {
+  try {
+    if (!isSameOriginSessionRequest(c)) {
+      return c.json(
+        {
+          error: "Cross-origin session finalization is not allowed",
+          code: "CROSS_ORIGIN_FORBIDDEN",
+        },
+        403
+      );
+    }
+
+    const rawBody = await c.req.json().catch(() => ({}));
+    const parsed = FinalizeVerificationRequestSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return c.json(
+        {
+          error: "Invalid request",
+          code: "INVALID_REQUEST",
+        },
+        400
+      );
+    }
+
+    const publishableKey = getPublishableKey(config);
+    if (!publishableKey) {
+      return c.json(
+        {
+          error: "Authbound publishable key is not configured",
+          code: "PUBLISHABLE_KEY_MISSING",
+        },
+        500
+      );
+    }
+
+    const { verificationId, clientToken } = parsed.data;
+    const pendingVerification = await getPendingVerificationFromCookie(
+      c,
+      config
+    );
+    if (
+      !pendingVerification ||
+      pendingVerification.status !== "PENDING" ||
+      pendingVerification.verificationId !== verificationId
+    ) {
+      return c.json(
+        {
+          error:
+            "Verification finalization is not bound to this browser session",
+          code: "VERIFICATION_BINDING_REQUIRED",
+        },
+        403
+      );
+    }
+
+    const userRef = options.getUserRef
+      ? await options.getUserRef(c)
+      : pendingVerification.userRef;
+    if (userRef !== pendingVerification.userRef) {
+      return c.json(
+        {
+          error: "Verification finalization is not bound to the current user",
+          code: "VERIFICATION_BINDING_REQUIRED",
+        },
+        403
+      );
+    }
+
+    const status = await client.verifications.getStatus(verificationId, {
+      clientToken,
+      publishableKey,
+    });
+
+    if (status.status !== "verified" || status.result?.verified === false) {
+      return c.json(
+        {
+          error: "Verification is not verified",
+          code: "VERIFICATION_NOT_VERIFIED",
+        },
+        409
+      );
+    }
+
+    const attributes = status.result?.attributes;
+    const birthDate = getBirthDate(attributes);
+    const age =
+      typeof attributes?.age === "number"
+        ? attributes.age
+        : birthDate
+          ? calculateAge(birthDate)
+          : undefined;
+
+    await setVerificationCookie(c, config, {
+      userRef,
+      verificationId,
+      status: "VERIFIED",
+      assuranceLevel: "SUBSTANTIAL",
+      age,
+      dateOfBirth: birthDate,
+    });
+    clearPendingVerificationCookie(c, config);
+
+    return c.json(
+      {
+        isVerified: true,
+        verificationId,
+        status: status.status,
+      },
+      200
+    );
+  } catch (error) {
+    if (error instanceof AuthboundClientError) {
+      logError(error, "Session finalization", config.debug);
+      const statusCode = (error.statusCode ?? 500) as
+        | 400
+        | 401
+        | 403
+        | 404
+        | 409
+        | 500
+        | 502
+        | 503;
+      return c.json(
+        {
+          error: error.message,
+          code: error.code,
+        },
+        statusCode
+      );
+    }
+    logError(error, "Session finalization", config.debug);
     const safeError = createSafeErrorResponse(error, 500, config.debug);
     return c.json({ error: safeError.message, code: safeError.code }, 500);
   }
@@ -289,6 +527,7 @@ async function handleSignOut(
 ): Promise<Response> {
   try {
     clearVerificationCookie(c, config);
+    clearPendingVerificationCookie(c, config);
 
     if (config.debug) {
       console.log("[Authbound] Session cleared");
@@ -362,6 +601,10 @@ export function createAuthboundApp(
     handleCreateVerification(c, validatedConfig, options, client)
   );
 
+  app.post("/session", (c) =>
+    handleFinalizeSession(c, validatedConfig, options, client)
+  );
+
   // Webhook callback
   app.post("/callback", (c) => handleWebhook(c, validatedConfig, options));
 
@@ -413,6 +656,25 @@ export function createWebhookHandler(
 ): (c: Context) => Promise<Response> {
   const validatedConfig = parseConfig(config);
   return (c) => handleWebhook(c, validatedConfig, options);
+}
+
+/**
+ * Create a standalone browser session finalization handler.
+ */
+export function createSessionHandler(
+  config: AuthboundConfig,
+  options: HandlersOptions = {}
+): (c: Context) => Promise<Response> {
+  const validatedConfig = parseConfig(config);
+  const client = new AuthboundClient({
+    apiKey: validatedConfig.apiKey,
+    apiUrl:
+      validatedConfig.apiUrl ??
+      process.env.AUTHBOUND_API_URL ??
+      "https://api.authbound.io",
+    debug: validatedConfig.debug,
+  });
+  return (c) => handleFinalizeSession(c, validatedConfig, options, client);
 }
 
 /**

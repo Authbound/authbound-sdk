@@ -22,6 +22,9 @@ import { isTerminalStatus } from "../types/verification";
  * These are mapped to SDK-friendly statuses for consumers.
  */
 type GatewayStatus =
+  | "created"
+  | "awaiting_user"
+  | "awaiting_provider"
   | "pending"
   | "processing"
   | "verified"
@@ -31,11 +34,15 @@ type GatewayStatus =
 
 /**
  * Map gateway status to SDK EudiVerificationStatus.
- * Passes through all statuses directly; unknown statuses default to "pending".
+ * Passes through known statuses directly and rejects unknown gateway states.
  */
 function mapGatewayStatus(status: string): EudiVerificationStatus {
   switch (status) {
+    case "created":
+    case "awaiting_user":
+    case "awaiting_provider":
     case "pending":
+      return "pending";
     case "processing":
     case "verified":
     case "failed":
@@ -43,7 +50,10 @@ function mapGatewayStatus(status: string): EudiVerificationStatus {
     case "expired":
       return status;
     default:
-      return "pending";
+      throw new AuthboundError(
+        "verification_invalid_state",
+        `Unknown verification status from gateway: ${status}`
+      );
   }
 }
 

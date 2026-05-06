@@ -96,6 +96,7 @@ export {
 // API App & Handlers
 export {
   createAuthboundApp,
+  createSessionHandler,
   createSignOutHandler,
   createStatusHandler,
   createVerificationHandler,

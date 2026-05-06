@@ -240,3 +240,65 @@ export function createVerificationClient(config: ResolvedConfig) {
 }
 
 export type VerificationClient = ReturnType<typeof createVerificationClient>;
+
+// ============================================================================
+// Browser Session Endpoint Client
+// ============================================================================
+
+/**
+ * Create a client for your server's verification session endpoint.
+ */
+export function createSessionClient(config: ResolvedConfig) {
+  const endpoint = config.sessionEndpoint;
+
+  async function finalizeVerification(options: {
+    verificationId: string;
+    clientToken: string;
+  }): Promise<{
+    isVerified: boolean;
+    verificationId: string;
+    status: string;
+  }> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), config.timeout);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(options),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw AuthboundError.fromResponse(response, body);
+      }
+
+      return await response.json();
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      if (error instanceof AuthboundError) {
+        throw error;
+      }
+
+      throw new AuthboundError(
+        "verification_invalid_state",
+        error instanceof Error
+          ? error.message
+          : "Failed to finalize verification"
+      );
+    }
+  }
+
+  return {
+    finalizeVerification,
+  };
+}
+
+export type SessionClient = ReturnType<typeof createSessionClient>;

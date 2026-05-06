@@ -38,6 +38,10 @@ export function getCookieName(config: AuthboundConfig): string {
   return config.cookie?.name ?? getDefaultCookieOptions().name;
 }
 
+export function getPendingCookieName(config: AuthboundConfig): string {
+  return `${getCookieName(config)}_pending`;
+}
+
 // ============================================================================
 // Cookie Options Builder
 // ============================================================================
@@ -91,6 +95,16 @@ export async function getVerificationFromCookie(
   return getVerificationFromToken(token, config.secret);
 }
 
+export async function getPendingVerificationFromCookie(
+  c: Context,
+  config: AuthboundConfig
+): Promise<AuthboundVerificationContext | null> {
+  const token = getCookie(c, getPendingCookieName(config));
+  if (!token) return null;
+
+  return getVerificationFromToken(token, config.secret);
+}
+
 // ============================================================================
 // Cookie Writing
 // ============================================================================
@@ -129,6 +143,28 @@ export async function setVerificationCookie(
   setCookie(c, cookieName, token, cookieOptions);
 }
 
+export async function setPendingVerificationCookie(
+  c: Context,
+  config: AuthboundConfig,
+  sessionData: Pick<SetVerificationCookieOptions, "userRef" | "verificationId">
+): Promise<void> {
+  const maxAge = Math.min(config.cookie?.maxAge ?? 600, 600);
+  const token = await createToken({
+    secret: config.secret,
+    userRef: sessionData.userRef,
+    verificationId: sessionData.verificationId,
+    status: "PENDING",
+    assuranceLevel: "NONE",
+    expiresIn: maxAge,
+  });
+
+  setCookie(c, getPendingCookieName(config), token, {
+    ...buildCookieOptions(config),
+    maxAge,
+    httpOnly: true,
+  });
+}
+
 /**
  * Clear the session cookie from a Hono context.
  */
@@ -140,6 +176,20 @@ export function clearVerificationCookie(
   const cookieOptions = buildCookieOptions(config);
 
   deleteCookie(c, cookieName, {
+    path: cookieOptions.path,
+    domain: cookieOptions.domain,
+    secure: cookieOptions.secure,
+    sameSite: cookieOptions.sameSite,
+  });
+}
+
+export function clearPendingVerificationCookie(
+  c: Context,
+  config: AuthboundConfig
+): void {
+  const cookieOptions = buildCookieOptions(config);
+
+  deleteCookie(c, getPendingCookieName(config), {
     path: cookieOptions.path,
     domain: cookieOptions.domain,
     secure: cookieOptions.secure,

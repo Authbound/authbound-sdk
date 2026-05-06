@@ -111,6 +111,10 @@ export interface AuthboundPluginOptions {
   policyId?: PolicyId;
   /** Verification creation endpoint (default: /api/authbound/verification) */
   verificationEndpoint?: string;
+  /** Browser session finalization endpoint (default: /api/authbound/session) */
+  sessionEndpoint?: string;
+  /** Whether the SDK should create its own browser verification session */
+  sessionMode?: "sdk" | "manual";
   /** Gateway URL override (for testing) */
   gatewayUrl?: string;
   /** Appearance customization */
@@ -149,6 +153,8 @@ export const AuthboundPlugin = {
       publishableKey,
       policyId,
       verificationEndpoint,
+      sessionEndpoint,
+      sessionMode = "sdk",
       gatewayUrl,
       debug = false,
     } = options;
@@ -158,6 +164,8 @@ export const AuthboundPlugin = {
       publishableKey: publishableKey as PublishableKey,
       policyId,
       verificationEndpoint,
+      sessionEndpoint,
+      sessionMode,
       gatewayUrl,
       debug,
     };
@@ -176,6 +184,7 @@ export const AuthboundPlugin = {
     const isReady = ref(false);
     const verification = ref<VerificationState | null>(null);
     let statusCleanup: (() => void) | null = null;
+    const finalizedVerificationIds = new Set<string>();
 
     // Track OS color scheme preference for auto theme
     const prefersDark = ref(
@@ -251,6 +260,43 @@ export const AuthboundPlugin = {
       verification.value = null;
     };
 
+    const finalizeSdkSession = async (
+      verificationId: string,
+      clientToken: string
+    ) => {
+      if (sessionMode !== "sdk") {
+        return;
+      }
+
+      if (finalizedVerificationIds.has(verificationId)) {
+        return;
+      }
+
+      finalizedVerificationIds.add(verificationId);
+
+      try {
+        await client.finalizeVerification(
+          verificationId as VerificationId,
+          clientToken as Parameters<typeof client.finalizeVerification>[1]
+        );
+      } catch (error) {
+        finalizedVerificationIds.delete(verificationId);
+        const authboundError = AuthboundError.from(error);
+        if (
+          !verification.value ||
+          verification.value.verificationId !== verificationId
+        ) {
+          throw authboundError;
+        }
+        verification.value = {
+          ...verification.value,
+          status: "error",
+          error: authboundError,
+        };
+        throw authboundError;
+      }
+    };
+
     const startVerification = async (verifyOptions?: {
       policyId?: PolicyId;
       customerUserRef?: string;
@@ -267,6 +313,7 @@ export const AuthboundPlugin = {
           metadata: verifyOptions?.metadata,
           provider: verifyOptions?.provider,
         });
+        finalizedVerificationIds.delete(response.verificationId);
 
         // Initialize verification state
         const newVerification: VerificationState = {
@@ -287,24 +334,37 @@ export const AuthboundPlugin = {
             typeof client.subscribeToStatus
           >[1],
           (event: StatusEvent) => {
-            if (
-              !verification.value ||
-              verification.value.verificationId !== response.verificationId
-            ) {
-              return;
-            }
+            (async () => {
+              if (event.status === "verified") {
+                try {
+                  await finalizeSdkSession(
+                    response.verificationId,
+                    response.clientToken
+                  );
+                } catch {
+                  return;
+                }
+              }
 
-            verification.value = {
-              ...verification.value,
-              status: event.status,
-              result: event.result,
-              error: event.error
-                ? new AuthboundError(
-                    event.error.code as AuthboundErrorCode,
-                    event.error.message
-                  )
-                : undefined,
-            };
+              if (
+                !verification.value ||
+                verification.value.verificationId !== response.verificationId
+              ) {
+                return;
+              }
+
+              verification.value = {
+                ...verification.value,
+                status: event.status,
+                result: event.result,
+                error: event.error
+                  ? new AuthboundError(
+                      event.error.code as AuthboundErrorCode,
+                      event.error.message
+                    )
+                  : undefined,
+              };
+            })().catch(() => undefined);
           },
           {
             onError: (error) => {

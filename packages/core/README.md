@@ -7,9 +7,9 @@ pnpm add @authbound/core
 ```
 
 ```ts
-import { createAuthboundClient } from "@authbound/core";
+import { createClient } from "@authbound/core";
 
-const authbound = createAuthboundClient({
+const authbound = createClient({
   publishableKey: "pk_...",
 });
 ```

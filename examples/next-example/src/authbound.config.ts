@@ -1,48 +1,33 @@
-import type { AuthboundConfig } from "@authbound/server/next";
+import type { AuthboundConfig } from "@authbound/nextjs/server";
 
 /**
  * Authbound SDK configuration.
  *
- * This configuration defines:
- * - API credentials for the Authbound service
- * - Protected routes and their verification requirements
- * - Cookie settings for session management
+ * Authbound SDK configuration.
  */
 export const authboundConfig: AuthboundConfig = {
-  // Your Authbound secret key (keep this server-side)
   apiKey: process.env.AUTHBOUND_SECRET_KEY || "",
-
-  // Secret for encrypting the session cookie (min 32 chars)
+  publishableKey: process.env.NEXT_PUBLIC_AUTHBOUND_PK,
   secret:
-    process.env.AUTHBOUND_COOKIE_SECRET ||
+    process.env.AUTHBOUND_SESSION_SECRET ||
     "your-cookie-secret-at-least-32-chars",
-
-  // Optional: Custom API URL (defaults to https://api.authbound.io)
+  webhookSecret: process.env.AUTHBOUND_WEBHOOK_SECRET,
   apiUrl: process.env.AUTHBOUND_API_URL,
-
-  // Enable debug logging in development
   debug: process.env.NODE_ENV === "development",
-
-  // Cookie configuration
   cookie: {
     name: "__authbound",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+    maxAge: 60 * 60 * 24 * 7,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
   },
-
-  // Route protection configuration
   routes: {
-    // Protected routes with their requirements
     protected: [
-      // Dashboard requires verified identity
       {
         path: "/dashboard",
         requirements: {
           verified: true,
         },
       },
-      // Premium content requires verified identity with substantial assurance
       {
         path: "/premium",
         requirements: {
@@ -50,14 +35,12 @@ export const authboundConfig: AuthboundConfig = {
           assuranceLevel: "SUBSTANTIAL",
         },
       },
-      // Adult content requires age verification (18+)
       {
         path: "/adult",
         requirements: {
           minAge: 18,
         },
       },
-      // Some content only requires low assurance (e.g., just liveness check)
       {
         path: "/members",
         requirements: {
@@ -66,11 +49,7 @@ export const authboundConfig: AuthboundConfig = {
         },
       },
     ],
-
-    // Page to redirect users for verification
     verify: "/verify",
-
-    // Webhook callback endpoint
-    callback: "/api/authbound/callback",
+    callback: "/api/authbound/webhook",
   },
 };
