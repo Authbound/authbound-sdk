@@ -9,10 +9,19 @@ describe("createClient", () => {
 
   it("sends the publishable key when polling verification status", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ status: "processing" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      })
+      new Response(
+        JSON.stringify({
+          status: "processing",
+          result: {
+            verified: true,
+            attributes: { birth_date: "1990-05-15" },
+          },
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -21,10 +30,11 @@ describe("createClient", () => {
       gatewayUrl: "https://gateway.authbound.test",
     });
 
-    await client.pollStatus(
-      "vrf_test123" as never,
-      "client_token_123" as never
-    );
+    await expect(
+      client.pollStatus("vrf_test123" as never, "client_token_123" as never)
+    ).resolves.toEqual({
+      status: "processing",
+    });
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://gateway.authbound.test/v1/verifications/vrf_test123/status",

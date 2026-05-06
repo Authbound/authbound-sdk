@@ -98,5 +98,12 @@ describe("Hono Authbound app contract", () => {
     expect(sessionResponse.headers.get("set-cookie")).toContain(
       "__authbound_pending=;"
     );
+    expect(fetchMock.mock.calls[1]?.[1]).toEqual(
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Origin: "http://app.example.com",
+        }),
+      })
+    );
   });
 });

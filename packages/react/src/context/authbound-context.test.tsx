@@ -1,8 +1,12 @@
 // @vitest-environment happy-dom
 
 import { render, waitFor } from "@testing-library/react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  type UseVerificationOptions,
+  useVerification,
+} from "../hooks/useVerification";
 import { AuthboundProvider, useAuthbound } from "./authbound-context";
 
 function createSseStream(payload: string): ReadableStream<Uint8Array> {
@@ -33,6 +37,25 @@ function AutoStartVerification({ onVerified }: { onVerified?: () => void }) {
       onVerified?.();
     }
   }, [onVerified, verification?.status]);
+
+  return null;
+}
+
+function AutoStartVerificationHook({
+  onVerified,
+}: {
+  onVerified?: UseVerificationOptions["onVerified"];
+}) {
+  const { startVerification } = useVerification({ onVerified });
+  const didStartRef = useRef(false);
+
+  useEffect(() => {
+    if (didStartRef.current) {
+      return;
+    }
+    didStartRef.current = true;
+    startVerification();
+  }, [startVerification]);
 
   return null;
 }
@@ -140,12 +163,15 @@ describe("AuthboundProvider session finalization", () => {
         publishableKey="pk_test_public123"
         sessionMode="manual"
       >
-        <AutoStartVerification onVerified={onVerified} />
+        <AutoStartVerificationHook onVerified={onVerified} />
       </AuthboundProvider>
     );
 
     await waitFor(() => {
-      expect(onVerified).toHaveBeenCalledTimes(1);
+      expect(onVerified).toHaveBeenCalledWith({
+        verificationId: "vrf_manual123",
+        status: "verified",
+      });
     });
     expect(
       fetchMock.mock.calls.filter(

@@ -15,7 +15,6 @@ import {
   type PublishableKey,
   type StatusEvent,
   type VerificationId,
-  type VerificationResult,
 } from "@authbound/core";
 import {
   type App,
@@ -52,8 +51,6 @@ export interface VerificationState {
   clientToken: string;
   /** Deep link for mobile */
   deepLink?: string;
-  /** Verification result (when completed) */
-  result?: VerificationResult;
   /** Error (if failed) */
   error?: AuthboundError;
   /** Time remaining in seconds */
@@ -356,7 +353,6 @@ export const AuthboundPlugin = {
               verification.value = {
                 ...verification.value,
                 status: event.status,
-                result: event.result,
                 error: event.error
                   ? new AuthboundError(
                       event.error.code as AuthboundErrorCode,

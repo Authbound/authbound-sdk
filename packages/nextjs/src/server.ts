@@ -202,6 +202,26 @@ function maskIdentifier(value: string | undefined): string | undefined {
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
+function normalizeBrowserOrigin(value: string | null): string | undefined {
+  if (!value) {
+    return;
+  }
+
+  try {
+    const origin = new URL(value).origin;
+    return origin === "null" ? undefined : origin;
+  } catch {
+    return;
+  }
+}
+
+function originForStatusProxy(request: Request): string | undefined {
+  return (
+    normalizeBrowserOrigin(request.headers.get("origin")) ??
+    normalizeBrowserOrigin(request.url)
+  );
+}
+
 function summarizeError(error: unknown): { name: string; message: string } {
   if (error instanceof Error) {
     return {
@@ -786,15 +806,18 @@ export function createStatusRoute(
       }
 
       const publishableKey = getPublishableKey(configuredPublishableKey);
+      const headers: Record<string, string> = {
+        Authorization: authorization,
+        "X-Authbound-Publishable-Key": publishableKey,
+      };
+      const origin = originForStatusProxy(request);
+      if (origin) {
+        headers.Origin = origin;
+      }
 
       const response = await fetch(
         `${gatewayUrl}/v1/verifications/${encodeURIComponent(verificationId)}/status`,
-        {
-          headers: {
-            Authorization: authorization,
-            "X-Authbound-Publishable-Key": publishableKey,
-          },
-        }
+        { headers }
       );
 
       if (!response.ok) {
@@ -804,7 +827,8 @@ export function createStatusRoute(
         );
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as Record<string, unknown>;
+      delete data.result;
       return NextResponse.json(data);
     } catch (error) {
       if (debug) {
@@ -1030,14 +1054,18 @@ export function createSessionRoute(
       }
 
       const publishableKey = getPublishableKey(configuredPublishableKey);
+      const statusHeaders: Record<string, string> = {
+        Authorization: `Bearer ${clientToken}`,
+        "X-Authbound-Publishable-Key": publishableKey,
+      };
+      const origin = originForStatusProxy(request);
+      if (origin) {
+        statusHeaders.Origin = origin;
+      }
+
       const statusResponse = await fetch(
         `${gatewayUrl}/v1/verifications/${encodeURIComponent(verificationId)}/status`,
-        {
-          headers: {
-            Authorization: `Bearer ${clientToken}`,
-            "X-Authbound-Publishable-Key": publishableKey,
-          },
-        }
+        { headers: statusHeaders }
       );
 
       if (!statusResponse.ok) {

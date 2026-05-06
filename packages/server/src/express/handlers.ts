@@ -109,6 +109,26 @@ function getRequestOrigin(req: Request): string | undefined {
   return `${protocol}://${host}`;
 }
 
+function normalizeBrowserOrigin(value: string | undefined): string | undefined {
+  if (!value) {
+    return;
+  }
+
+  try {
+    const origin = new URL(value).origin;
+    return origin === "null" ? undefined : origin;
+  } catch {
+    return;
+  }
+}
+
+function originForStatusProxy(req: Request): string | undefined {
+  return (
+    normalizeBrowserOrigin(req.get("origin")) ??
+    normalizeBrowserOrigin(getRequestOrigin(req))
+  );
+}
+
 function isSameOriginSessionRequest(req: Request): boolean {
   const origin = req.get("origin");
   const requestOrigin = getRequestOrigin(req);
@@ -457,6 +477,7 @@ async function handleFinalizeSession(
     const status = await client.verifications.getStatus(verificationId, {
       clientToken,
       publishableKey,
+      origin: originForStatusProxy(req),
     });
 
     if (status.status !== "verified" || status.result?.verified === false) {

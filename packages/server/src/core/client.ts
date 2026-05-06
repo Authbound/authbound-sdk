@@ -68,6 +68,19 @@ function validateApiKeyFormat(apiKey: string): boolean {
   return apiKey.startsWith("sk_test_") || apiKey.startsWith("sk_live_");
 }
 
+function normalizeBrowserOrigin(value: string | undefined): string | undefined {
+  if (!value) {
+    return;
+  }
+
+  try {
+    const origin = new URL(value).origin;
+    return origin === "null" ? undefined : origin;
+  } catch {
+    return;
+  }
+}
+
 // ============================================================================
 // Request/Response Schemas
 // ============================================================================
@@ -272,6 +285,7 @@ export interface CancelVerificationOptions {
 export interface GetVerificationStatusOptions {
   clientToken: string;
   publishableKey: string;
+  origin?: string;
 }
 
 export type PublicVerificationStatus = z.infer<
@@ -999,16 +1013,22 @@ class VerificationsApi {
     verificationId: string,
     options: GetVerificationStatusOptions
   ): Promise<VerificationStatus> {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${options.clientToken}`,
+      "X-Authbound-Publishable-Key": options.publishableKey,
+    };
+    const origin = normalizeBrowserOrigin(options.origin);
+    if (origin) {
+      headers.Origin = origin;
+    }
+
     const response = await this.client.request<unknown>(
       "GET",
       `/v1/verifications/${encodePathSegment(verificationId)}/status`,
       undefined,
       {
         includeApiKey: false,
-        headers: {
-          Authorization: `Bearer ${options.clientToken}`,
-          "X-Authbound-Publishable-Key": options.publishableKey,
-        },
+        headers,
       }
     );
 

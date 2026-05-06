@@ -57,6 +57,28 @@ function assertSameOriginSessionRequest(
   }
 }
 
+function normalizeBrowserOrigin(value: string | undefined): string | undefined {
+  if (!value) {
+    return;
+  }
+
+  try {
+    const origin = new URL(value).origin;
+    return origin === "null" ? undefined : origin;
+  } catch {
+    return;
+  }
+}
+
+function originForStatusProxy(
+  event: Parameters<typeof getRequestURL>[0]
+): string | undefined {
+  return (
+    normalizeBrowserOrigin(getHeader(event, "origin")) ??
+    normalizeBrowserOrigin(getRequestURL(event).origin)
+  );
+}
+
 function getBirthDate(
   attributes: Record<string, unknown> | undefined
 ): string | undefined {
@@ -134,14 +156,18 @@ export default defineEventHandler(async (event) => {
 
   const gatewayUrl =
     process.env.AUTHBOUND_API_URL ?? "https://api.authbound.io";
+  const statusHeaders: Record<string, string> = {
+    Authorization: `Bearer ${clientToken}`,
+    "X-Authbound-Publishable-Key": publishableKey,
+  };
+  const origin = originForStatusProxy(event);
+  if (origin) {
+    statusHeaders.Origin = origin;
+  }
+
   const statusResponse = await fetch(
     `${gatewayUrl}/v1/verifications/${encodeURIComponent(verificationId)}/status`,
-    {
-      headers: {
-        Authorization: `Bearer ${clientToken}`,
-        "X-Authbound-Publishable-Key": publishableKey,
-      },
-    }
+    { headers: statusHeaders }
   );
 
   if (!statusResponse.ok) {

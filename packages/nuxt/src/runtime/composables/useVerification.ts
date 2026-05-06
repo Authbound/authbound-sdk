@@ -8,7 +8,7 @@ import type {
   EudiVerificationStatus,
   PolicyId,
   VerificationId,
-  VerificationResult,
+  VerificationSuccess,
 } from "@authbound/core";
 import {
   AuthboundError,
@@ -37,7 +37,7 @@ export interface UseVerificationOptions {
   /** Redirect on success */
   redirectOnSuccess?: string;
   /** Callback when verified */
-  onVerified?: (result: VerificationResult) => void;
+  onVerified?: (verification: VerificationSuccess) => void;
   /** Callback when failed */
   onFailed?: (error: AuthboundError) => void;
   /** Callback on any status change */
@@ -87,7 +87,6 @@ export function useVerification(options: UseVerificationOptions = {}) {
   const deepLink = ref<string | null>(null);
   const clientToken = ref<ClientToken | null>(null);
   const error = ref<AuthboundError | null>(null);
-  const result = ref<VerificationResult | null>(null);
   const timeRemaining = ref<number | null>(null);
   const expiresAt = ref<Date | null>(null);
 
@@ -187,8 +186,11 @@ export function useVerification(options: UseVerificationOptions = {}) {
 
     options.onStatusChange?.(newStatus);
 
-    if (newStatus === "verified" && result.value) {
-      options.onVerified?.(result.value);
+    if (newStatus === "verified" && verificationId.value) {
+      options.onVerified?.({
+        verificationId: verificationId.value,
+        status: "verified",
+      });
       stopTimer();
 
       // Redirect if configured
@@ -272,9 +274,6 @@ export function useVerification(options: UseVerificationOptions = {}) {
               }
 
               status.value = event.status;
-              if (event.result) {
-                result.value = event.result;
-              }
               if (event.error) {
                 error.value = new AuthboundError(
                   event.error.code as AuthboundErrorCode,
@@ -312,7 +311,6 @@ export function useVerification(options: UseVerificationOptions = {}) {
     clientToken.value = null;
     deepLink.value = null;
     error.value = null;
-    result.value = null;
     expiresAt.value = null;
     finalizedVerificationIds.clear();
     statusCleanup?.();
@@ -343,7 +341,6 @@ export function useVerification(options: UseVerificationOptions = {}) {
     authorizationRequestUrl,
     deepLink,
     error,
-    result,
     timeRemaining,
     // Actions
     startVerification,

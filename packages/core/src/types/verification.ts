@@ -74,7 +74,7 @@ export function isTerminalStatus(status: EudiVerificationStatus): boolean {
 }
 
 // ============================================================================
-// Verification Result
+// Verification Verdict
 // ============================================================================
 
 /**
@@ -107,67 +107,6 @@ export const VerificationClaimsSchema = z.object({
   age_over_65: z.boolean().optional(),
   driving_license_valid: z.boolean().optional(),
   eu_resident: z.boolean().optional(),
-});
-
-/**
- * Extended attributes from verification (server-side only).
- * Contains PII - never send to client or store in cookies.
- */
-export interface VerificationAttributes {
-  /** Full name */
-  full_name?: string;
-  /** Given names */
-  given_name?: string;
-  /** Family name */
-  family_name?: string;
-  /** Date of birth (ISO 8601 date) */
-  birth_date?: string;
-  /** Calculated age in years */
-  age?: number;
-  /** Nationality (ISO 3166-1 alpha-2) */
-  nationality?: string;
-  /** Country of residence (ISO 3166-1 alpha-2) */
-  resident_country?: string;
-  /** Driving license categories (e.g., ["B", "A1"]) */
-  driving_privileges?: string[];
-  /** Raw credential data (provider-specific) */
-  raw?: Record<string, unknown>;
-}
-
-export const VerificationAttributesSchema = z.object({
-  full_name: z.string().optional(),
-  given_name: z.string().optional(),
-  family_name: z.string().optional(),
-  birth_date: z.string().optional(),
-  age: z.number().int().nonnegative().optional(),
-  nationality: z.string().length(2).optional(),
-  resident_country: z.string().length(2).optional(),
-  driving_privileges: z.array(z.string()).optional(),
-  raw: z.record(z.string(), z.unknown()).optional(),
-});
-
-/**
- * Complete verification result.
- */
-export interface VerificationResult {
-  /** Whether the presented credential satisfied the policy */
-  verified: boolean;
-  /** Boolean assertions or policy-specific claim checks */
-  assertions?: Record<string, unknown>;
-  /** Presented attributes. May contain PII. */
-  attributes?: Record<string, unknown>;
-  /** Legacy boolean claims for older safe-result payloads */
-  claims?: VerificationClaims;
-  /** Timestamp of verification */
-  verifiedAt?: string;
-}
-
-export const VerificationResultSchema = z.object({
-  verified: z.boolean(),
-  assertions: z.record(z.string(), z.unknown()).optional(),
-  attributes: z.record(z.string(), z.unknown()).optional(),
-  claims: VerificationClaimsSchema.optional(),
-  verifiedAt: z.string().optional(),
 });
 
 // ============================================================================
@@ -250,8 +189,6 @@ export const FinalizeVerificationResponseSchema = z.object({
 export interface VerificationStatusResponse {
   /** Current status */
   status: EudiVerificationStatus;
-  /** Result if verification completed */
-  result?: VerificationResult;
   /** Error details if failed */
   error?: {
     code: string;
@@ -263,7 +200,6 @@ export interface VerificationStatusResponse {
 
 export const VerificationStatusResponseSchema = z.object({
   status: EudiVerificationStatusSchema,
-  result: VerificationResultSchema.optional(),
   error: z
     .object({
       code: z.string(),
@@ -272,6 +208,16 @@ export const VerificationStatusResponseSchema = z.object({
     .optional(),
   timeRemaining: z.number().optional(),
 });
+
+/**
+ * Browser-safe success callback payload.
+ */
+export interface VerificationSuccess {
+  /** Verification that reached the verified state */
+  verificationId: VerificationId;
+  /** Confirmed terminal success status */
+  status: "verified";
+}
 
 // ============================================================================
 // SSE Event Types
@@ -282,18 +228,9 @@ export const VerificationStatusResponseSchema = z.object({
  */
 export interface StatusEvent {
   /** Event type */
-  type:
-    | "status"
-    | "result"
-    | "error"
-    | "timeout"
-    | "canceled"
-    | "expired"
-    | "heartbeat";
+  type: "status" | "error" | "timeout" | "canceled" | "expired" | "heartbeat";
   /** Current status */
   status: EudiVerificationStatus;
-  /** Result data (if type is "result") */
-  result?: VerificationResult;
   /** Error details (if type is "error") */
   error?: {
     code: string;
@@ -306,7 +243,6 @@ export interface StatusEvent {
 export const StatusEventSchema = z.object({
   type: z.enum([
     "status",
-    "result",
     "error",
     "timeout",
     "canceled",
@@ -314,7 +250,6 @@ export const StatusEventSchema = z.object({
     "heartbeat",
   ]),
   status: EudiVerificationStatusSchema,
-  result: VerificationResultSchema.optional(),
   error: z
     .object({
       code: z.string(),
