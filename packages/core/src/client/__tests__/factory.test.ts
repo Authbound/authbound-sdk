@@ -73,4 +73,51 @@ describe("createClient", () => {
       })
     );
   });
+
+  it("finalizes a verified browser session through the configured session endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          isVerified: true,
+          verificationId: "vrf_test123",
+          status: "verified",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createClient({
+      publishableKey: "pk_test_public123" as never,
+      sessionEndpoint: "/api/authbound/session",
+    });
+
+    await expect(
+      client.finalizeVerification(
+        "vrf_test123" as never,
+        "client_token_123" as never
+      )
+    ).resolves.toEqual({
+      isVerified: true,
+      verificationId: "vrf_test123",
+      status: "verified",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/authbound/session",
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          verificationId: "vrf_test123",
+          clientToken: "client_token_123",
+        }),
+      })
+    );
+  });
 });

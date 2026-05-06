@@ -119,6 +119,10 @@ export interface AuthboundProviderProps {
   policyId?: PolicyId;
   /** Verification creation endpoint (default: /api/authbound/verification) */
   verificationEndpoint?: string;
+  /** Browser session finalization endpoint (default: /api/authbound/session) */
+  sessionEndpoint?: string;
+  /** Whether the SDK should create its own browser verification session */
+  sessionMode?: "sdk" | "manual";
   /** Gateway URL override (for testing) */
   gatewayUrl?: string;
   /** Appearance customization */
@@ -159,6 +163,8 @@ export function AuthboundProvider({
   publishableKey,
   policyId,
   verificationEndpoint,
+  sessionEndpoint,
+  sessionMode = "sdk",
   gatewayUrl,
   appearance: appearanceProp,
   debug = false,
@@ -169,6 +175,7 @@ export function AuthboundProvider({
   );
   const [isReady, setIsReady] = useState(false);
   const statusCleanupRef = useRef<(() => void) | null>(null);
+  const finalizedVerificationIdsRef = useRef<Set<string>>(new Set());
 
   // Track OS color scheme preference for auto theme
   const [prefersDark, setPrefersDark] = useState(() => {
@@ -218,6 +225,8 @@ export function AuthboundProvider({
         publishableKey: publishableKey as PublishableKey,
         policyId,
         verificationEndpoint,
+        sessionEndpoint,
+        sessionMode,
         gatewayUrl,
         debug,
       };
@@ -228,7 +237,15 @@ export function AuthboundProvider({
       }
       throw error;
     }
-  }, [publishableKey, policyId, verificationEndpoint, gatewayUrl, debug]);
+  }, [
+    publishableKey,
+    policyId,
+    verificationEndpoint,
+    sessionEndpoint,
+    sessionMode,
+    gatewayUrl,
+    debug,
+  ]);
 
   // Mark as ready after mount
   useEffect(() => {
@@ -256,6 +273,42 @@ export function AuthboundProvider({
     setVerification(null);
   }, [cleanupStatusSubscription]);
 
+  const finalizeSdkSession = useCallback(
+    async (verificationId: string, clientToken: string) => {
+      if (sessionMode !== "sdk") {
+        return;
+      }
+
+      if (finalizedVerificationIdsRef.current.has(verificationId)) {
+        return;
+      }
+
+      finalizedVerificationIdsRef.current.add(verificationId);
+
+      try {
+        await client.finalizeVerification(
+          verificationId as VerificationId,
+          clientToken as Parameters<typeof client.finalizeVerification>[1]
+        );
+      } catch (error) {
+        finalizedVerificationIdsRef.current.delete(verificationId);
+        const authboundError = AuthboundError.from(error);
+        setVerification((prev) => {
+          if (!prev || prev.verificationId !== verificationId) {
+            return prev;
+          }
+          return {
+            ...prev,
+            status: "error",
+            error: authboundError,
+          };
+        });
+        throw authboundError;
+      }
+    },
+    [client, sessionMode]
+  );
+
   // Start verification
   const startVerification = useCallback(
     async (options?: {
@@ -274,6 +327,7 @@ export function AuthboundProvider({
           metadata: options?.metadata,
           provider: options?.provider,
         });
+        finalizedVerificationIdsRef.current.delete(response.verificationId);
 
         // Initialize verification state
         const newVerification: VerificationState = {
@@ -294,23 +348,36 @@ export function AuthboundProvider({
             typeof client.subscribeToStatus
           >[1],
           (event: StatusEvent) => {
-            setVerification((prev) => {
-              if (!prev || prev.verificationId !== response.verificationId)
-                return prev;
+            (async () => {
+              if (event.status === "verified") {
+                try {
+                  await finalizeSdkSession(
+                    response.verificationId,
+                    response.clientToken
+                  );
+                } catch {
+                  return;
+                }
+              }
 
-              return {
-                ...prev,
-                status: event.status,
-                result: event.result,
-                error: event.error
-                  ? new AuthboundError(
-                      event.error.code as AuthboundErrorCode,
-                      event.error.message
-                    )
-                  : undefined,
-                timeRemaining: undefined, // Will be updated by timer
-              };
-            });
+              setVerification((prev) => {
+                if (!prev || prev.verificationId !== response.verificationId)
+                  return prev;
+
+                return {
+                  ...prev,
+                  status: event.status,
+                  result: event.result,
+                  error: event.error
+                    ? new AuthboundError(
+                        event.error.code as AuthboundErrorCode,
+                        event.error.message
+                      )
+                    : undefined,
+                  timeRemaining: undefined, // Will be updated by timer
+                };
+              });
+            })().catch(() => undefined);
           },
           {
             onError: (error) => {
@@ -339,7 +406,7 @@ export function AuthboundProvider({
         throw authboundError;
       }
     },
-    [cleanupStatusSubscription, client, policyId]
+    [cleanupStatusSubscription, client, finalizeSdkSession, policyId]
   );
 
   useEffect(

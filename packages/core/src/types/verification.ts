@@ -225,6 +225,26 @@ export const CreateVerificationResponseSchema = z.object({
 });
 
 /**
+ * Browser session finalization response from your server route.
+ */
+export interface FinalizeVerificationResponse {
+  /** Whether the server created a verified session */
+  isVerified: boolean;
+  /** Verification identifier that was finalized */
+  verificationId: VerificationId;
+  /** Final verification status observed by the server */
+  status: EudiVerificationStatus;
+}
+
+export const FinalizeVerificationResponseSchema = z.object({
+  isVerified: z.boolean(),
+  verificationId: z
+    .string()
+    .refine(isVerificationId, "Invalid verification ID"),
+  status: EudiVerificationStatusSchema,
+});
+
+/**
  * Verification status response.
  */
 export interface VerificationStatusResponse {

@@ -5,7 +5,14 @@
  */
 
 import type { PolicyId } from "@authbound/core";
-import { createError, defineEventHandler, getHeader, readBody } from "h3";
+import { createToken } from "@authbound/server";
+import {
+  createError,
+  defineEventHandler,
+  getHeader,
+  readBody,
+  setCookie,
+} from "h3";
 import { useRuntimeConfig } from "nuxt/app";
 import {
   type GatewayVerificationResponse,
@@ -18,6 +25,10 @@ type CreateVerificationRequest = {
   metadata?: Record<string, string>;
   provider?: "auto" | "vcs" | "eudi";
 };
+
+function getPendingCookieName(cookieName: string): string {
+  return `${cookieName}_pending`;
+}
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig();
@@ -105,7 +116,53 @@ export default defineEventHandler(async (event) => {
     }
 
     const rawResponse = (await response.json()) as GatewayVerificationResponse;
-    return mapGatewayVerificationResponse(rawResponse);
+    const verificationResponse = mapGatewayVerificationResponse(rawResponse);
+
+    if ((config.public.authbound?.sessionMode ?? "sdk") === "sdk") {
+      const verificationId = verificationResponse.verificationId;
+      if (!verificationId) {
+        throw createError({
+          statusCode: 502,
+          message: "Authbound verification response is missing an id.",
+        });
+      }
+
+      const sessionSecret =
+        config.authbound?.sessionSecret ??
+        process.env.AUTHBOUND_SESSION_SECRET ??
+        process.env.AUTHBOUND_SECRET;
+      if (!sessionSecret) {
+        throw createError({
+          statusCode: 500,
+          message: "AUTHBOUND_SESSION_SECRET not configured",
+        });
+      }
+
+      const maxAge = 600;
+      const token = await createToken({
+        secret: sessionSecret,
+        userRef: body?.customerUserRef ?? verificationId,
+        verificationId,
+        status: "PENDING",
+        assuranceLevel: "NONE",
+        expiresIn: maxAge,
+      });
+
+      setCookie(
+        event,
+        getPendingCookieName(config.authbound?.cookieName ?? "__authbound"),
+        token,
+        {
+          httpOnly: true,
+          maxAge,
+          path: "/",
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+        }
+      );
+    }
+
+    return verificationResponse;
   } catch (error) {
     if (typeof error === "object" && error && "statusCode" in error) {
       throw error;

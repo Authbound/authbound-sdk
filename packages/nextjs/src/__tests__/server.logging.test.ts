@@ -1,10 +1,13 @@
 import type { PolicyId } from "@authbound/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  createSessionRoute,
   createStatusRoute,
   createVerificationRoute,
   createWebhookRoute,
 } from "../server";
+
+const SESSION_SECRET = "session-secret-at-least-32-characters";
 
 describe("Next.js server debug logging", () => {
   const originalFetch = global.fetch;
@@ -407,6 +410,210 @@ describe("Next.js server debug logging", () => {
         process.env.AUTHBOUND_PUBLISHABLE_KEY = originalPublishableKey;
       }
     }
+  });
+
+  it("creates a verified session cookie through the session route", async () => {
+    const originalSessionSecret = process.env.AUTHBOUND_SESSION_SECRET;
+    process.env.AUTHBOUND_SESSION_SECRET = SESSION_SECRET;
+
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          object: "verification",
+          id: "vrf_123",
+          client_token: "client_token_123",
+          client_action: {
+            kind: "link",
+            data: "openid4vp://authorize?request_uri=https%3A%2F%2Fgateway.example.com",
+            expires_at: "2026-03-09T12:00:00.000Z",
+          },
+          expires_at: "2026-03-09T12:00:00.000Z",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          object: "verification_status",
+          id: "vrf_123",
+          status: "verified",
+          result: {
+            verified: true,
+            attributes: { birth_date: "1990-05-15" },
+          },
+        }),
+      }) as typeof fetch;
+
+    try {
+      const createHandler = createVerificationRoute({
+        policyId: "pol_authbound_pension_v1" as PolicyId,
+        gatewayUrl: "https://api.authbound.io",
+        secret: "sk_test_secret",
+      });
+
+      const createResponse = await createHandler(
+        new Request(
+          "https://playground.authbound.io/api/authbound/verification",
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ customerUserRef: "demo-user" }),
+          }
+        ) as never
+      );
+      const pendingCookie = createResponse.headers.get("set-cookie");
+
+      expect(pendingCookie).toContain("__authbound_pending=");
+
+      const handler = createSessionRoute({
+        gatewayUrl: "https://api.authbound.io",
+        publishableKey: "pk_test_configured",
+        sessionSecret: SESSION_SECRET,
+      });
+
+      const response = await handler(
+        new Request("https://playground.authbound.io/api/authbound/session", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            cookie: pendingCookie?.split(";")[0] ?? "",
+            origin: "https://playground.authbound.io",
+            "sec-fetch-site": "same-origin",
+          },
+          body: JSON.stringify({
+            verificationId: "vrf_123",
+            clientToken: "client_token_123",
+          }),
+        }) as never
+      );
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        isVerified: true,
+        verificationId: "vrf_123",
+        status: "verified",
+      });
+      expect(response.headers.get("set-cookie")).toContain("__authbound=");
+      expect(response.headers.get("set-cookie")).toContain(
+        "__authbound_pending=;"
+      );
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://api.authbound.io/v1/verifications/vrf_123/status",
+        {
+          headers: {
+            Authorization: "Bearer client_token_123",
+            "X-Authbound-Publishable-Key": "pk_test_configured",
+          },
+        }
+      );
+    } finally {
+      if (originalSessionSecret === undefined) {
+        delete process.env.AUTHBOUND_SESSION_SECRET;
+      } else {
+        process.env.AUTHBOUND_SESSION_SECRET = originalSessionSecret;
+      }
+    }
+  });
+
+  it("rejects cross-origin session finalization requests before contacting the gateway", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        object: "verification_status",
+        id: "vrf_123",
+        status: "verified",
+        result: { verified: true },
+      }),
+    }) as typeof fetch;
+
+    const handler = createSessionRoute({
+      gatewayUrl: "https://api.authbound.io",
+      publishableKey: "pk_test_configured",
+      sessionSecret: SESSION_SECRET,
+    });
+
+    const response = await handler(
+      new Request("https://playground.authbound.io/api/authbound/session", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://attacker.example",
+          "sec-fetch-site": "cross-site",
+        },
+        body: JSON.stringify({
+          verificationId: "vrf_123",
+          clientToken: "client_token_123",
+        }),
+      }) as never
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      code: "CROSS_ORIGIN_FORBIDDEN",
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("rejects session finalization without the pending verification cookie", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        object: "verification_status",
+        id: "vrf_123",
+        status: "verified",
+        result: { verified: true },
+      }),
+    }) as typeof fetch;
+
+    const handler = createSessionRoute({
+      gatewayUrl: "https://api.authbound.io",
+      publishableKey: "pk_test_configured",
+      sessionSecret: SESSION_SECRET,
+    });
+
+    const response = await handler(
+      new Request("https://playground.authbound.io/api/authbound/session", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://playground.authbound.io",
+          "sec-fetch-site": "same-origin",
+        },
+        body: JSON.stringify({
+          verificationId: "vrf_123",
+          clientToken: "client_token_123",
+        }),
+      }) as never
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      code: "VERIFICATION_BINDING_REQUIRED",
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("fails closed when the webhook route has no signing secret", async () => {
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const handler = createWebhookRoute({});
+
+    const response = await handler(
+      new Request("https://playground.authbound.io/api/authbound/webhook", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: "evt_123", type: "test.event" }),
+      }) as never
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: "Webhook secret is required",
+      code: "WEBHOOK_SECRET_MISSING",
+    });
+    expect(consoleWarn).not.toHaveBeenCalled();
   });
 
   it("logs only webhook metadata when debug logging is enabled", async () => {

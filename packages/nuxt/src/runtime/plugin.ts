@@ -34,6 +34,13 @@ export default defineNuxtPlugin({
         client = createClient({
           publishableKey: asPublishableKey(rawPublishableKey),
           policyId: config.public.authbound?.policyId as PolicyId | undefined,
+          verificationEndpoint:
+            config.public.authbound?.verificationEndpoint ??
+            "/api/authbound/verification",
+          sessionEndpoint:
+            config.public.authbound?.sessionEndpoint ??
+            "/api/authbound/session",
+          sessionMode: config.public.authbound?.sessionMode ?? "sdk",
           debug: config.public.authbound?.debug,
         });
       } catch (error) {

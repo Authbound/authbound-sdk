@@ -44,27 +44,9 @@ const DEFAULT_PUBLIC_PATHS = [
   "/__nuxt_error",
 ];
 
-/**
- * Default cookie name without prefix.
- */
-const DEFAULT_COOKIE_NAME = "authbound_session";
+const DEFAULT_COOKIE_NAME = "__authbound";
 
-/**
- * Get the secure cookie name with __Host- prefix in production.
- *
- * The __Host- prefix provides additional security:
- * - Must have Secure flag
- * - Must have Path=/
- * - Cannot be set by subdomains
- *
- * This protects against subdomain takeover attacks.
- */
 function getSecureCookieName(baseName: string = DEFAULT_COOKIE_NAME): string {
-  // Use __Host- prefix in production for maximum security
-  // In development, we skip it because localhost doesn't support Secure cookies
-  if (process.env.NODE_ENV === "production") {
-    return `__Host-${baseName}`;
-  }
   return baseName;
 }
 
@@ -114,12 +96,8 @@ export default defineEventHandler(async (event) => {
     return;
   }
 
-  // Check for session cookie and verify JWT
-  // Apply __Host- prefix in production unless disabled
   const baseCookieName = authboundConfig.cookieName ?? DEFAULT_COOKIE_NAME;
-  const cookieName = authboundConfig.disableSecureCookiePrefix
-    ? baseCookieName
-    : getSecureCookieName(baseCookieName);
+  const cookieName = getSecureCookieName(baseCookieName);
   const sessionCookie = getCookie(event, cookieName);
   const sessionSecret =
     authboundConfig.sessionSecret ?? process.env.AUTHBOUND_SESSION_SECRET;

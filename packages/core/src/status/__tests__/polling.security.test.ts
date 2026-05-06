@@ -17,6 +17,8 @@ const TEST_CONFIG: ResolvedConfig = {
   gatewayUrl: "https://gateway.authbound.test",
   publishableKey: "pk_test_123" as any,
   verificationEndpoint: "/api/authbound/verification",
+  sessionEndpoint: "/api/authbound/session",
+  sessionMode: "sdk",
   timeout: 30_000,
   environment: "test",
   debug: false,
@@ -210,6 +212,40 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
   });
 
   describe("Terminal Status Handling", () => {
+    it.each([
+      "created",
+      "awaiting_user",
+      "awaiting_provider",
+    ])("normalizes gateway pre-terminal status %s to pending", async (gatewayStatus) => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ status: gatewayStatus }),
+      });
+
+      cleanup = createPollingSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        { pollingConfig: { initialInterval: 100 } }
+      );
+
+      await vi.advanceTimersByTimeAsync(100);
+
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: "status",
+          status: "pending",
+        })
+      );
+      expect(events).not.toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          status: "error",
+        })
+      );
+    });
+
     it("stops polling when terminal status received", async () => {
       // First call returns pending, second returns verified
       fetchMock
@@ -240,6 +276,33 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
       const callsAfterVerified = fetchMock.mock.calls.length;
       await vi.advanceTimersByTimeAsync(1000);
       expect(fetchMock.mock.calls.length).toBe(callsAfterVerified);
+    });
+
+    it("emits an explicit error for unknown gateway statuses", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ status: "awaiting_provider_review" }),
+      });
+
+      cleanup = createPollingSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        { pollingConfig: { initialInterval: 100 } }
+      );
+
+      await vi.advanceTimersByTimeAsync(100);
+
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          status: "error",
+          error: expect.objectContaining({
+            code: "verification_invalid_state",
+          }),
+        })
+      );
     });
   });
 

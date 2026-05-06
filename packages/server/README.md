@@ -12,7 +12,7 @@
 - **Middleware-based route protection** - Automatically redirect unverified users
 - **Encrypted verification context cookies** - Stateless, secure route access state
 - **Flexible verification requirements** - Support for identity verification, age gating, and assurance levels
-- **Webhook handling** - Automatic verification context updates when verification completes
+- **Webhook handling** - Backend reconciliation for verification events
 - **TypeScript-first** - Full type safety with Zod validation
 
 ## Installation
@@ -81,14 +81,16 @@ import type { AuthboundConfig } from "@authbound/server/next";
 
 export const authboundConfig: AuthboundConfig = {
   apiKey: process.env.AUTHBOUND_SECRET_KEY!,
-  secret: process.env.AUTHBOUND_SECRET!, // Min 32 characters
+  publishableKey: process.env.NEXT_PUBLIC_AUTHBOUND_PK!,
+  secret: process.env.AUTHBOUND_SESSION_SECRET!, // Min 32 characters
+  webhookSecret: process.env.AUTHBOUND_WEBHOOK_SECRET!,
   routes: {
     protected: [
       { path: "/dashboard", requirements: { verified: true } },
       { path: "/adult-content", requirements: { minAge: 18 } },
     ],
     verify: "/verify",
-    callback: "/api/authbound/callback",
+    callback: "/api/authbound/webhook",
   },
 };
 ```
@@ -194,7 +196,23 @@ Verification context is stored in encrypted JWT cookies:
 
 ### Webhook Integration
 
-Handle verification completion automatically:
+Use webhooks to reconcile backend state. Browser sessions are finalized by the
+same-origin `POST /api/authbound/session` route after the browser observes a
+verified status.
+
+Express apps must preserve the raw JSON body before mounting the Authbound
+router so webhook signatures are verified against the exact payload bytes:
+
+```typescript
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      (req as express.Request & { rawBody?: Buffer }).rawBody =
+        Buffer.from(buf);
+    },
+  })
+);
+```
 
 ```typescript
 export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig, {
@@ -209,10 +227,8 @@ export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig, {
     await sendEmail(payload.customer_user_ref, "Verification complete");
   },
   
-  validateWebhookSignature: async (request, payload) => {
-    // Validate webhook signature (recommended for production)
-    const signature = request.headers.get("x-authbound-signature");
-    return verifySignature(signature, payload);
+  validateWebhookSignature: async (request, rawBody) => {
+    return verifySignature(request.headers.get("x-authbound-signature"), rawBody);
   },
 });
 ```
@@ -270,7 +286,7 @@ Creates API route handlers for verification management.
 ```typescript
 {
   GET: (request) => Promise<NextResponse>;   // Get verification status
-  POST: (request) => Promise<NextResponse>;  // Create verification or handle webhook
+  POST: (request) => Promise<NextResponse>;  // Create, finalize session, or handle webhook
   DELETE: (request) => Promise<NextResponse>; // Sign out
 }
 ```
@@ -281,7 +297,7 @@ Creates API route handlers for verification management.
 interface HandlersOptions {
   onWebhook?: (payload: WebhookPayload) => void | Promise<void>;
   onVerificationCreated?: (response: CreateVerificationResponse) => void | Promise<void>;
-  validateWebhookSignature?: (request, payload) => boolean | Promise<boolean>;
+  validateWebhookSignature?: (request, rawBody: string) => boolean | Promise<boolean>;
   getUserRef?: (request) => string | Promise<string>;
 }
 ```
@@ -385,7 +401,7 @@ interface RoutesConfig {
 - Use different secrets per environment
 
 ```typescript
-secret: process.env.AUTHBOUND_SECRET || generateSecret(),
+secret: process.env.AUTHBOUND_SESSION_SECRET || generateSecret(),
 ```
 
 **❌ DON'T:**
@@ -396,48 +412,24 @@ secret: process.env.AUTHBOUND_SECRET || generateSecret(),
 ### 2. Webhook Security
 
 **✅ DO:**
-- Validate webhook signatures in production
+- Set `AUTHBOUND_WEBHOOK_SECRET`; webhook handlers fail closed by default
 - Verify request origin/IP if possible
 - Use HTTPS for webhook endpoints
 
 **Webhook Signature Validation Example:**
 
 ```typescript
-import crypto from "crypto";
-import type { WebhookPayload } from "@authbound/server/next";
+import { verifyWebhookSignatureDetailed } from "@authbound/server";
 
-async function verifyWebhookSignature(
-  request: NextRequest,
-  payload: WebhookPayload,
-  secret: string
-): Promise<boolean> {
-  // Get signature from header
-  const signature = request.headers.get("x-authbound-signature");
-  if (!signature) {
-    return false;
-  }
-
-  // Create HMAC signature from payload
-  const payloadString = JSON.stringify(payload);
-  const hmac = crypto.createHmac("sha256", secret);
-  hmac.update(payloadString);
-  const expectedSignature = hmac.digest("hex");
-
-  // Compare signatures using constant-time comparison
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
-  );
-}
-
-// Use in handlers
 export const { GET, POST, DELETE } = createAuthboundHandlers(config, {
-  validateWebhookSignature: async (request, payload) => {
-    return verifyWebhookSignature(
-      request,
-      payload,
-      process.env.AUTHBOUND_WEBHOOK_SECRET!
-    );
+  validateWebhookSignature: async (request, rawBody) => {
+    const signature = request.headers.get("x-authbound-signature");
+    if (!signature) return false;
+    return verifyWebhookSignatureDetailed({
+      payload: rawBody,
+      signature,
+      secret: process.env.AUTHBOUND_WEBHOOK_SECRET!,
+    }).valid;
   },
 });
 ```

@@ -131,6 +131,8 @@ export default defineEventHandler(async (event) => {
   const webhookSecret =
     config.authbound?.webhookSecret ?? process.env.AUTHBOUND_WEBHOOK_SECRET;
   const tolerance = config.authbound?.webhookTolerance ?? 300;
+  const unsafeSkipWebhookSignatureVerification =
+    config.authbound?.unsafeSkipWebhookSignatureVerification ?? false;
   const debug = config.public.authbound?.debug ?? false;
 
   // Get raw body for signature verification
@@ -174,10 +176,15 @@ export default defineEventHandler(async (event) => {
         message: verification.error || "Invalid signature",
       });
     }
+  } else if (!unsafeSkipWebhookSignatureVerification) {
+    throw createError({
+      statusCode: 500,
+      message: "Webhook secret is required",
+      data: { code: "WEBHOOK_SECRET_MISSING" },
+    });
   } else if (debug) {
     console.warn(
-      "[Authbound] No webhook secret configured. " +
-        "Set AUTHBOUND_WEBHOOK_SECRET to enable signature verification."
+      "[Authbound] Webhook signature verification was explicitly skipped."
     );
   }
 

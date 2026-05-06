@@ -11,7 +11,11 @@
  * import { authboundMiddleware, createAuthboundRouter } from '@authbound/server/express';
  *
  * const app = express();
- * app.use(express.json());
+ * app.use(express.json({
+ *   verify: (req, _res, buf) => {
+ *     (req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+ *   },
+ * }));
  * app.use(cookieParser());
  *
  * // Protect routes with age verification
@@ -95,6 +99,7 @@ export {
 // API Router & Handlers
 export {
   createAuthboundRouter,
+  createSessionHandler,
   createSignOutHandler,
   createStatusHandler,
   createVerificationHandler,

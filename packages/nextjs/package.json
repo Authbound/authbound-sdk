@@ -52,7 +52,7 @@
     "@authbound/server": "workspace:*"
   },
   "peerDependencies": {
-    "next": ">=16.1.0",
+    "next": ">=14.0.0 <17",
     "react": ">=18.3.0 <20",
     "react-dom": ">=18.3.0 <20"
   },

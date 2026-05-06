@@ -1,4 +1,4 @@
-import { authboundMiddleware } from "@authbound/server/next";
+import { authboundMiddleware } from "@authbound/nextjs";
 import { authboundConfig } from "./authbound.config";
 
 /**

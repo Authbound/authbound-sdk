@@ -31,6 +31,10 @@ export function getCookieName(config: AuthboundConfig): string {
   return config.cookie?.name ?? getDefaultCookieOptions().name;
 }
 
+export function getPendingCookieName(config: AuthboundConfig): string {
+  return `${getCookieName(config)}_pending`;
+}
+
 // ============================================================================
 // Cookie Options Builder
 // ============================================================================
@@ -67,8 +71,22 @@ export function getCookieValue(
   config: AuthboundConfig
 ): string | undefined {
   const cookieName = getCookieName(config);
-  // cookie-parser populates req.cookies
-  return req.cookies?.[cookieName];
+  return req.cookies?.[cookieName] ?? getCookieHeaderValue(req, cookieName);
+}
+
+function getCookieHeaderValue(req: Request, name: string): string | undefined {
+  const cookieHeader = req.get("cookie");
+  if (!cookieHeader) {
+    return;
+  }
+
+  for (const part of cookieHeader.split(";")) {
+    const [rawName, ...rawValue] = part.trim().split("=");
+    if (rawName === name) {
+      return rawValue.join("=");
+    }
+  }
+  return;
 }
 
 /**
@@ -80,6 +98,18 @@ export async function getVerificationFromCookie(
   config: AuthboundConfig
 ): Promise<AuthboundVerificationContext | null> {
   const token = getCookieValue(req, config);
+  if (!token) return null;
+
+  return getVerificationFromToken(token, config.secret);
+}
+
+export async function getPendingVerificationFromCookie(
+  req: Request,
+  config: AuthboundConfig
+): Promise<AuthboundVerificationContext | null> {
+  const token =
+    req.cookies?.[getPendingCookieName(config)] ??
+    getCookieHeaderValue(req, getPendingCookieName(config));
   if (!token) return null;
 
   return getVerificationFromToken(token, config.secret);
@@ -123,6 +153,28 @@ export async function setVerificationCookie(
   res.cookie(cookieName, token, cookieOptions);
 }
 
+export async function setPendingVerificationCookie(
+  res: Response,
+  config: AuthboundConfig,
+  sessionData: Pick<SetVerificationCookieOptions, "userRef" | "verificationId">
+): Promise<void> {
+  const maxAge = Math.min(config.cookie?.maxAge ?? 600, 600);
+  const token = await createToken({
+    secret: config.secret,
+    userRef: sessionData.userRef,
+    verificationId: sessionData.verificationId,
+    status: "PENDING",
+    assuranceLevel: "NONE",
+    expiresIn: maxAge,
+  });
+
+  res.cookie(getPendingCookieName(config), token, {
+    ...buildCookieOptions(config),
+    maxAge: maxAge * 1000,
+    httpOnly: true,
+  });
+}
+
 /**
  * Clear the session cookie from an Express response.
  */
@@ -139,5 +191,20 @@ export function clearVerificationCookie(
     secure: cookieOptions.secure,
     sameSite: cookieOptions.sameSite,
     httpOnly: cookieOptions.httpOnly,
+  });
+}
+
+export function clearPendingVerificationCookie(
+  res: Response,
+  config: AuthboundConfig
+): void {
+  const cookieOptions = buildCookieOptions(config);
+
+  res.clearCookie(getPendingCookieName(config), {
+    path: cookieOptions.path,
+    domain: cookieOptions.domain,
+    secure: cookieOptions.secure,
+    sameSite: cookieOptions.sameSite,
+    httpOnly: true,
   });
 }

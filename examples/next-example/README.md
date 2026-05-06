@@ -8,7 +8,8 @@ This example demonstrates how to integrate the Authbound Server SDK with a Next.
 - **Age verification** - Gate content based on verified age
 - **Assurance levels** - Different requirements for different routes
 - **Encrypted JWT cookies** - Stateless session management
-- **Webhook handling** - Automatic session creation on verification
+- **Same-origin session finalization** - Browser creates the SDK session after verified status
+- **Webhook handling** - Backend reconciliation for verification events
 
 ## Getting Started
 
@@ -30,8 +31,10 @@ Edit `.env.local` with your Authbound credentials:
 
 ```env
 AUTHBOUND_SECRET_KEY=sk_test_...
-AUTHBOUND_COOKIE_SECRET=your-cookie-secret-at-least-32-characters
+AUTHBOUND_SESSION_SECRET=your-session-secret-at-least-32-characters
+AUTHBOUND_WEBHOOK_SECRET=whsec_...
 NEXT_PUBLIC_AUTHBOUND_PK=pk_test_...
+NEXT_PUBLIC_AUTHBOUND_POLICY_ID=pol_authbound_pension_v1
 ```
 
 ### 3. Run the development server
@@ -87,7 +90,7 @@ routes: {
     { path: '/adult', requirements: { minAge: 18 } },
   ],
   verify: '/verify',
-  callback: '/api/authbound/callback',
+  callback: '/api/authbound/webhook',
 }
 ```
 
@@ -112,8 +115,9 @@ The SDK provides a catch-all API route handler that manages:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/authbound` | POST | Create a new verification session |
-| `/api/authbound/callback` | POST | Webhook receiver (sets session cookie) |
+| `/api/authbound/verification` | POST | Create a new verification |
+| `/api/authbound/session` | POST | Verify client token/status and set the HttpOnly SDK cookie |
+| `/api/authbound/webhook` | POST | Webhook receiver for backend reconciliation |
 | `/api/authbound/status` | GET | Get current verification status |
 | `/api/authbound` | DELETE | Sign out (clear session cookie) |
 
@@ -121,7 +125,7 @@ The SDK provides a catch-all API route handler that manages:
 
 1. **User visits protected route** → Middleware checks for valid session cookie
 2. **No valid session** → Redirect to `/verify?returnTo=/original-path`
-3. **User completes verification** → Webhook sets encrypted JWT cookie
+3. **User completes verification** → Browser status flow calls `/api/authbound/session`
 4. **User revisits protected route** → Middleware validates cookie and allows access
 
 ## Security
@@ -129,7 +133,7 @@ The SDK provides a catch-all API route handler that manages:
 - Session data is stored in an encrypted JWT cookie (AES-256-GCM)
 - Cookies are HttpOnly, Secure (in production), and SameSite=Lax
 - No server-side session storage required (stateless)
-- Webhook validation support for production use
+- Webhooks require signature validation by default
 
 ## Learn More
 

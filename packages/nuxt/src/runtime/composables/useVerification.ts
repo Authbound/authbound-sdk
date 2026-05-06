@@ -109,6 +109,7 @@ export function useVerification(options: UseVerificationOptions = {}) {
   // Timer
   let timerInterval: ReturnType<typeof setInterval> | null = null;
   let statusCleanup: (() => void) | null = null;
+  const finalizedVerificationIds = new Set<string>();
 
   const startTimer = () => {
     if (timerInterval) clearInterval(timerInterval);
@@ -145,6 +146,39 @@ export function useVerification(options: UseVerificationOptions = {}) {
       timerInterval = null;
     }
     timeRemaining.value = null;
+  };
+
+  const finalizeSdkSession = async (id: string, token: string) => {
+    if (config.sessionMode === "manual") {
+      return;
+    }
+
+    if (finalizedVerificationIds.has(id)) {
+      return;
+    }
+
+    finalizedVerificationIds.add(id);
+
+    try {
+      if (client) {
+        await client.finalizeVerification(
+          id as VerificationId,
+          asClientToken(token)
+        );
+        return;
+      }
+
+      await $fetch(config.sessionEndpoint ?? "/api/authbound/session", {
+        method: "POST",
+        body: {
+          verificationId: id,
+          clientToken: token,
+        },
+      });
+    } catch (err) {
+      finalizedVerificationIds.delete(id);
+      throw AuthboundError.from(err);
+    }
   };
 
   // Watch status changes
@@ -198,7 +232,7 @@ export function useVerification(options: UseVerificationOptions = {}) {
         clientToken: string;
         deepLink?: string;
         expiresAt: string;
-      }>("/api/authbound/verification", {
+      }>(config.verificationEndpoint ?? "/api/authbound/verification", {
         method: "POST",
         body: {
           policyId: options.policyId ?? config.policyId,
@@ -209,6 +243,7 @@ export function useVerification(options: UseVerificationOptions = {}) {
       });
 
       verificationId.value = response.verificationId as VerificationId;
+      finalizedVerificationIds.delete(response.verificationId);
       authorizationRequestUrl.value = response.authorizationRequestUrl;
       clientToken.value = asClientToken(response.clientToken);
       deepLink.value = response.deepLink ?? null;
@@ -222,16 +257,31 @@ export function useVerification(options: UseVerificationOptions = {}) {
           verificationId.value,
           clientToken.value,
           (event) => {
-            status.value = event.status;
-            if (event.result) {
-              result.value = event.result;
-            }
-            if (event.error) {
-              error.value = new AuthboundError(
-                event.error.code as AuthboundErrorCode,
-                event.error.message
-              );
-            }
+            (async () => {
+              if (event.status === "verified") {
+                try {
+                  await finalizeSdkSession(
+                    response.verificationId,
+                    response.clientToken
+                  );
+                } catch (err) {
+                  status.value = "error";
+                  error.value = AuthboundError.from(err);
+                  return;
+                }
+              }
+
+              status.value = event.status;
+              if (event.result) {
+                result.value = event.result;
+              }
+              if (event.error) {
+                error.value = new AuthboundError(
+                  event.error.code as AuthboundErrorCode,
+                  event.error.message
+                );
+              }
+            })().catch(() => undefined);
           },
           {
             onError: (err) => {
@@ -264,6 +314,7 @@ export function useVerification(options: UseVerificationOptions = {}) {
     error.value = null;
     result.value = null;
     expiresAt.value = null;
+    finalizedVerificationIds.clear();
     statusCleanup?.();
     statusCleanup = null;
     stopTimer();

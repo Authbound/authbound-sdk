@@ -76,11 +76,15 @@ function parseSSEChunk(
 
 /**
  * Map gateway status to SDK EudiVerificationStatus.
- * Passes through all statuses directly; unknown statuses default to "pending".
+ * Passes through known statuses directly and rejects unknown gateway states.
  */
 function mapGatewayStatus(status: string): StatusEvent["status"] {
   switch (status) {
+    case "created":
+    case "awaiting_user":
+    case "awaiting_provider":
     case "pending":
+      return "pending";
     case "processing":
     case "verified":
     case "failed":
@@ -88,7 +92,10 @@ function mapGatewayStatus(status: string): StatusEvent["status"] {
     case "expired":
       return status;
     default:
-      return "pending";
+      throw new AuthboundError(
+        "verification_invalid_state",
+        `Unknown verification status from gateway: ${status}`
+      );
   }
 }
 
@@ -289,7 +296,23 @@ export function createStatusSubscription(
           try {
             const parsed = JSON.parse(data) as Record<string, unknown>;
             // Map gateway status to SDK-friendly status
-            const mappedStatus = mapGatewayStatus(parsed.status as string);
+            let mappedStatus: StatusEvent["status"];
+            try {
+              mappedStatus = mapGatewayStatus(parsed.status as string);
+            } catch (error) {
+              const authboundError = AuthboundError.from(error);
+              onEvent({
+                type: "error",
+                status: "error",
+                error: {
+                  code: authboundError.code,
+                  message: authboundError.message,
+                },
+                timestamp: new Date().toISOString(),
+              });
+              cleanup();
+              return;
+            }
             // Build a complete StatusEvent — the gateway sends `updatedAt`
             // but the SDK schema expects `timestamp`
             const timestamp =

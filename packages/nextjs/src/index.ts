@@ -76,6 +76,7 @@ export {
   clearVerificationCookie,
   // Advanced handlers
   createAuthboundHandlers,
+  createSessionRoute,
   createSignOutHandler,
   createStatusHandler,
   createStatusRoute,
@@ -96,6 +97,7 @@ export {
   // Configuration
   parseConfig,
   type RoutesConfig,
+  type SessionRouteOptions,
   type StatusRouteOptions,
   setVerificationCookie,
   type VerificationRequirements,

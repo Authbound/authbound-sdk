@@ -2,6 +2,16 @@
 
 TypeScript SDK packages for Authbound verification and OpenID4VC credential issuance.
 
+## For AI Agents
+
+Authbound publishes AI-friendly docs and an installable Agent Skill for Codex, Claude Code, Cursor, GitHub Copilot, Windsurf, Gemini CLI, and other compatible tools.
+
+- AI docs: https://docs.authbound.io/ai/overview
+- Machine-readable docs index: https://docs.authbound.io/llms.txt
+- Agent Skill install: `npx skills add https://docs.authbound.io --skill authbound`
+
+Agents should use the hosted docs as the source of truth, keep `sk_*` keys server-only, use publishable keys only in browser code, verify webhooks server-side, and use idempotency keys for verification and issuance mutations.
+
 ## Install
 
 ```sh

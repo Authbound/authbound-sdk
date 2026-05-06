@@ -57,6 +57,24 @@ export interface ModuleOptions {
   publishableKey?: PublishableKey | string;
 
   /**
+   * Verification creation endpoint used by the browser SDK.
+   * @default '/api/authbound/verification'
+   */
+  verificationEndpoint?: string;
+
+  /**
+   * Browser session finalization endpoint used by the browser SDK.
+   * @default '/api/authbound/session'
+   */
+  sessionEndpoint?: string;
+
+  /**
+   * Whether the SDK should create its own browser verification session.
+   * @default 'sdk'
+   */
+  sessionMode?: "sdk" | "manual";
+
+  /**
    * Authbound secret key used by server routes.
    */
   apiKey?: string;
@@ -79,15 +97,9 @@ export interface ModuleOptions {
 
   /**
    * Cookie name for session storage.
-   * @default 'authbound_session'
+   * @default '__authbound'
    */
   cookieName?: string;
-
-  /**
-   * Disable the production __Host- cookie prefix.
-   * @default false
-   */
-  disableSecureCookiePrefix?: boolean;
 
   /**
    * Webhook signing secret.
@@ -99,6 +111,12 @@ export interface ModuleOptions {
    * @default 300
    */
   webhookTolerance?: number;
+
+  /**
+   * Explicit test/demo escape hatch for unsigned webhooks. Never use in production.
+   * @default false
+   */
+  unsafeSkipWebhookSignatureVerification?: boolean;
 
   /**
    * Enable server middleware for route protection.
@@ -140,14 +158,17 @@ export default defineNuxtModule<ModuleOptions>({
     protectedRoutes: undefined,
     policyId: undefined,
     publishableKey: undefined,
+    verificationEndpoint: "/api/authbound/verification",
+    sessionEndpoint: "/api/authbound/session",
+    sessionMode: "sdk",
     apiKey: undefined,
     sessionSecret: undefined,
     provider: undefined,
     verifyPath: "/verify",
-    cookieName: "authbound_session",
-    disableSecureCookiePrefix: false,
+    cookieName: "__authbound",
     webhookSecret: undefined,
     webhookTolerance: 300,
+    unsafeSkipWebhookSignatureVerification: false,
     middleware: true,
     debug: false,
   },
@@ -162,6 +183,9 @@ export default defineNuxtModule<ModuleOptions>({
         process.env.NUXT_PUBLIC_AUTHBOUND_PK ??
         process.env.VITE_AUTHBOUND_PK,
       verifyPath: options.verifyPath,
+      verificationEndpoint: options.verificationEndpoint,
+      sessionEndpoint: options.sessionEndpoint,
+      sessionMode: options.sessionMode,
       debug: options.debug,
     };
 
@@ -177,8 +201,9 @@ export default defineNuxtModule<ModuleOptions>({
       publicRoutes: options.publicRoutes,
       protectedRoutes: options.protectedRoutes,
       cookieName: options.cookieName,
-      disableSecureCookiePrefix: options.disableSecureCookiePrefix,
       middleware: options.middleware,
+      unsafeSkipWebhookSignatureVerification:
+        options.unsafeSkipWebhookSignatureVerification,
     };
 
     // Add plugin for client-side setup
@@ -245,6 +270,12 @@ export default defineNuxtModule<ModuleOptions>({
       handler: resolver.resolve("./runtime/server/api/webhook"),
     });
 
+    addServerHandler({
+      route: "/api/authbound/session",
+      method: "post",
+      handler: resolver.resolve("./runtime/server/api/session"),
+    });
+
     // Transpile runtime
     nuxt.options.build.transpile.push(resolver.resolve("./runtime"));
   },
@@ -256,6 +287,9 @@ declare module "@nuxt/schema" {
       policyId?: PolicyId | string;
       publishableKey?: string;
       verifyPath?: string;
+      verificationEndpoint?: string;
+      sessionEndpoint?: string;
+      sessionMode?: "sdk" | "manual";
       debug?: boolean;
     };
   }
@@ -270,8 +304,8 @@ declare module "@nuxt/schema" {
       publicRoutes?: string[];
       protectedRoutes?: string[];
       cookieName?: string;
-      disableSecureCookiePrefix?: boolean;
       middleware?: boolean;
+      unsafeSkipWebhookSignatureVerification?: boolean;
     };
   }
 }

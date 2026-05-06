@@ -105,6 +105,8 @@ export {
   CreateVerificationResponseSchema,
   type EudiVerificationStatus,
   EudiVerificationStatusSchema,
+  type FinalizeVerificationResponse,
+  FinalizeVerificationResponseSchema,
   isTerminalStatus,
   type StatusEvent,
   StatusEventSchema,

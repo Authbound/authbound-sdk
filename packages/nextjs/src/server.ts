@@ -15,7 +15,12 @@
  */
 
 import type { PolicyId } from "@authbound/core";
-import { verifyWebhookSignatureDetailed } from "@authbound/server";
+import {
+  calculateAge,
+  createToken,
+  getVerificationFromToken,
+  verifyWebhookSignatureDetailed,
+} from "@authbound/server";
 import { NextResponse } from "next/server";
 
 // ============================================================================
@@ -62,6 +67,30 @@ export interface VerificationRouteOptions {
   transformResponse?: (
     response: Record<string, unknown>
   ) => Record<string, unknown> | Promise<Record<string, unknown>>;
+
+  /**
+   * Whether the SDK should create its browser session binding cookie.
+   * @default "sdk"
+   */
+  sessionMode?: "sdk" | "manual";
+
+  /**
+   * Secret used to encrypt the local pending-verification cookie.
+   * @default Uses AUTHBOUND_SESSION_SECRET or AUTHBOUND_SECRET env var
+   */
+  sessionSecret?: string;
+
+  /**
+   * Verification cookie name. The pending cookie uses `${cookieName}_pending`.
+   * @default "__authbound"
+   */
+  cookieName?: string;
+
+  /**
+   * Pending verification cookie max age in seconds.
+   * @default 600
+   */
+  pendingCookieMaxAge?: number;
 }
 
 export interface WebhookRouteOptions {
@@ -92,6 +121,12 @@ export interface WebhookRouteOptions {
    * @default 300 (5 minutes)
    */
   tolerance?: number;
+
+  /**
+   * Explicit test/demo escape hatch for unsigned webhooks. Never use in production.
+   * @default false
+   */
+  unsafeSkipWebhookSignatureVerification?: boolean;
 
   /**
    * Enable debug logging.
@@ -370,6 +405,10 @@ export function createVerificationRoute(
     debug = false,
     transformRequest,
     transformResponse,
+    sessionMode = "sdk",
+    sessionSecret: configuredSessionSecret,
+    cookieName = "__authbound",
+    pendingCookieMaxAge = 600,
   } = options;
 
   return async (request: Request): Promise<Response> => {
@@ -452,7 +491,26 @@ export function createVerificationRoute(
         );
       }
 
-      return NextResponse.json(responseData);
+      const response = NextResponse.json(responseData);
+      const verificationId =
+        typeof responseData.verificationId === "string"
+          ? responseData.verificationId
+          : undefined;
+      const sessionSecret = getOptionalSessionSecret(configuredSessionSecret);
+      if (sessionMode === "sdk" && verificationId && sessionSecret) {
+        await setPendingVerificationCookie(response, {
+          secret: sessionSecret,
+          cookieName,
+          verificationId,
+          userRef:
+            typeof body.customerUserRef === "string"
+              ? body.customerUserRef
+              : verificationId,
+          maxAge: pendingCookieMaxAge,
+        });
+      }
+
+      return response;
     } catch (error) {
       if (error instanceof BrowserWalletUrlError) {
         return NextResponse.json(
@@ -510,6 +568,7 @@ export function createWebhookRoute(
     onFailed,
     onEvent,
     tolerance = 300, // 5 minutes
+    unsafeSkipWebhookSignatureVerification = false,
     debug = false,
   } = options;
 
@@ -518,7 +577,7 @@ export function createWebhookRoute(
       // Get the raw body for signature verification
       const rawBody = await request.text();
 
-      // Verify signature if webhook secret is provided
+      // Verify signature before parsing the body.
       if (webhookSecret) {
         const signature = request.headers.get("x-authbound-signature");
         if (!signature) {
@@ -550,10 +609,17 @@ export function createWebhookRoute(
             { status: 401 }
           );
         }
+      } else if (!unsafeSkipWebhookSignatureVerification) {
+        return NextResponse.json(
+          {
+            error: "Webhook secret is required",
+            code: "WEBHOOK_SECRET_MISSING",
+          },
+          { status: 500 }
+        );
       } else if (debug) {
         console.warn(
-          "[Authbound] No webhook secret configured. " +
-            "Set AUTHBOUND_WEBHOOK_SECRET to enable signature verification."
+          "[Authbound] Webhook signature verification was explicitly skipped."
         );
       }
 
@@ -621,6 +687,48 @@ export interface StatusRouteOptions {
   debug?: boolean;
 }
 
+export interface SessionRouteOptions {
+  /**
+   * Gateway URL.
+   * @default Uses AUTHBOUND_API_URL env var
+   */
+  gatewayUrl?: string;
+
+  /**
+   * Authbound publishable key used to scope client-token status requests.
+   * @default Uses NEXT_PUBLIC_AUTHBOUND_PK or AUTHBOUND_PUBLISHABLE_KEY env var
+   */
+  publishableKey?: string;
+
+  /**
+   * Secret used to encrypt the local verification cookie.
+   * @default Uses AUTHBOUND_SESSION_SECRET or AUTHBOUND_SECRET env var
+   */
+  sessionSecret?: string;
+
+  /**
+   * Verification cookie name.
+   * @default "__authbound"
+   */
+  cookieName?: string;
+
+  /**
+   * Verification cookie max age in seconds.
+   * @default 604800
+   */
+  cookieMaxAge?: number;
+
+  /**
+   * Optional user reference resolver for applications with existing auth.
+   */
+  getUserRef?: (request: Request) => string | Promise<string>;
+
+  /**
+   * Enable debug logging.
+   */
+  debug?: boolean;
+}
+
 /**
  * Create a status polling route handler.
  *
@@ -680,7 +788,7 @@ export function createStatusRoute(
       const publishableKey = getPublishableKey(configuredPublishableKey);
 
       const response = await fetch(
-        `${gatewayUrl}/v1/verifications/${verificationId}/status`,
+        `${gatewayUrl}/v1/verifications/${encodeURIComponent(verificationId)}/status`,
         {
           headers: {
             Authorization: authorization,
@@ -704,6 +812,318 @@ export function createStatusRoute(
       }
       return NextResponse.json(
         { error: "Internal server error" },
+        { status: 500 }
+      );
+    }
+  };
+}
+
+// ============================================================================
+// Session Route Handler
+// ============================================================================
+
+function getSessionSecret(fallback?: string): string {
+  const value =
+    fallback ??
+    process.env.AUTHBOUND_SESSION_SECRET ??
+    process.env.AUTHBOUND_SECRET;
+  if (!value) {
+    throw new Error(
+      "Missing required environment variable: AUTHBOUND_SESSION_SECRET"
+    );
+  }
+  return value;
+}
+
+function getOptionalSessionSecret(fallback?: string): string | undefined {
+  return (
+    fallback ??
+    process.env.AUTHBOUND_SESSION_SECRET ??
+    process.env.AUTHBOUND_SECRET
+  );
+}
+
+function getPendingCookieName(cookieName: string): string {
+  return `${cookieName}_pending`;
+}
+
+function getCookieValue(request: Request, name: string): string | undefined {
+  const cookieHeader = request.headers.get("cookie");
+  if (!cookieHeader) {
+    return;
+  }
+
+  for (const part of cookieHeader.split(";")) {
+    const [rawName, ...rawValue] = part.trim().split("=");
+    if (rawName === name) {
+      return rawValue.join("=");
+    }
+  }
+  return;
+}
+
+function isSameOriginSessionRequest(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (origin && origin !== new URL(request.url).origin) {
+    return false;
+  }
+
+  return request.headers.get("sec-fetch-site") !== "cross-site";
+}
+
+async function setPendingVerificationCookie(
+  response: NextResponse,
+  options: {
+    secret: string;
+    cookieName: string;
+    verificationId: string;
+    userRef: string;
+    maxAge: number;
+  }
+): Promise<void> {
+  const maxAge = Math.min(options.maxAge, 600);
+  const token = await createToken({
+    secret: options.secret,
+    userRef: options.userRef,
+    verificationId: options.verificationId,
+    status: "PENDING",
+    assuranceLevel: "NONE",
+    expiresIn: maxAge,
+  });
+
+  response.cookies.set(getPendingCookieName(options.cookieName), token, {
+    maxAge,
+    path: "/",
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    httpOnly: true,
+  });
+}
+
+async function getPendingVerificationFromRequest(
+  request: Request,
+  options: { secret: string; cookieName: string }
+) {
+  const token = getCookieValue(
+    request,
+    getPendingCookieName(options.cookieName)
+  );
+  if (!token) {
+    return null;
+  }
+
+  return getVerificationFromToken(token, options.secret);
+}
+
+function clearPendingVerificationCookie(
+  response: NextResponse,
+  cookieName: string
+): void {
+  response.cookies.set(getPendingCookieName(cookieName), "", {
+    maxAge: 0,
+    path: "/",
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    httpOnly: true,
+  });
+}
+
+function getBirthDate(
+  attributes: Record<string, unknown> | undefined
+): string | undefined {
+  if (typeof attributes?.birth_date === "string") {
+    return attributes.birth_date;
+  }
+  if (typeof attributes?.dateOfBirth === "string") {
+    return attributes.dateOfBirth;
+  }
+  return;
+}
+
+const KNOWN_VERIFICATION_STATUSES = new Set([
+  "created",
+  "awaiting_user",
+  "awaiting_provider",
+  "pending",
+  "processing",
+  "verified",
+  "failed",
+  "canceled",
+  "expired",
+]);
+
+/**
+ * Create a same-origin browser session finalization route.
+ */
+export function createSessionRoute(
+  options: SessionRouteOptions = {}
+): (request: Request) => Promise<Response> {
+  const {
+    gatewayUrl = getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io"),
+    publishableKey: configuredPublishableKey,
+    sessionSecret: configuredSessionSecret,
+    cookieName = "__authbound",
+    cookieMaxAge = 60 * 60 * 24 * 7,
+    getUserRef,
+    debug = false,
+  } = options;
+
+  return async (request: Request): Promise<Response> => {
+    try {
+      if (!isSameOriginSessionRequest(request)) {
+        return NextResponse.json(
+          {
+            error: "Cross-origin session finalization is not allowed",
+            code: "CROSS_ORIGIN_FORBIDDEN",
+          },
+          { status: 403 }
+        );
+      }
+
+      const body = (await request.json().catch(() => null)) as {
+        verificationId?: unknown;
+        clientToken?: unknown;
+      } | null;
+      const verificationId =
+        typeof body?.verificationId === "string" ? body.verificationId : "";
+      const clientToken =
+        typeof body?.clientToken === "string" ? body.clientToken : "";
+
+      if (!(verificationId && clientToken)) {
+        return NextResponse.json(
+          { error: "Invalid request", code: "INVALID_REQUEST" },
+          { status: 400 }
+        );
+      }
+
+      const sessionSecret = getSessionSecret(configuredSessionSecret);
+      const pendingVerification = await getPendingVerificationFromRequest(
+        request,
+        { secret: sessionSecret, cookieName }
+      );
+      if (
+        !pendingVerification ||
+        pendingVerification.status !== "PENDING" ||
+        pendingVerification.verificationId !== verificationId
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Verification finalization is not bound to this browser session",
+            code: "VERIFICATION_BINDING_REQUIRED",
+          },
+          { status: 403 }
+        );
+      }
+
+      const userRef = getUserRef
+        ? await getUserRef(request)
+        : pendingVerification.userRef;
+      if (userRef !== pendingVerification.userRef) {
+        return NextResponse.json(
+          {
+            error: "Verification finalization is not bound to the current user",
+            code: "VERIFICATION_BINDING_REQUIRED",
+          },
+          { status: 403 }
+        );
+      }
+
+      const publishableKey = getPublishableKey(configuredPublishableKey);
+      const statusResponse = await fetch(
+        `${gatewayUrl}/v1/verifications/${encodeURIComponent(verificationId)}/status`,
+        {
+          headers: {
+            Authorization: `Bearer ${clientToken}`,
+            "X-Authbound-Publishable-Key": publishableKey,
+          },
+        }
+      );
+
+      if (!statusResponse.ok) {
+        return NextResponse.json(
+          { error: "Failed to get status", code: "STATUS_REQUEST_FAILED" },
+          { status: statusResponse.status }
+        );
+      }
+
+      const statusBody = (await statusResponse.json()) as {
+        status?: string;
+        result?: {
+          verified?: boolean;
+          attributes?: Record<string, unknown>;
+        };
+      };
+
+      if (
+        typeof statusBody.status !== "string" ||
+        !KNOWN_VERIFICATION_STATUSES.has(statusBody.status)
+      ) {
+        return NextResponse.json(
+          {
+            error: "Unknown verification status from Authbound",
+            code: "VERIFICATION_INVALID_STATE",
+          },
+          { status: 502 }
+        );
+      }
+
+      if (
+        statusBody.status !== "verified" ||
+        statusBody.result?.verified === false
+      ) {
+        return NextResponse.json(
+          {
+            error: "Verification is not verified",
+            code: "VERIFICATION_NOT_VERIFIED",
+          },
+          { status: 409 }
+        );
+      }
+
+      const attributes = statusBody.result?.attributes;
+      const birthDate = getBirthDate(attributes);
+      const age =
+        typeof attributes?.age === "number"
+          ? attributes.age
+          : birthDate
+            ? calculateAge(birthDate)
+            : undefined;
+      const token = await createToken({
+        secret: sessionSecret,
+        userRef,
+        verificationId,
+        status: "VERIFIED",
+        assuranceLevel: "SUBSTANTIAL",
+        age,
+        dateOfBirth: birthDate,
+        expiresIn: cookieMaxAge,
+      });
+      const response = NextResponse.json({
+        isVerified: true,
+        verificationId,
+        status: statusBody.status,
+      });
+
+      response.cookies.set(cookieName, token, {
+        maxAge: cookieMaxAge,
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        httpOnly: true,
+      });
+      clearPendingVerificationCookie(response, cookieName);
+
+      return response;
+    } catch (error) {
+      if (debug) {
+        console.error(
+          "[Authbound] Session finalization error:",
+          summarizeError(error)
+        );
+      }
+      return NextResponse.json(
+        { error: "Internal server error", code: "INTERNAL_ERROR" },
         { status: 500 }
       );
     }
