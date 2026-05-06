@@ -129,5 +129,5 @@ export {
   type StatusEvent,
   type VerificationClaims,
   type VerificationId,
-  type VerificationResult,
+  type VerificationSuccess,
 } from "@authbound/core";

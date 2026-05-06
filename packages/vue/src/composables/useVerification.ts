@@ -8,7 +8,7 @@ import type {
   EudiVerificationStatus,
   PolicyId,
   VerificationId,
-  VerificationResult,
+  VerificationSuccess,
 } from "@authbound/core";
 import { AuthboundError, isTerminalStatus } from "@authbound/core";
 import {
@@ -37,7 +37,7 @@ export interface UseVerificationOptions {
   /** Optional provider override */
   provider?: "auto" | "vcs" | "eudi";
   /** Callback when verified */
-  onVerified?: (result: VerificationResult) => void;
+  onVerified?: (verification: VerificationSuccess) => void;
   /** Callback when failed */
   onFailed?: (error: AuthboundError) => void;
   /** Callback on any status change */
@@ -68,8 +68,6 @@ export interface UseVerificationReturn {
   deepLink: ComputedRef<string | null>;
   /** Current error (if any) */
   error: ComputedRef<AuthboundError | null>;
-  /** Verification result (if successful) */
-  result: ComputedRef<VerificationResult | null>;
   /** Time remaining until verification expires (seconds) */
   timeRemaining: Ref<number | null>;
 
@@ -102,7 +100,7 @@ export interface UseVerificationReturn {
  *   retry,
  * } = useVerification({
  *   policyId: asPolicyId(import.meta.env.VITE_AUTHBOUND_POLICY_ID),
- *   onVerified: (result) => {
+ *   onVerified: () => {
  *     router.push('/dashboard');
  *   },
  * });
@@ -164,8 +162,6 @@ export function useVerification(
 
   const error = computed(() => verification.value?.error ?? null);
 
-  const result = computed(() => verification.value?.result ?? null);
-
   // Timer management
   const startTimer = () => {
     if (timerInterval) {
@@ -218,8 +214,11 @@ export function useVerification(
       options.onStatusChange?.(newStatus);
 
       // Handle terminal states
-      if (newStatus === "verified" && result.value) {
-        options.onVerified?.(result.value);
+      if (newStatus === "verified" && verificationId.value) {
+        options.onVerified?.({
+          verificationId: verificationId.value,
+          status: "verified",
+        });
         stopTimer();
       } else if (isFailed.value) {
         if (newStatus === "timeout" || newStatus === "expired") {
@@ -300,7 +299,6 @@ export function useVerification(
     authorizationRequestUrl,
     deepLink,
     error,
-    result,
     timeRemaining,
 
     // Actions

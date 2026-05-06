@@ -169,6 +169,13 @@ describe("Express Authbound router contract", () => {
       const sessionCookie = getSetCookie(sessionResponse.headers);
       expect(sessionCookie).toContain("__authbound=");
       expect(sessionCookie).toContain("__authbound_pending=;");
+      expect(fetchMock.mock.calls[1]?.[1]).toEqual(
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Origin: origin,
+          }),
+        })
+      );
     } finally {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {

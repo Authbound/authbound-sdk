@@ -323,6 +323,10 @@ describe("Next.js server debug logging", () => {
         object: "verification_status",
         id: "vrf_123",
         status: "processing",
+        result: {
+          verified: true,
+          attributes: { birth_date: "1990-05-15" },
+        },
       }),
     }) as typeof fetch;
 
@@ -331,7 +335,7 @@ describe("Next.js server debug logging", () => {
       publishableKey: "pk_test_configured",
     });
 
-    await handler(
+    const statusResponse = await handler(
       new Request(
         "https://playground.authbound.io/api/authbound/status/vrf_123",
         {
@@ -343,12 +347,14 @@ describe("Next.js server debug logging", () => {
       ) as never,
       { params: Promise.resolve({ verificationId: "vrf_123" }) }
     );
+    await expect(statusResponse.json()).resolves.not.toHaveProperty("result");
 
     expect(global.fetch).toHaveBeenCalledWith(
       "https://api.authbound.io/v1/verifications/vrf_123/status",
       {
         headers: {
           Authorization: "Bearer client_token_123",
+          Origin: "https://playground.authbound.io",
           "X-Authbound-Publishable-Key": "pk_test_configured",
         },
       }
@@ -394,6 +400,7 @@ describe("Next.js server debug logging", () => {
         {
           headers: {
             Authorization: "Bearer client_token_123",
+            Origin: "https://playground.authbound.io",
             "X-Authbound-Publishable-Key": "pk_test_runtime",
           },
         }
@@ -503,6 +510,7 @@ describe("Next.js server debug logging", () => {
         {
           headers: {
             Authorization: "Bearer client_token_123",
+            Origin: "https://playground.authbound.io",
             "X-Authbound-Publishable-Key": "pk_test_configured",
           },
         }

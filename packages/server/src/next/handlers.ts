@@ -100,6 +100,26 @@ const FinalizeVerificationRequestSchema = z.object({
   clientToken: z.string().min(1),
 });
 
+function normalizeBrowserOrigin(value: string | null): string | undefined {
+  if (!value) {
+    return;
+  }
+
+  try {
+    const origin = new URL(value).origin;
+    return origin === "null" ? undefined : origin;
+  } catch {
+    return;
+  }
+}
+
+function originForStatusProxy(request: Request): string | undefined {
+  return (
+    normalizeBrowserOrigin(request.headers.get("origin")) ??
+    normalizeBrowserOrigin(request.url)
+  );
+}
+
 function isSameOriginSessionRequest(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (origin && origin !== new URL(request.url).origin) {
@@ -456,6 +476,7 @@ async function handleFinalizeSession(
     const status = await client.verifications.getStatus(verificationId, {
       clientToken,
       publishableKey,
+      origin: originForStatusProxy(request),
     });
 
     if (status.status !== "verified" || status.result?.verified === false) {

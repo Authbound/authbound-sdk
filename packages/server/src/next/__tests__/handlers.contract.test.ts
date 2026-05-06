@@ -170,6 +170,13 @@ describe("createAuthboundHandlers browser verification contract", () => {
     expect(response.headers.get("set-cookie")).toContain(
       "__authbound_pending=;"
     );
+    expect(fetchMock.mock.calls[1]?.[1]).toEqual(
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Origin: "https://app.example.com",
+        }),
+      })
+    );
   });
 
   it("rejects session finalization without the pending verification cookie", async () => {

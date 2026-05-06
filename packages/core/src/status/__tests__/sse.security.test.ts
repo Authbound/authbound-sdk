@@ -262,7 +262,7 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
       expect(events.length).toBeGreaterThan(0);
     });
 
-    it("fetches final status when a terminal SSE event has no result", async () => {
+    it("fetches final status as browser-safe status when a terminal SSE event has no result", async () => {
       const fetchMock = vi
         .fn()
         .mockResolvedValueOnce({
@@ -304,11 +304,9 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(events.at(-1)).toMatchObject({
         status: "verified",
-        result: {
-          verified: true,
-          attributes: { "Pension.startDate": "2025-01-01" },
-        },
+        type: "status",
       });
+      expect(events.at(-1)).not.toHaveProperty("result");
     });
 
     it.each([

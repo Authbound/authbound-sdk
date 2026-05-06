@@ -5,8 +5,8 @@
  * the user successfully verifies their identity.
  */
 
-import type { VerificationResult } from "@authbound/core";
-import { type AuthboundError, asPolicyId } from "@authbound/core";
+import type { AuthboundError, VerificationSuccess } from "@authbound/core";
+import { asPolicyId } from "@authbound/core";
 import type { CSSProperties } from "vue";
 import {
   computed,
@@ -69,7 +69,7 @@ export const VerificationWall = defineComponent({
     },
     /** Callback when verified */
     onVerified: {
-      type: Function as PropType<(result: VerificationResult) => void>,
+      type: Function as PropType<(verification: VerificationSuccess) => void>,
       default: undefined,
     },
     /** Callback when failed */
