@@ -28,13 +28,14 @@
       "import": "./dist/testing.js",
       "require": "./dist/testing.cjs"
     },
-    "./styles.css": "./dist/styles.css"
+    "./styles.css": "./styles.css"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "styles.css"
   ],
   "peerDependencies": {
     "react": ">=18.3.0 <20",
@@ -55,7 +56,7 @@
     "vitest": "4.0.8"
   },
   "scripts": {
-    "build": "tsup src/index.tsx src/testing.tsx --dts --format esm,cjs --clean --no-config && cp src/styles/variables.css dist/styles.css",
+    "build": "tsup src/index.tsx src/testing.tsx --dts --format esm,cjs --clean --no-config && cp styles.css dist/styles.css",
     "dev": "tsup src/index.tsx src/testing.tsx --dts --format esm,cjs --watch --no-config",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
