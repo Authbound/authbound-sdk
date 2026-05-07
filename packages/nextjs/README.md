@@ -40,6 +40,7 @@ Wrap the verification page:
 ```tsx
 "use client";
 
+import "@authbound/nextjs/styles.css";
 import {
   asPolicyId,
   AuthboundProvider,

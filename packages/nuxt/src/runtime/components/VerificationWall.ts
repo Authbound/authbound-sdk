@@ -1,7 +1,9 @@
-/**
- * VerificationWall Component for Nuxt
- *
- * Re-exports from @authbound/vue
- */
+import { VerificationWall as VueVerificationWall } from "@authbound/vue";
+import { defineComponent, h, type Component } from "vue";
 
-export { VerificationWall } from "@authbound/vue";
+export const VerificationWall = defineComponent({
+  name: "AuthboundVerificationWall",
+  setup(_, { attrs, slots }) {
+    return () => h(VueVerificationWall as Component, attrs, slots);
+  },
+});

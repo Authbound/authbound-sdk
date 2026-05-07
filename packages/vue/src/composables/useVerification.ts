@@ -14,6 +14,7 @@ import { AuthboundError, isTerminalStatus } from "@authbound/core";
 import {
   type ComputedRef,
   computed,
+  onMounted,
   onUnmounted,
   type Ref,
   ref,
@@ -276,10 +277,12 @@ export function useVerification(
     stopTimer();
   };
 
-  // Auto-start if configured
-  if (options.autoStart) {
+  onMounted(() => {
+    if (!options.autoStart) {
+      return;
+    }
     startVerification();
-  }
+  });
 
   // Cleanup on unmount
   onUnmounted(() => {

@@ -7,7 +7,7 @@ const runtimeConfig = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("nuxt/app", () => ({
+vi.mock("nitropack/runtime", () => ({
   useRuntimeConfig: () => runtimeConfig.current,
 }));
 

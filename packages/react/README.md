@@ -7,6 +7,7 @@ pnpm add @authbound/react
 ```
 
 ```tsx
+import "@authbound/react/styles.css";
 import { AuthboundProvider, VerificationWall, useVerification } from "@authbound/react";
 
 export function App() {

@@ -16,7 +16,7 @@ import { AuthboundError } from "../types/errors";
  */
 export interface AuthboundClientConfig {
   /** Your publishable key (pk_live_... or pk_test_...) */
-  publishableKey: PublishableKey;
+  publishableKey: PublishableKey | string;
 
   /** Default policy ID for verification (can be overridden per-call) */
   policyId?: PolicyId;

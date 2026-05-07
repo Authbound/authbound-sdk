@@ -13,7 +13,7 @@ import {
   readBody,
   setCookie,
 } from "h3";
-import { useRuntimeConfig } from "nuxt/app";
+import { useRuntimeConfig } from "nitropack/runtime";
 
 type FinalizeSessionRequest = {
   verificationId?: string;

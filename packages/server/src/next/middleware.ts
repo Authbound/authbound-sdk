@@ -113,7 +113,7 @@ function matchRoute(pathname: string, pattern: string | RegExp): boolean {
  */
 function findMatchingRoute(
   pathname: string,
-  routes: ProtectedRouteConfig[]
+  routes: readonly ProtectedRouteConfig[]
 ): ProtectedRouteConfig | undefined {
   // Return the first matching route (most specific should be listed first)
   return routes.find((route) => matchRoute(pathname, route.path));
@@ -340,7 +340,9 @@ function isNextResponse(
 /**
  * Helper to create Next.js middleware matcher config from protected routes.
  */
-export function createMatcherConfig(routes: ProtectedRouteConfig[]): string[] {
+export function createMatcherConfig(
+  routes: readonly ProtectedRouteConfig[]
+): string[] {
   return routes
     .map((route) => {
       if (route.path instanceof RegExp) {

@@ -11,11 +11,12 @@ import {
   isPublishableKey,
   type PolicyId,
 } from "@authbound/core";
+import { AuthboundPlugin, type AuthboundPluginOptions } from "@authbound/vue";
 import { defineNuxtPlugin, useRuntimeConfig } from "nuxt/app";
 
 export default defineNuxtPlugin({
   name: "authbound",
-  setup() {
+  setup(nuxtApp) {
     const config = useRuntimeConfig();
 
     const rawPublishableKey = config.public.authbound?.publishableKey ?? "";
@@ -31,7 +32,7 @@ export default defineNuxtPlugin({
 
     if (rawPublishableKey && isPublishableKey(rawPublishableKey)) {
       try {
-        client = createClient({
+        const pluginOptions: AuthboundPluginOptions = {
           publishableKey: asPublishableKey(rawPublishableKey),
           policyId: config.public.authbound?.policyId as PolicyId | undefined,
           verificationEndpoint:
@@ -42,7 +43,9 @@ export default defineNuxtPlugin({
             "/api/authbound/session",
           sessionMode: config.public.authbound?.sessionMode ?? "sdk",
           debug: config.public.authbound?.debug,
-        });
+        };
+        client = createClient(pluginOptions);
+        AuthboundPlugin.install(nuxtApp.vueApp, pluginOptions);
       } catch (error) {
         console.error("[Authbound] Failed to create client:", error);
       }

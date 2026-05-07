@@ -6,7 +6,7 @@
 
 import crypto from "node:crypto";
 import { createError, defineEventHandler, getHeader, readRawBody } from "h3";
-import { useRuntimeConfig } from "nuxt/app";
+import { useRuntimeConfig } from "nitropack/runtime";
 
 // ============================================================================
 // Webhook Signature Verification

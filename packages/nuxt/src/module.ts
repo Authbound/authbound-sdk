@@ -1,7 +1,7 @@
 /**
  * @authbound/nuxt
  *
- * Nuxt 3 module for Authbound EUDI wallet verification.
+ * Nuxt 4 module for Authbound EUDI wallet verification.
  *
  * @example
  * ```ts
@@ -150,7 +150,7 @@ export default defineNuxtModule<ModuleOptions>({
     name: "@authbound/nuxt",
     configKey: "authbound",
     compatibility: {
-      nuxt: "^3.0.0",
+      nuxt: "^4.0.0",
     },
   },
   defaults: {
@@ -206,10 +206,9 @@ export default defineNuxtModule<ModuleOptions>({
         options.unsafeSkipWebhookSignatureVerification,
     };
 
-    // Add plugin for client-side setup
+    // Add plugin for SDK setup
     addPlugin({
       src: resolver.resolve("./runtime/plugin"),
-      mode: "client",
     });
 
     // Auto-import composables

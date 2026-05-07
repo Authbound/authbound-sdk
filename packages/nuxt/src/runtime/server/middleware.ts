@@ -6,7 +6,7 @@
 
 import { verifyToken } from "@authbound/server";
 import { defineEventHandler, getCookie, getRequestURL, sendRedirect } from "h3";
-import { useRuntimeConfig } from "nuxt/app";
+import { useRuntimeConfig } from "nitropack/runtime";
 
 /**
  * Check if a path matches a route pattern.

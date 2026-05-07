@@ -238,7 +238,14 @@ export const RoutesConfigSchema = z.object({
   callback: z.string().optional(),
 });
 
-export type RoutesConfig = z.infer<typeof RoutesConfigSchema>;
+export interface RoutesConfig {
+  /** Array of protected route configurations */
+  protected: readonly ProtectedRouteConfig[];
+  /** Path to redirect users for verification. e.g., "/verify" */
+  verify: string;
+  /** Callback path for webhooks. e.g., "/api/authbound/callback" */
+  callback?: string;
+}
 
 // ============================================================================
 // Main Authbound Configuration
@@ -267,7 +274,28 @@ export const AuthboundConfigSchema = z.object({
   debug: z.boolean().optional(),
 });
 
-export type AuthboundConfig = z.infer<typeof AuthboundConfigSchema>;
+export interface AuthboundConfig {
+  /** Your Authbound API Key (server-side only) */
+  apiKey: string;
+  /** Publishable key used to verify client-token status requests */
+  publishableKey?: string;
+  /** Authbound API URL. Defaults to "https://api.authbound.io" */
+  apiUrl?: string;
+  /** Secret key for JWT encryption (min 32 characters recommended) */
+  secret: string;
+  /** Webhook signing secret. Required unless unsafeSkipWebhookSignatureVerification is true. */
+  webhookSecret?: string;
+  /** Webhook timestamp tolerance in seconds. Defaults to 300. */
+  webhookTolerance?: number;
+  /** Explicit test/demo escape hatch for unsigned webhooks. Never use in production. */
+  unsafeSkipWebhookSignatureVerification?: boolean;
+  /** Cookie configuration */
+  cookie?: CookieOptions;
+  /** Routes configuration */
+  routes: RoutesConfig;
+  /** Enable debug logging */
+  debug?: boolean;
+}
 
 // ============================================================================
 // API Response Types

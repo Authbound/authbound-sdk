@@ -1,6 +1,6 @@
 {
   "name": "@authbound/vue",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Authbound Vue 3 bindings (composables + headless components) for the verification flows.",
   "type": "module",
   "sideEffects": [
@@ -32,7 +32,7 @@
     "dist"
   ],
   "peerDependencies": {
-    "vue": "^3.5.0"
+    "vue": ">=3.5.34 <4"
   },
   "dependencies": {
     "@authbound/core": "workspace:*",

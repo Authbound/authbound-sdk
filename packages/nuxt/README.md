@@ -1,6 +1,6 @@
 # @authbound/nuxt
 
-Nuxt 3 module for Authbound verification flows with runtime components, composables, and server routes.
+Nuxt 4 module for Authbound verification flows with runtime components, composables, and server routes.
 
 ```sh
 pnpm add @authbound/nuxt

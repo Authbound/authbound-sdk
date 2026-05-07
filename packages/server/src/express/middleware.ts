@@ -115,7 +115,7 @@ function matchRoute(pathname: string, pattern: string | RegExp): boolean {
 
 function findMatchingRoute(
   pathname: string,
-  routes: ProtectedRouteConfig[]
+  routes: readonly ProtectedRouteConfig[]
 ): ProtectedRouteConfig | undefined {
   return routes.find((route) => matchRoute(pathname, route.path));
 }
