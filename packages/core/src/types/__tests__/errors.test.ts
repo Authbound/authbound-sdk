@@ -43,4 +43,26 @@ describe("AuthboundError.fromResponse", () => {
       signInPath: "/sign-in?returnTo=%2Fverify",
     });
   });
+
+  it("maps SDK session origin rejections to a dedicated error code", () => {
+    const response = new Response(null, {
+      status: 403,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const error = AuthboundError.fromResponse(response, {
+      code: "CROSS_ORIGIN_FORBIDDEN",
+      error: "Cross-origin session finalization is not allowed",
+    });
+
+    expect(error.code).toBe("session_origin_forbidden");
+    expect(error.message).toBe(
+      "Cross-origin session finalization is not allowed"
+    );
+    expect(error.hint).toBe(
+      "Check your SDK session route origin/proxy configuration and allowed origins."
+    );
+  });
 });

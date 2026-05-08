@@ -16,6 +16,7 @@
  * - config_*: Configuration errors (developer mistake)
  * - policy_*: Policy resolution errors
  * - verification_*: Verification lifecycle errors
+ * - session_*: Browser session binding errors
  * - wallet_*: Wallet interaction errors
  * - token_*: Token validation errors
  * - network_*: Network/connectivity errors
@@ -35,6 +36,8 @@ export type AuthboundErrorCode =
   | "verification_not_found"
   | "verification_expired"
   | "verification_invalid_state"
+  // Browser session errors
+  | "session_origin_forbidden"
   // Wallet interaction errors
   | "wallet_timeout"
   | "wallet_rejected"
@@ -128,6 +131,12 @@ export const ERROR_METADATA: Record<AuthboundErrorCode, ErrorMetadata> = {
     message: "Verification is in an invalid state for this operation.",
     hint: "Check verification.status before performing operations. Terminal states cannot be changed.",
     docsPath: "/errors/verification-invalid-state",
+  },
+  // Browser session
+  session_origin_forbidden: {
+    message: "Session finalization origin is not allowed.",
+    hint: "Check your SDK session route origin/proxy configuration and allowed origins.",
+    docsPath: "/errors/session-origin-forbidden",
   },
   // Wallet
   wallet_timeout: {
@@ -430,6 +439,7 @@ function isRetryableCode(code: AuthboundErrorCode): boolean {
  * The gateway may return codes that aren't directly in the SDK vocabulary.
  */
 const GATEWAY_CODE_MAP: Record<string, AuthboundErrorCode> = {
+  CROSS_ORIGIN_FORBIDDEN: "session_origin_forbidden",
   invalid_policy: "policy_not_found",
   validation_error: "policy_invalid",
 };
