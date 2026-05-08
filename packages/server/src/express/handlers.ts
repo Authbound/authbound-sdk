@@ -22,6 +22,7 @@
  * ```
  */
 
+import { resolveWalletAuthorizationRequest } from "@authbound/core";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 import { AuthboundClient, AuthboundClientError } from "../core/client";
@@ -154,19 +155,21 @@ function getBrowserWalletUrl(result: {
   verificationUrl?: string;
   clientAction?: { kind: string; data: string };
 }): { authorizationRequestUrl: string; deepLink?: string } {
-  const linkAction =
-    result.clientAction?.kind === "link" ? result.clientAction.data : undefined;
-  const authorizationRequestUrl = result.verificationUrl ?? linkAction;
+  const resolvedWalletRequest = resolveWalletAuthorizationRequest({
+    verificationUrl: result.verificationUrl,
+    clientAction: result.clientAction,
+  });
+  const authorizationRequestUrl = resolvedWalletRequest.authorizationRequestUrl;
 
   if (!authorizationRequestUrl) {
     throw new BrowserVerificationResponseError(
-      "Authbound did not return a browser-compatible wallet URL for this verification."
+      "Authbound did not return a wallet invocation URL for this verification."
     );
   }
 
   return {
     authorizationRequestUrl,
-    deepLink: linkAction,
+    deepLink: resolvedWalletRequest.deepLink,
   };
 }
 

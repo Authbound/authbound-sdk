@@ -117,6 +117,13 @@ export {
   type VerificationSuccess,
 } from "./types/verification";
 
+export {
+  resolveWalletAuthorizationRequest,
+  type WalletAuthorizationRequestInput,
+  type WalletAuthorizationRequestResolution,
+  type WalletClientAction,
+} from "./verification/wallet-authorization";
+
 // ============================================================================
 // Status Subscriptions
 // ============================================================================

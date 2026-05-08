@@ -14,7 +14,10 @@
  * ```
  */
 
-import type { PolicyId } from "@authbound/core";
+import {
+  type PolicyId,
+  resolveWalletAuthorizationRequest,
+} from "@authbound/core";
 import {
   calculateAge,
   createToken,
@@ -344,14 +347,10 @@ export {
 class BrowserWalletUrlError extends Error {
   constructor() {
     super(
-      "Authbound did not return a browser-compatible wallet URL for this verification."
+      "Authbound did not return a wallet invocation URL for this verification."
     );
     this.name = "BrowserWalletUrlError";
   }
-}
-
-function getString(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function mapGatewayResponse(
@@ -360,12 +359,15 @@ function mapGatewayResponse(
   const clientAction = (raw.client_action ?? raw.clientAction) as
     | { kind?: string; data?: string; expires_at?: string }
     | undefined;
-  const linkAction =
-    clientAction?.kind === "link" ? getString(clientAction.data) : undefined;
-  const authorizationRequestUrl =
-    getString(raw.authorizationRequestUrl) ??
-    getString(raw.verification_url) ??
-    linkAction;
+  const resolvedWalletRequest = resolveWalletAuthorizationRequest({
+    authorizationRequestUrl: raw.authorizationRequestUrl,
+    deepLink: raw.deepLink,
+    verification_url: raw.verification_url,
+    verificationUrl: raw.verificationUrl,
+    client_action: clientAction,
+    clientAction: raw.clientAction,
+  });
+  const authorizationRequestUrl = resolvedWalletRequest.authorizationRequestUrl;
 
   if (!authorizationRequestUrl) {
     throw new BrowserWalletUrlError();
@@ -376,7 +378,7 @@ function mapGatewayResponse(
     authorizationRequestUrl,
     clientToken: raw.clientToken ?? raw.client_token,
     expiresAt: raw.expiresAt ?? raw.expires_at,
-    deepLink: getString(raw.deepLink) ?? linkAction,
+    deepLink: resolvedWalletRequest.deepLink,
   };
 }
 

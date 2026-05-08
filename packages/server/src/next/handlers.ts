@@ -1,3 +1,4 @@
+import { resolveWalletAuthorizationRequest } from "@authbound/core";
 import { z } from "zod";
 import { AuthboundClient, AuthboundClientError } from "../core/client";
 import { createSafeErrorResponse, logError } from "../core/error-utils";
@@ -262,7 +263,7 @@ export function createAuthboundHandlers(
 class BrowserWalletUrlError extends Error {
   constructor() {
     super(
-      "Authbound did not return a browser-compatible wallet URL for this verification."
+      "Authbound did not return a wallet invocation URL for this verification."
     );
     this.name = "BrowserWalletUrlError";
   }
@@ -278,11 +279,11 @@ class BrowserVerificationResponseError extends Error {
 function toBrowserVerificationResponse(
   verification: Awaited<ReturnType<AuthboundClient["verifications"]["create"]>>
 ): CreateVerificationResponse {
-  const linkAction =
-    verification.clientAction?.kind === "link"
-      ? verification.clientAction.data
-      : undefined;
-  const authorizationRequestUrl = verification.verificationUrl ?? linkAction;
+  const resolvedWalletRequest = resolveWalletAuthorizationRequest({
+    verificationUrl: verification.verificationUrl,
+    clientAction: verification.clientAction,
+  });
+  const authorizationRequestUrl = resolvedWalletRequest.authorizationRequestUrl;
 
   if (!authorizationRequestUrl) {
     throw new BrowserWalletUrlError();
@@ -307,7 +308,9 @@ function toBrowserVerificationResponse(
     authorizationRequestUrl,
     clientToken: verification.clientToken,
     expiresAt,
-    ...(linkAction ? { deepLink: linkAction } : {}),
+    ...(resolvedWalletRequest.deepLink
+      ? { deepLink: resolvedWalletRequest.deepLink }
+      : {}),
   };
 }
 

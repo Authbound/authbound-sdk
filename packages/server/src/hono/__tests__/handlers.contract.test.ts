@@ -36,9 +36,10 @@ describe("Hono Authbound app contract", () => {
           id: "vrf_test123",
           status: "pending",
           client_token: "client_token_123",
+          verification_url: "https://app.authbound.test/v/vrf_test123",
           client_action: {
-            kind: "link",
-            data: "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.test%2Frequest%2F123",
+            kind: "qr",
+            data: "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.test&request_uri=https%3A%2F%2Feudi-verifier.authbound.test%2Fwallet%2Frequest.jwt%2Fabc",
             expires_at: "2026-04-21T10:10:00.000Z",
           },
           expires_at: "2026-04-21T10:10:00.000Z",
@@ -69,6 +70,15 @@ describe("Hono Authbound app contract", () => {
     const pendingCookie = createResponse.headers.get("set-cookie");
 
     expect(createResponse.status).toBe(200);
+    expect(await createResponse.clone().json()).toEqual({
+      verificationId: "vrf_test123",
+      authorizationRequestUrl:
+        "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.test&request_uri=https%3A%2F%2Feudi-verifier.authbound.test%2Fwallet%2Frequest.jwt%2Fabc",
+      clientToken: "client_token_123",
+      expiresAt: "2026-04-21T10:10:00.000Z",
+      deepLink:
+        "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.test&request_uri=https%3A%2F%2Feudi-verifier.authbound.test%2Fwallet%2Frequest.jwt%2Fabc",
+    });
     expect(pendingCookie).toContain("__authbound_pending=");
 
     const sessionResponse = await app.request(

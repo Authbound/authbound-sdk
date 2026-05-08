@@ -1,3 +1,4 @@
+import { resolveWalletAuthorizationRequest } from "@authbound/core";
 import { createError } from "h3";
 
 export type GatewayVerificationResponse = {
@@ -19,16 +20,20 @@ export type GatewayVerificationResponse = {
 export function mapGatewayVerificationResponse(
   raw: GatewayVerificationResponse
 ) {
-  const linkAction =
-    raw.client_action?.kind === "link" ? raw.client_action.data : undefined;
+  const resolvedWalletRequest = resolveWalletAuthorizationRequest({
+    authorizationRequestUrl: raw.authorizationRequestUrl,
+    deepLink: raw.deepLink,
+    verification_url: raw.verification_url,
+    client_action: raw.client_action,
+  });
   const authorizationRequestUrl =
-    raw.authorizationRequestUrl ?? raw.verification_url ?? linkAction;
+    resolvedWalletRequest.authorizationRequestUrl;
 
   if (!authorizationRequestUrl) {
     throw createError({
       statusCode: 502,
       message:
-        "Authbound did not return a browser-compatible wallet URL for this verification.",
+        "Authbound did not return a wallet invocation URL for this verification.",
     });
   }
 
@@ -37,6 +42,6 @@ export function mapGatewayVerificationResponse(
     authorizationRequestUrl,
     clientToken: raw.clientToken ?? raw.client_token,
     expiresAt: raw.expiresAt ?? raw.expires_at,
-    deepLink: raw.deepLink ?? linkAction,
+    deepLink: resolvedWalletRequest.deepLink,
   };
 }

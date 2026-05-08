@@ -26,7 +26,7 @@ describe("Next.js server debug logging", () => {
         client_token: "client_token_secret_value",
         client_action: {
           kind: "link",
-          data: "https://api.authbound.io/verify/secret",
+          data: "openid4vp://?request_uri=https%3A%2F%2Fapi.authbound.io%2Fverify%2Fsecret",
           expires_at: "2026-03-09T12:00:00.000Z",
         },
         expires_at: "2026-03-09T12:00:00.000Z",
@@ -140,7 +140,7 @@ describe("Next.js server debug logging", () => {
     );
   });
 
-  it("prefers verification_url when client_action is not a browser URL", async () => {
+  it("prefers QR client_action data over the browser verification_url", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -150,10 +150,10 @@ describe("Next.js server debug logging", () => {
         status: "awaiting_user",
         client_token: "client_token_secret_value",
         verification_url:
-          "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.io%2Frequest%2F123",
+          "https://ab-1k2rbz6f9ab5p6xj.authbound.io/v/00000000-0000-4000-8000-000000000123",
         client_action: {
           kind: "qr",
-          data: "iVBORw0KGgoAAAANSUhEUgAA",
+          data: "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.io&request_uri=https%3A%2F%2Feudi-verifier.authbound.io%2Fwallet%2Frequest.jwt%2Fabc",
           expires_at: "2026-03-09T12:00:00.000Z",
         },
         expires_at: "2026-03-09T12:00:00.000Z",
@@ -180,9 +180,11 @@ describe("Next.js server debug logging", () => {
     expect(await response.json()).toEqual({
       verificationId: "00000000-0000-4000-8000-000000000123",
       authorizationRequestUrl:
-        "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.io%2Frequest%2F123",
+        "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.io&request_uri=https%3A%2F%2Feudi-verifier.authbound.io%2Fwallet%2Frequest.jwt%2Fabc",
       clientToken: "client_token_secret_value",
       expiresAt: "2026-03-09T12:00:00.000Z",
+      deepLink:
+        "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.io&request_uri=https%3A%2F%2Feudi-verifier.authbound.io%2Fwallet%2Frequest.jwt%2Fabc",
     });
   });
 
@@ -222,7 +224,7 @@ describe("Next.js server debug logging", () => {
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({
       error:
-        "Authbound did not return a browser-compatible wallet URL for this verification.",
+        "Authbound did not return a wallet invocation URL for this verification.",
       code: "BROWSER_WALLET_URL_MISSING",
     });
   });

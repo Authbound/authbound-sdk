@@ -41,16 +41,17 @@ describe("createAuthboundHandlers browser verification contract", () => {
     vi.restoreAllMocks();
   });
 
-  it("accepts camelCase create requests and returns the canonical browser response", async () => {
+  it("accepts camelCase create requests and returns the wallet QR action", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         object: "verification",
         id: "vrf_test123",
         status: "pending",
         client_token: "client_token_123",
+        verification_url: "https://app.authbound.test/v/vrf_test123",
         client_action: {
-          kind: "link",
-          data: "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.test%2Frequest%2F123",
+          kind: "qr",
+          data: "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.test&request_uri=https%3A%2F%2Feudi-verifier.authbound.test%2Fwallet%2Frequest.jwt%2Fabc",
           expires_at: "2026-04-21T10:10:00.000Z",
         },
         expires_at: "2026-04-21T10:10:00.000Z",
@@ -76,11 +77,11 @@ describe("createAuthboundHandlers browser verification contract", () => {
     expect(await response.json()).toEqual({
       verificationId: "vrf_test123",
       authorizationRequestUrl:
-        "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.test%2Frequest%2F123",
+        "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.test&request_uri=https%3A%2F%2Feudi-verifier.authbound.test%2Fwallet%2Frequest.jwt%2Fabc",
       clientToken: "client_token_123",
       expiresAt: "2026-04-21T10:10:00.000Z",
       deepLink:
-        "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.test%2Frequest%2F123",
+        "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.test&request_uri=https%3A%2F%2Feudi-verifier.authbound.test%2Fwallet%2Frequest.jwt%2Fabc",
     });
     expect(response.headers.get("set-cookie")).toContain(
       "__authbound_pending="
