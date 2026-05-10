@@ -30,7 +30,6 @@ export type AuthboundErrorCode =
   // Policy errors
   | "policy_not_found"
   | "policy_invalid"
-  | "policy_version_required"
   // Verification errors
   | "verification_create_failed"
   | "verification_not_found"
@@ -105,11 +104,6 @@ export const ERROR_METADATA: Record<AuthboundErrorCode, ErrorMetadata> = {
     message: "Verification policy configuration is invalid.",
     hint: "Review policy requirements. Each credential must have valid attributes.",
     docsPath: "/policies/configuration",
-  },
-  policy_version_required: {
-    message: "Policy version is required in production.",
-    hint: "Use format: 'policy-name@1.0.0'. Unversioned policies are only allowed in test mode.",
-    docsPath: "/policies/versioning",
   },
   // Verification
   verification_create_failed: {

@@ -20,7 +20,6 @@ export {
   isVerificationId,
   type PolicyId,
   type PublishableKey,
-  parsePolicyId,
   type SecretKey,
   type VerificationId,
 } from "./branded";

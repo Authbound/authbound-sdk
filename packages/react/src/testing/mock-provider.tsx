@@ -353,7 +353,7 @@ export function MockAuthboundProvider({
           } as VerificationState)
         : null,
       appearance,
-      policyId: "test-policy@1.0.0" as PolicyId,
+      policyId: "pol_test_policy_v1" as PolicyId,
       startVerification,
       resetVerification: triggerReset,
       updateVerification: (update: Partial<VerificationState>) =>

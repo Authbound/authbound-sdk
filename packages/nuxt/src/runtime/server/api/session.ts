@@ -126,8 +126,7 @@ export default defineEventHandler(async (event) => {
 
   const sessionSecret =
     config.authbound?.sessionSecret ??
-    process.env.AUTHBOUND_SESSION_SECRET ??
-    process.env.AUTHBOUND_SECRET;
+    process.env.AUTHBOUND_SESSION_SECRET;
 
   if (!sessionSecret) {
     throw createError({

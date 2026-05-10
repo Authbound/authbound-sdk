@@ -7,8 +7,7 @@ describe("mapGatewayVerificationResponse", () => {
       mapGatewayVerificationResponse({
         id: "vrf_123",
         client_token: "client_token_123",
-        verification_url:
-          "https://ab-1k2rbz6f9ab5p6xj.authbound.io/v/vrf_123",
+        verification_url: "https://ab-1k2rbz6f9ab5p6xj.authbound.io/v/vrf_123",
         client_action: {
           kind: "qr",
           data: "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.io&request_uri=https%3A%2F%2Feudi-verifier.authbound.io%2Fwallet%2Frequest.jwt%2Fabc",

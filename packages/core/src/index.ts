@@ -63,7 +63,6 @@ export {
   isVerificationId,
   type PolicyId,
   type PublishableKey,
-  parsePolicyId,
   type SecretKey,
   type VerificationId,
 } from "./types/branded";
@@ -166,14 +165,8 @@ export {
 // ============================================================================
 
 export {
-  compareSemVer,
-  findLatestVersion,
-  formatSemVer,
-  matchesVersionRange,
-  parseSemVer,
   type ResolutionContext,
   resolvePolicy,
-  type SemVer,
 } from "./policy";
 
 // ============================================================================

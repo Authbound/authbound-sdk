@@ -123,15 +123,13 @@ describe("resolveWalletAuthorizationRequest", () => {
     expect(result.deepLink).toBeUndefined();
   });
 
-  it("uses legacy verification_url only when it is a wallet invocation URL", () => {
+  it("does not use verification_url as a wallet invocation fallback", () => {
     const result = resolveWalletAuthorizationRequest({
       verification_url:
         "openid4vp://?request_uri=https%3A%2F%2Fapi.authbound.io%2Frequest%2F123",
     });
 
-    expect(result.authorizationRequestUrl).toBe(
-      "openid4vp://?request_uri=https%3A%2F%2Fapi.authbound.io%2Frequest%2F123"
-    );
+    expect(result.authorizationRequestUrl).toBeUndefined();
   });
 
   it("does not treat a browser verification_url as a wallet QR payload", () => {

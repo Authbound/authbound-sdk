@@ -26,16 +26,22 @@ describe("Next.js server debug logging", () => {
     });
 
     const createResponse = await createHandler(
-      new Request("https://playground.authbound.io/api/authbound/verification", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ customerUserRef: "demo-user" }),
-      }) as never
+      new Request(
+        "https://playground.authbound.io/api/authbound/verification",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ customerUserRef: "demo-user" }),
+        }
+      ) as never
     );
     const pendingCookie = createResponse.headers.get("set-cookie");
 
-    expect(pendingCookie).toContain("__authbound_pending=");
-    return pendingCookie?.split(";")[0] ?? "";
+    if (!pendingCookie?.includes("__authbound_pending=")) {
+      throw new Error("Pending verification cookie was not set");
+    }
+
+    return pendingCookie.split(";")[0] ?? "";
   }
 
   it("redacts sensitive verification request and response fields", async () => {
@@ -57,7 +63,7 @@ describe("Next.js server debug logging", () => {
     const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
 
     const handler = createVerificationRoute({
-      policyId: "pol_age_over_18_v1" as PolicyId,
+      policyId: "pol_age_over_18_authbound_v1" as PolicyId,
       gatewayUrl: "https://api.authbound.io",
       secret: "sk_test_secret",
       debug: true,
@@ -86,7 +92,7 @@ describe("Next.js server debug logging", () => {
       1,
       "[Authbound] Creating verification:",
       {
-        policyId: "pol_age_over_18_v1",
+        policyId: "pol_age_over_18_authbound_v1",
         bodyKeys: ["customerUserRef", "metadata", "policyId"],
         hasCustomerUserRef: true,
         metadataKeys: ["playground_user_email"],
@@ -543,6 +549,53 @@ describe("Next.js server debug logging", () => {
         delete process.env.AUTHBOUND_SESSION_SECRET;
       } else {
         process.env.AUTHBOUND_SESSION_SECRET = originalSessionSecret;
+      }
+    }
+  });
+
+  it("does not use AUTHBOUND_SECRET as a session secret fallback", async () => {
+    const originalSessionSecret = process.env.AUTHBOUND_SESSION_SECRET;
+    const originalAuthboundSecret = process.env.AUTHBOUND_SECRET;
+    delete process.env.AUTHBOUND_SESSION_SECRET;
+    process.env.AUTHBOUND_SECRET = "sk_test_not_a_cookie_signing_secret";
+    global.fetch = vi.fn() as typeof fetch;
+
+    try {
+      const handler = createSessionRoute({
+        gatewayUrl: "https://api.authbound.io",
+        publishableKey: "pk_test_configured",
+      });
+
+      const response = await handler(
+        new Request("https://playground.authbound.io/api/authbound/session", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            origin: "https://playground.authbound.io",
+            "sec-fetch-site": "same-origin",
+          },
+          body: JSON.stringify({
+            verificationId: "vrf_123",
+            clientToken: "client_token_123",
+          }),
+        }) as never
+      );
+
+      expect(response.status).toBe(500);
+      expect(await response.json()).toMatchObject({
+        code: "INTERNAL_ERROR",
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
+    } finally {
+      if (originalSessionSecret === undefined) {
+        delete process.env.AUTHBOUND_SESSION_SECRET;
+      } else {
+        process.env.AUTHBOUND_SESSION_SECRET = originalSessionSecret;
+      }
+      if (originalAuthboundSecret === undefined) {
+        delete process.env.AUTHBOUND_SECRET;
+      } else {
+        process.env.AUTHBOUND_SECRET = originalAuthboundSecret;
       }
     }
   });

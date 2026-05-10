@@ -2,7 +2,7 @@ import {
   QRCode as VueQRCode,
   QRCodeWithLoading as VueQRCodeWithLoading,
 } from "@authbound/vue";
-import { defineComponent, h, type Component } from "vue";
+import { type Component, defineComponent, h } from "vue";
 
 export const QRCode = defineComponent({
   name: "AuthboundQRCode",

@@ -90,7 +90,7 @@ export interface WithAuthboundOptions {
   /**
    * Secret key for JWT verification.
    * Required for secure session validation.
-   * @default process.env.AUTHBOUND_SESSION_SECRET ?? process.env.AUTHBOUND_SECRET
+   * @default process.env.AUTHBOUND_SESSION_SECRET
    */
   secret?: string;
 
@@ -222,8 +222,7 @@ export function withAuthbound(
     protectedRoutes,
     verifyPath = "/verify",
     cookieName: customCookieName,
-    secret = process.env.AUTHBOUND_SESSION_SECRET ??
-      process.env.AUTHBOUND_SECRET,
+    secret = process.env.AUTHBOUND_SESSION_SECRET,
     debug = false,
     onVerificationRequired,
     onVerified,

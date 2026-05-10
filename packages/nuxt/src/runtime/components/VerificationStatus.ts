@@ -2,7 +2,7 @@ import {
   StatusBadge as VueStatusBadge,
   VerificationStatus as VueVerificationStatus,
 } from "@authbound/vue";
-import { defineComponent, h, type Component } from "vue";
+import { type Component, defineComponent, h } from "vue";
 
 export const StatusBadge = defineComponent({
   name: "AuthboundStatusBadge",

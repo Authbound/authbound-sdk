@@ -76,8 +76,6 @@ function getClientActionUrl(
 
 /**
  * Resolve the wallet invocation payload that should be encoded in QR codes.
- * Gateway `verification_url` is a browser page and is only valid here for legacy
- * responses where it already contains an OpenID4VP wallet invocation URL.
  */
 export function resolveWalletAuthorizationRequest(
   input: WalletAuthorizationRequestInput
@@ -89,19 +87,13 @@ export function resolveWalletAuthorizationRequest(
     input.client_action ?? input.clientAction
   );
   const clientActionUrl = getClientActionUrl(clientAction);
-  const verificationUrl =
-    getString(input.verification_url) ?? getString(input.verificationUrl);
-  const legacyWalletUrl =
-    verificationUrl && isWalletInvocationUrl(verificationUrl)
-      ? verificationUrl
-      : undefined;
   const normalizedAuthorizationRequestUrl =
     explicitAuthorizationRequestUrl &&
     isWalletInvocationUrl(explicitAuthorizationRequestUrl)
       ? explicitAuthorizationRequestUrl
       : undefined;
   const authorizationRequestUrl =
-    normalizedAuthorizationRequestUrl ?? clientActionUrl ?? legacyWalletUrl;
+    normalizedAuthorizationRequestUrl ?? clientActionUrl;
   const explicitDeepLink = getString(input.deepLink);
 
   return {

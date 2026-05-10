@@ -79,7 +79,7 @@ export interface VerificationRouteOptions {
 
   /**
    * Secret used to encrypt the local pending-verification cookie.
-   * @default Uses AUTHBOUND_SESSION_SECRET or AUTHBOUND_SECRET env var
+   * @default Uses AUTHBOUND_SESSION_SECRET env var
    */
   sessionSecret?: string;
 
@@ -168,10 +168,7 @@ function getEnvVar(name: string, fallback?: string): string {
 }
 
 function getSecretKey(fallback?: string): string {
-  const value =
-    process.env.AUTHBOUND_SECRET_KEY ??
-    process.env.AUTHBOUND_SECRET ??
-    fallback;
+  const value = process.env.AUTHBOUND_SECRET_KEY ?? fallback;
   if (!value) {
     throw new Error(
       "Missing required environment variable: AUTHBOUND_SECRET_KEY"
@@ -406,7 +403,7 @@ function mapGatewayResponse(
  * ```ts
  * // With custom metadata
  * export const POST = createVerificationRoute({
- *   policyId: 'kyc-full@1.0.0',
+ *   policyId: 'pol_kyc_basic_authbound_v1',
  *   transformRequest: async (request, body) => {
  *     const user = await getCurrentUser();
  *     return {
@@ -724,7 +721,7 @@ export interface SessionRouteOptions {
 
   /**
    * Secret used to encrypt the local verification cookie.
-   * @default Uses AUTHBOUND_SESSION_SECRET or AUTHBOUND_SECRET env var
+   * @default Uses AUTHBOUND_SESSION_SECRET env var
    */
   sessionSecret?: string;
 
@@ -855,10 +852,7 @@ export function createStatusRoute(
 // ============================================================================
 
 function getSessionSecret(fallback?: string): string {
-  const value =
-    fallback ??
-    process.env.AUTHBOUND_SESSION_SECRET ??
-    process.env.AUTHBOUND_SECRET;
+  const value = fallback ?? process.env.AUTHBOUND_SESSION_SECRET;
   if (!value) {
     throw new Error(
       "Missing required environment variable: AUTHBOUND_SESSION_SECRET"
@@ -868,11 +862,7 @@ function getSessionSecret(fallback?: string): string {
 }
 
 function getOptionalSessionSecret(fallback?: string): string | undefined {
-  return (
-    fallback ??
-    process.env.AUTHBOUND_SESSION_SECRET ??
-    process.env.AUTHBOUND_SECRET
-  );
+  return fallback ?? process.env.AUTHBOUND_SESSION_SECRET;
 }
 
 function getPendingCookieName(cookieName: string): string {
@@ -917,9 +907,11 @@ function originFromParts(
   const normalizedHost = unquoteHeaderValue(host)?.trim();
 
   if (
-    !normalizedProtocol ||
-    !normalizedHost ||
-    !["http", "https"].includes(normalizedProtocol)
+    !(
+      normalizedProtocol &&
+      normalizedHost &&
+      ["http", "https"].includes(normalizedProtocol)
+    )
   ) {
     return;
   }

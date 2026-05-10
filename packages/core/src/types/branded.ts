@@ -43,8 +43,7 @@ export type Brand<T, B extends string> = T & { readonly [__brand]: B };
 /**
  * Policy ID.
  *
- * Supports Authbound seeded IDs like `pol_authbound_pension_v1` and semantic
- * IDs like `age-gate-18@1.0.0`.
+ * Supports concrete Authbound seeded IDs like `pol_authbound_pension_v1`.
  *
  * Use `asPolicyId()` to create a PolicyId from a string.
  */
@@ -58,21 +57,7 @@ export function isPolicyId(value: string): value is PolicyId {
     return false;
   }
 
-  const unversionedPattern = /^[a-zA-Z0-9_-]+$/;
-  if (!value.includes("@")) {
-    return unversionedPattern.test(value);
-  }
-
-  const parts = value.split("@");
-  if (parts.length !== 2) return false;
-
-  const [name, version] = parts;
-  if (!(name && version)) return false;
-  if (!unversionedPattern.test(name)) return false;
-
-  // Basic semver validation (allows v prefix)
-  const semverPattern = /^v?\d+\.\d+\.\d+(?:-[\w.]+)?(?:\+[\w.]+)?$/;
-  return semverPattern.test(version);
+  return /^pol_[a-z0-9_]+_v\d+$/.test(value);
 }
 
 /**
@@ -84,7 +69,7 @@ export function isPolicyId(value: string): value is PolicyId {
 export function asPolicyId(value: string): PolicyId {
   if (!isPolicyId(value)) {
     throw new TypeError(
-      `Invalid policy ID format: "${value}". Expected an Authbound policy ID (e.g., "pol_authbound_pension_v1") or "name@version" (e.g., "age-gate-18@1.0.0")`
+      `Invalid policy ID format: "${value}". Expected an Authbound policy ID (e.g., "pol_authbound_pension_v1")`
     );
   }
   return value as PolicyId;
@@ -97,17 +82,6 @@ export function asPolicyId(value: string): PolicyId {
  */
 export function unsafeAsPolicyId(value: string): PolicyId {
   return value as PolicyId;
-}
-
-/**
- * Parse a PolicyId into its components.
- */
-export function parsePolicyId(policyId: PolicyId): {
-  name: string;
-  version: string;
-} {
-  const [name, version] = (policyId as string).split("@") as [string, string];
-  return { name, version };
 }
 
 // ============================================================================

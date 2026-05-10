@@ -26,8 +26,7 @@ export function mapGatewayVerificationResponse(
     verification_url: raw.verification_url,
     client_action: raw.client_action,
   });
-  const authorizationRequestUrl =
-    resolvedWalletRequest.authorizationRequestUrl;
+  const authorizationRequestUrl = resolvedWalletRequest.authorizationRequestUrl;
 
   if (!authorizationRequestUrl) {
     throw createError({

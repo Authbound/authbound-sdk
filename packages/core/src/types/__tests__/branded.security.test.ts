@@ -94,21 +94,8 @@ describe("isPolicyId - Format Validation", () => {
   describe("Valid Policy IDs", () => {
     it("accepts seeded v1 policy IDs without semantic suffixes", () => {
       expect(isPolicyId("pol_authbound_pension_v1")).toBe(true);
-      expect(isPolicyId("pol_age_over_18_v1")).toBe(true);
-    });
-
-    it("accepts standard name@version format", () => {
-      expect(isPolicyId("age-gate-18@1.0.0")).toBe(true);
-      expect(isPolicyId("kyc-full@2.1.0")).toBe(true);
-    });
-
-    it("accepts version with v prefix", () => {
-      expect(isPolicyId("age-gate@v1.0.0")).toBe(true);
-    });
-
-    it("accepts pre-release versions", () => {
-      expect(isPolicyId("test-policy@1.0.0-beta.1")).toBe(true);
-      expect(isPolicyId("test-policy@1.0.0-rc.2")).toBe(true);
+      expect(isPolicyId("pol_age_over_18_authbound_v1")).toBe(true);
+      expect(isPolicyId("pol_identity_basic_eudi_v1")).toBe(true);
     });
   });
 
@@ -117,6 +104,18 @@ describe("isPolicyId - Format Validation", () => {
       expect(isPolicyId("../age-gate")).toBe(false);
       expect(isPolicyId("age-gate?admin=true")).toBe(false);
       expect(isPolicyId("age gate")).toBe(false);
+    });
+
+    it("rejects preset slugs and arbitrary bare identifiers", () => {
+      expect(isPolicyId("age-gate-18")).toBe(false);
+      expect(isPolicyId("identity_basic")).toBe(false);
+      expect(isPolicyId("kyc_basic")).toBe(false);
+      expect(isPolicyId("foo")).toBe(false);
+    });
+
+    it("rejects semantic policy IDs", () => {
+      expect(isPolicyId("age-gate-18@1.0.0")).toBe(false);
+      expect(isPolicyId("kyc-full@2.1.0")).toBe(false);
     });
 
     it("rejects missing name around version separator", () => {

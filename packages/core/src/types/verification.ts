@@ -91,23 +91,13 @@ export const VerdictSchema = z.enum(["approved", "rejected", "inconclusive"]);
 export interface VerificationClaims {
   /** User is at least 18 years old */
   age_over_18?: boolean;
-  /** User is at least 21 years old */
-  age_over_21?: boolean;
-  /** User is at least 65 years old */
-  age_over_65?: boolean;
-  /** User holds a valid driving license */
-  driving_license_valid?: boolean;
-  /** User is a resident of an EU member state */
-  eu_resident?: boolean;
 }
 
-export const VerificationClaimsSchema = z.object({
-  age_over_18: z.boolean().optional(),
-  age_over_21: z.boolean().optional(),
-  age_over_65: z.boolean().optional(),
-  driving_license_valid: z.boolean().optional(),
-  eu_resident: z.boolean().optional(),
-});
+export const VerificationClaimsSchema = z
+  .object({
+    age_over_18: z.boolean().optional(),
+  })
+  .strict();
 
 // ============================================================================
 // Verification Request/Response Types
