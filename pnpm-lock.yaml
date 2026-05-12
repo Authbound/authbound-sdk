@@ -152,6 +152,9 @@ importers:
       h3:
         specifier: ^1.15.4
         version: 1.15.4
+      nitropack:
+        specifier: ^2.13.4
+        version: 2.13.4(oxc-parser@0.128.0)
     devDependencies:
       '@nuxt/module-builder':
         specifier: ^1.0.2

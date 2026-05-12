@@ -16,7 +16,11 @@
  * ```
  */
 
-import { resolveWalletAuthorizationRequest } from "@authbound/core";
+import {
+  isSameOriginSessionRequest,
+  originForStatusProxy,
+  resolveWalletAuthorizationRequest,
+} from "@authbound/core";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -89,33 +93,13 @@ const FinalizeVerificationRequestSchema = z.object({
   clientToken: z.string(),
 });
 
-function normalizeBrowserOrigin(value: string | undefined): string | undefined {
-  if (!value) {
-    return;
-  }
-
-  try {
-    const origin = new URL(value).origin;
-    return origin === "null" ? undefined : origin;
-  } catch {
-    return;
-  }
-}
-
-function originForStatusProxy(c: Context): string | undefined {
-  return (
-    normalizeBrowserOrigin(c.req.header("origin")) ??
-    normalizeBrowserOrigin(c.req.url)
-  );
-}
-
-function isSameOriginSessionRequest(c: Context): boolean {
-  const origin = c.req.header("origin");
-  if (origin && origin !== new URL(c.req.url).origin) {
-    return false;
-  }
-
-  return c.req.header("sec-fetch-site") !== "cross-site";
+function sessionOriginRequest(c: Context) {
+  return {
+    url: c.req.url,
+    headers: {
+      get: (name: string) => c.req.header(name) ?? null,
+    },
+  };
 }
 
 // ============================================================================
@@ -390,7 +374,13 @@ async function handleFinalizeSession(
   client: AuthboundClient
 ): Promise<Response> {
   try {
-    if (!isSameOriginSessionRequest(c)) {
+    const originRequest = sessionOriginRequest(c);
+    if (
+      !isSameOriginSessionRequest(originRequest, {
+        allowedOrigins: config.allowedOrigins,
+        trustProxy: config.trustProxy,
+      })
+    ) {
       return c.json(
         {
           error: "Cross-origin session finalization is not allowed",
@@ -459,7 +449,9 @@ async function handleFinalizeSession(
     const status = await client.verifications.getStatus(verificationId, {
       clientToken,
       publishableKey,
-      origin: originForStatusProxy(c),
+      origin: originForStatusProxy(originRequest, {
+        trustProxy: config.trustProxy,
+      }),
     });
 
     if (status.status !== "verified" || status.result?.verified === false) {

@@ -116,4 +116,102 @@ describe("Hono Authbound app contract", () => {
       })
     );
   });
+
+  it("rejects framework-normalized forwarded https URLs unless proxy trust is enabled", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const app = createAuthboundApp(config);
+    const response = await app.request("https://app.example.com/session", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        host: "app.example.com",
+        origin: "https://app.example.com",
+        "sec-fetch-site": "same-origin",
+        "x-forwarded-proto": "https",
+      },
+      body: JSON.stringify({
+        verificationId: "vrf_test123",
+        clientToken: "client_token_123",
+      }),
+    });
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      code: "CROSS_ORIGIN_FORBIDDEN",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts forwarded https URLs when proxy trust is enabled", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          object: "verification",
+          id: "vrf_test123",
+          status: "pending",
+          client_token: "client_token_123",
+          client_action: {
+            kind: "link",
+            data: "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.test%2Frequest%2F123",
+            expires_at: "2026-04-21T10:10:00.000Z",
+          },
+          expires_at: "2026-04-21T10:10:00.000Z",
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          object: "verification_status",
+          id: "vrf_test123",
+          status: "verified",
+          result: { verified: true },
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const app = createAuthboundApp({ ...config, trustProxy: true });
+    const createResponse = await app.request(
+      "http://internal.example/verification",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          policyId: "pol_authbound_pension_v1",
+          customerUserRef: "user_123",
+        }),
+      }
+    );
+    const pendingCookie = createResponse.headers.get("set-cookie");
+
+    const response = await app.request("https://app.example.com/session", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: pendingCookie?.split(";")[0] ?? "",
+        host: "app.example.com",
+        origin: "https://app.example.com",
+        "sec-fetch-site": "same-origin",
+        "x-forwarded-proto": "https",
+      },
+      body: JSON.stringify({
+        verificationId: "vrf_test123",
+        clientToken: "client_token_123",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      isVerified: true,
+      verificationId: "vrf_test123",
+    });
+    expect(fetchMock.mock.calls[1]?.[1]).toEqual(
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Origin: "https://app.example.com",
+        }),
+      })
+    );
+  });
 });

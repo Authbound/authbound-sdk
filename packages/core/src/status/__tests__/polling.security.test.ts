@@ -304,6 +304,35 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
         })
       );
     });
+
+    it("maps durable outbox statuses used by portal flows", async () => {
+      fetchMock
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ status: "active" }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ status: "invalid" }),
+        });
+
+      cleanup = createPollingSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        { pollingConfig: { initialInterval: 100 } }
+      );
+
+      await vi.advanceTimersByTimeAsync(300);
+
+      expect(events).toContainEqual(
+        expect.objectContaining({ type: "status", status: "processing" })
+      );
+      expect(events).toContainEqual(
+        expect.objectContaining({ type: "status", status: "failed" })
+      );
+    });
   });
 
   describe("Cleanup", () => {

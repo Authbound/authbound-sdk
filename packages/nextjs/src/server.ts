@@ -15,6 +15,8 @@
  */
 
 import {
+  isSameOriginSessionRequest,
+  originForStatusProxy,
   type PolicyId,
   resolveWalletAuthorizationRequest,
 } from "@authbound/core";
@@ -200,26 +202,6 @@ function maskIdentifier(value: string | undefined): string | undefined {
   }
 
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
-}
-
-function normalizeBrowserOrigin(value: string | null): string | undefined {
-  if (!value) {
-    return;
-  }
-
-  try {
-    const origin = new URL(value).origin;
-    return origin === "null" ? undefined : origin;
-  } catch {
-    return;
-  }
-}
-
-function originForStatusProxy(request: Request): string | undefined {
-  return (
-    normalizeBrowserOrigin(request.headers.get("origin")) ??
-    normalizeBrowserOrigin(request.url)
-  );
 }
 
 function summarizeError(error: unknown): { name: string; message: string } {
@@ -704,6 +686,12 @@ export interface StatusRouteOptions {
    * Enable debug logging.
    */
   debug?: boolean;
+
+  /**
+   * Trust Forwarded and X-Forwarded-* headers for public origin detection.
+   * Enable only when the route runs behind a trusted reverse proxy.
+   */
+  trustProxy?: boolean;
 }
 
 export interface SessionRouteOptions {
@@ -744,6 +732,12 @@ export interface SessionRouteOptions {
   allowedOrigins?: string | string[];
 
   /**
+   * Trust Forwarded and X-Forwarded-* headers for public origin detection.
+   * Enable only when the route runs behind a trusted reverse proxy.
+   */
+  trustProxy?: boolean;
+
+  /**
    * Optional user reference resolver for applications with existing auth.
    */
   getUserRef?: (request: Request) => string | Promise<string>;
@@ -777,6 +771,7 @@ export function createStatusRoute(
   const {
     gatewayUrl = getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io"),
     publishableKey: configuredPublishableKey,
+    trustProxy = false,
     debug = false,
   } = options;
 
@@ -815,7 +810,7 @@ export function createStatusRoute(
         Authorization: authorization,
         "X-Authbound-Publishable-Key": publishableKey,
       };
-      const origin = originForStatusProxy(request);
+      const origin = originForStatusProxy(request, { trustProxy });
       if (origin) {
         headers.Origin = origin;
       }
@@ -882,138 +877,6 @@ function getCookieValue(request: Request, name: string): string | undefined {
     }
   }
   return;
-}
-
-function firstHeaderValue(value: string | null): string | undefined {
-  const first = value?.split(",")[0]?.trim();
-  return first || undefined;
-}
-
-function unquoteHeaderValue(value: string | undefined): string | undefined {
-  if (!value) {
-    return;
-  }
-  return value.replace(/^"|"$/g, "");
-}
-
-function originFromParts(
-  protocol: string | undefined,
-  host: string | undefined
-): string | undefined {
-  const normalizedProtocol = unquoteHeaderValue(protocol)
-    ?.trim()
-    .replace(/:$/, "")
-    .toLowerCase();
-  const normalizedHost = unquoteHeaderValue(host)?.trim();
-
-  if (
-    !(
-      normalizedProtocol &&
-      normalizedHost &&
-      ["http", "https"].includes(normalizedProtocol)
-    )
-  ) {
-    return;
-  }
-
-  return normalizeBrowserOrigin(`${normalizedProtocol}://${normalizedHost}`);
-}
-
-function originFromForwardedHeader(value: string | null): string | undefined {
-  const firstEntry = firstHeaderValue(value);
-  if (!firstEntry) {
-    return;
-  }
-
-  let proto: string | undefined;
-  let host: string | undefined;
-  for (const rawPart of firstEntry.split(";")) {
-    const separatorIndex = rawPart.indexOf("=");
-    if (separatorIndex === -1) {
-      continue;
-    }
-
-    const key = rawPart.slice(0, separatorIndex).trim().toLowerCase();
-    const value = rawPart.slice(separatorIndex + 1).trim();
-    if (key === "proto") {
-      proto = value;
-    } else if (key === "host") {
-      host = value;
-    }
-  }
-
-  return originFromParts(proto, host);
-}
-
-function publicRequestOrigin(request: Request): string | undefined {
-  const requestUrl = new URL(request.url);
-  const forwardedOrigin = originFromForwardedHeader(
-    request.headers.get("forwarded")
-  );
-  if (forwardedOrigin) {
-    return forwardedOrigin;
-  }
-
-  const forwardedHost = firstHeaderValue(
-    request.headers.get("x-forwarded-host")
-  );
-  if (forwardedHost) {
-    return originFromParts(
-      firstHeaderValue(request.headers.get("x-forwarded-proto")) ??
-        requestUrl.protocol,
-      forwardedHost
-    );
-  }
-
-  const host = firstHeaderValue(request.headers.get("host"));
-  if (host) {
-    return originFromParts(requestUrl.protocol, host);
-  }
-
-  return normalizeBrowserOrigin(request.url);
-}
-
-function normalizeAllowedOrigins(
-  allowedOrigins: string | string[] | undefined
-): Set<string> | undefined {
-  if (allowedOrigins === undefined) {
-    return;
-  }
-
-  const values = Array.isArray(allowedOrigins)
-    ? allowedOrigins
-    : [allowedOrigins];
-  return new Set(
-    values
-      .map((value) => normalizeBrowserOrigin(value))
-      .filter((value): value is string => Boolean(value))
-  );
-}
-
-function isSameOriginSessionRequest(
-  request: Request,
-  allowedOrigins?: string | string[]
-): boolean {
-  if (request.headers.get("sec-fetch-site")?.toLowerCase() === "cross-site") {
-    return false;
-  }
-
-  const originHeader = request.headers.get("origin");
-  if (!originHeader) {
-    return true;
-  }
-
-  const origin = normalizeBrowserOrigin(originHeader);
-  if (!origin) {
-    return false;
-  }
-
-  const configuredOrigins = normalizeAllowedOrigins(allowedOrigins);
-  if (configuredOrigins) {
-    return configuredOrigins.has(origin);
-  }
-
-  return publicRequestOrigin(request) === origin;
 }
 
 async function setPendingVerificationCookie(
@@ -1110,13 +973,16 @@ export function createSessionRoute(
     cookieName = "__authbound",
     cookieMaxAge = 60 * 60 * 24 * 7,
     allowedOrigins,
+    trustProxy = false,
     getUserRef,
     debug = false,
   } = options;
 
   return async (request: Request): Promise<Response> => {
     try {
-      if (!isSameOriginSessionRequest(request, allowedOrigins)) {
+      if (
+        !isSameOriginSessionRequest(request, { allowedOrigins, trustProxy })
+      ) {
         return NextResponse.json(
           {
             error: "Cross-origin session finalization is not allowed",
@@ -1180,7 +1046,7 @@ export function createSessionRoute(
         Authorization: `Bearer ${clientToken}`,
         "X-Authbound-Publishable-Key": publishableKey,
       };
-      const origin = originForStatusProxy(request);
+      const origin = originForStatusProxy(request, { trustProxy });
       if (origin) {
         statusHeaders.Origin = origin;
       }

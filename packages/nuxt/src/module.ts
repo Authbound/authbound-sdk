@@ -85,6 +85,17 @@ export interface ModuleOptions {
   sessionSecret?: string;
 
   /**
+   * Public browser origins allowed to finalize SDK-managed sessions.
+   */
+  allowedOrigins?: string | string[];
+
+  /**
+   * Trust Forwarded and X-Forwarded-* headers for public origin detection.
+   * Enable only when the app runs behind a trusted reverse proxy.
+   */
+  trustProxy?: boolean;
+
+  /**
    * Provider to use for verification creation.
    */
   provider?: "auto" | "vcs" | "eudi";
@@ -163,6 +174,8 @@ export default defineNuxtModule<ModuleOptions>({
     sessionMode: "sdk",
     apiKey: undefined,
     sessionSecret: undefined,
+    allowedOrigins: undefined,
+    trustProxy: false,
     provider: undefined,
     verifyPath: "/verify",
     cookieName: "__authbound",
@@ -195,6 +208,8 @@ export default defineNuxtModule<ModuleOptions>({
       apiKey: options.apiKey ?? process.env.AUTHBOUND_SECRET_KEY,
       sessionSecret:
         options.sessionSecret ?? process.env.AUTHBOUND_SESSION_SECRET,
+      allowedOrigins: options.allowedOrigins,
+      trustProxy: options.trustProxy,
       webhookSecret:
         options.webhookSecret ?? process.env.AUTHBOUND_WEBHOOK_SECRET,
       webhookTolerance: options.webhookTolerance,
@@ -298,6 +313,8 @@ declare module "@nuxt/schema" {
       provider?: "auto" | "vcs" | "eudi";
       apiKey?: string;
       sessionSecret?: string;
+      allowedOrigins?: string | string[];
+      trustProxy?: boolean;
       webhookSecret?: string;
       webhookTolerance?: number;
       publicRoutes?: string[];

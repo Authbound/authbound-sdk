@@ -31,7 +31,8 @@
     "@authbound/server": "workspace:*",
     "@authbound/vue": "workspace:*",
     "@nuxt/kit": "^4.4.4",
-    "h3": "^1.15.4"
+    "h3": "^1.15.4",
+    "nitropack": "^2.13.4"
   },
   "peerDependencies": {
     "nuxt": "^4.0.0",

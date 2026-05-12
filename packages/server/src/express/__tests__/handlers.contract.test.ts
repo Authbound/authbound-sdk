@@ -199,6 +199,161 @@ describe("Express Authbound router contract", () => {
     }
   });
 
+  it("does not inherit Express global proxy trust unless SDK proxy trust is enabled", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const app = express();
+    app.set("trust proxy", true);
+    app.use(express.json());
+    app.use("/api/authbound", createAuthboundRouter(config));
+
+    const server = await listen(app);
+    const address = server.address();
+    if (!(address && typeof address === "object")) {
+      throw new Error("Expected Express to listen on an ephemeral port");
+    }
+    const origin = `https://127.0.0.1:${address.port}`;
+
+    try {
+      const response = await requestJson(
+        `${origin.replace("https", "http")}/api/authbound/session`,
+        {
+          method: "POST",
+          headers: {
+            origin,
+            "sec-fetch-site": "same-origin",
+            "x-forwarded-proto": "https",
+          },
+          body: {
+            verificationId: "vrf_test123",
+            clientToken: "client_token_123",
+          },
+        }
+      );
+
+      expect(response.statusCode).toBe(403);
+      expect(response.body).toMatchObject({
+        code: "CROSS_ORIGIN_FORBIDDEN",
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+    }
+  });
+
+  it("accepts forwarded origins when SDK proxy trust is enabled", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            object: "verification",
+            id: "vrf_test123",
+            status: "pending",
+            client_token: "client_token_123",
+            client_action: {
+              kind: "link",
+              data: "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.test%2Frequest%2F123",
+              expires_at: "2026-04-21T10:10:00.000Z",
+            },
+            expires_at: "2026-04-21T10:10:00.000Z",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            object: "verification_status",
+            id: "vrf_test123",
+            status: "verified",
+            result: { verified: true },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const app = express();
+    app.use(express.json());
+    app.use(
+      "/api/authbound",
+      createAuthboundRouter({
+        ...config,
+        trustProxy: true,
+      })
+    );
+
+    const server = await listen(app);
+    const address = server.address();
+    if (!(address && typeof address === "object")) {
+      throw new Error("Expected Express to listen on an ephemeral port");
+    }
+    const publicHost = `127.0.0.1:${address.port}`;
+    const publicOrigin = `https://${publicHost}`;
+    const internalOrigin = `http://${publicHost}`;
+
+    try {
+      const createResponse = await requestJson(
+        `${internalOrigin}/api/authbound/verification`,
+        {
+          method: "POST",
+          body: {
+            policyId: "pol_authbound_pension_v1",
+            customerUserRef: "user_123",
+          },
+        }
+      );
+      const pendingCookie = getSetCookie(createResponse.headers);
+
+      const sessionResponse = await requestJson(
+        `${internalOrigin}/api/authbound/session`,
+        {
+          method: "POST",
+          headers: {
+            cookie: pendingCookie.split(";")[0] ?? "",
+            origin: publicOrigin,
+            "sec-fetch-site": "same-origin",
+            "x-forwarded-host": publicHost,
+            "x-forwarded-proto": "https",
+          },
+          body: {
+            verificationId: "vrf_test123",
+            clientToken: "client_token_123",
+          },
+        }
+      );
+
+      expect(sessionResponse.statusCode).toBe(200);
+      expect(fetchMock.mock.calls[1]?.[1]).toEqual(
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Origin: publicOrigin,
+          }),
+        })
+      );
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+    }
+  });
+
   it("accepts signed webhooks with the documented express.json raw-body capture", async () => {
     const onWebhook = vi.fn();
     const app = express();

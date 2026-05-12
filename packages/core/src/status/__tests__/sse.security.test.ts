@@ -380,6 +380,40 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
         })
       );
     });
+
+    it("maps durable outbox statuses used by portal flows", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          body: createMockStream([
+            'event: status\ndata: {"status":"active"}\n\n',
+            'event: status\ndata: {"status":"rejected"}\n\n',
+          ]),
+        })
+      );
+
+      cleanup = createStatusSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          onError: (error) => errors.push(error),
+          autoReconnect: false,
+        }
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(errors).toEqual([]);
+      expect(events).toContainEqual(
+        expect.objectContaining({ type: "status", status: "processing" })
+      );
+      expect(events).toContainEqual(
+        expect.objectContaining({ type: "status", status: "failed" })
+      );
+    });
   });
 
   describe("Error Details", () => {

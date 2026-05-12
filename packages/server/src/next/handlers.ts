@@ -1,4 +1,8 @@
-import { resolveWalletAuthorizationRequest } from "@authbound/core";
+import {
+  isSameOriginSessionRequest,
+  originForStatusProxy,
+  resolveWalletAuthorizationRequest,
+} from "@authbound/core";
 import { z } from "zod";
 import { AuthboundClient, AuthboundClientError } from "../core/client";
 import { createSafeErrorResponse, logError } from "../core/error-utils";
@@ -100,35 +104,6 @@ const FinalizeVerificationRequestSchema = z.object({
   verificationId: z.string().min(1),
   clientToken: z.string().min(1),
 });
-
-function normalizeBrowserOrigin(value: string | null): string | undefined {
-  if (!value) {
-    return;
-  }
-
-  try {
-    const origin = new URL(value).origin;
-    return origin === "null" ? undefined : origin;
-  } catch {
-    return;
-  }
-}
-
-function originForStatusProxy(request: Request): string | undefined {
-  return (
-    normalizeBrowserOrigin(request.headers.get("origin")) ??
-    normalizeBrowserOrigin(request.url)
-  );
-}
-
-function isSameOriginSessionRequest(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) {
-    return false;
-  }
-
-  return request.headers.get("sec-fetch-site") !== "cross-site";
-}
 
 // ============================================================================
 // Path Detection
@@ -425,7 +400,12 @@ async function handleFinalizeSession(
   client: AuthboundClient
 ): Promise<Response> {
   try {
-    if (!isSameOriginSessionRequest(request)) {
+    if (
+      !isSameOriginSessionRequest(request, {
+        allowedOrigins: config.allowedOrigins,
+        trustProxy: config.trustProxy,
+      })
+    ) {
       return createErrorResponse(
         "Cross-origin session finalization is not allowed",
         403,
@@ -479,7 +459,7 @@ async function handleFinalizeSession(
     const status = await client.verifications.getStatus(verificationId, {
       clientToken,
       publishableKey,
-      origin: originForStatusProxy(request),
+      origin: originForStatusProxy(request, { trustProxy: config.trustProxy }),
     });
 
     if (status.status !== "verified" || status.result?.verified === false) {

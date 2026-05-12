@@ -83,6 +83,7 @@ export const authboundConfig: AuthboundConfig = {
   apiKey: process.env.AUTHBOUND_SECRET_KEY!,
   publishableKey: process.env.NEXT_PUBLIC_AUTHBOUND_PK!,
   secret: process.env.AUTHBOUND_SESSION_SECRET!, // Min 32 characters
+  allowedOrigins: [process.env.NEXT_PUBLIC_APP_URL!],
   webhookSecret: process.env.AUTHBOUND_WEBHOOK_SECRET!,
   routes: {
     protected: [
@@ -199,6 +200,11 @@ Verification context is stored in encrypted JWT cookies:
 Use webhooks to reconcile backend state. Browser sessions are finalized by the
 same-origin `POST /api/authbound/session` route after the browser observes a
 verified status.
+
+Set `allowedOrigins` to your public app origin when the route runs behind a
+proxy or container URL. If you want the SDK to derive the public origin from
+`Forwarded` or `X-Forwarded-*` headers instead, set `trustProxy: true` only when
+those headers are supplied by infrastructure you control.
 
 Express apps must preserve the raw JSON body before mounting the Authbound
 router so webhook signatures are verified against the exact payload bytes:
