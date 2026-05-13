@@ -264,6 +264,10 @@ export const AuthboundConfigSchema = z.object({
   webhookSecret: z.string().optional(),
   /** Webhook timestamp tolerance in seconds. Defaults to 300. */
   webhookTolerance: z.number().int().positive().optional(),
+  /** Public browser origins allowed to finalize SDK-managed sessions. */
+  allowedOrigins: z.union([z.string(), z.array(z.string())]).optional(),
+  /** Trust Forwarded and X-Forwarded-* headers from a known reverse proxy. */
+  trustProxy: z.boolean().optional(),
   /** Explicit test/demo escape hatch for unsigned webhooks. Never use in production. */
   unsafeSkipWebhookSignatureVerification: z.boolean().optional(),
   /** Cookie configuration */
@@ -287,6 +291,10 @@ export interface AuthboundConfig {
   webhookSecret?: string;
   /** Webhook timestamp tolerance in seconds. Defaults to 300. */
   webhookTolerance?: number;
+  /** Public browser origins allowed to finalize SDK-managed sessions. */
+  allowedOrigins?: string | string[];
+  /** Trust Forwarded and X-Forwarded-* headers from a known reverse proxy. */
+  trustProxy?: boolean;
   /** Explicit test/demo escape hatch for unsigned webhooks. Never use in production. */
   unsafeSkipWebhookSignatureVerification?: boolean;
   /** Cookie configuration */

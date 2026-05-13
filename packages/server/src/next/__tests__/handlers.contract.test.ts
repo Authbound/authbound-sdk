@@ -180,6 +180,79 @@ describe("createAuthboundHandlers browser verification contract", () => {
     );
   });
 
+  it("accepts explicit allowed origins when the route runs behind an internal URL", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          object: "verification",
+          id: "vrf_test123",
+          status: "pending",
+          client_token: "client_token_123",
+          client_action: {
+            kind: "link",
+            data: "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.test%2Frequest%2F123",
+            expires_at: "2026-04-21T10:10:00.000Z",
+          },
+          expires_at: "2026-04-21T10:10:00.000Z",
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          object: "verification_status",
+          id: "vrf_test123",
+          status: "verified",
+          result: { verified: true },
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { POST } = createAuthboundHandlers({
+      ...config,
+      allowedOrigins: ["https://playground.authbound.io"],
+    } as AuthboundConfig);
+    const createResponse = await POST(
+      new Request("http://internal:3000/api/authbound/verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          policyId: "pol_authbound_pension_v1",
+          customerUserRef: "user_123",
+        }),
+      })
+    );
+    const pendingCookie = createResponse.headers.get("set-cookie");
+
+    const response = await POST(
+      new Request("http://internal:3000/api/authbound/session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          cookie: pendingCookie?.split(";")[0] ?? "",
+          origin: "https://playground.authbound.io",
+          "sec-fetch-site": "same-origin",
+        },
+        body: JSON.stringify({
+          verificationId: "vrf_test123",
+          clientToken: "client_token_123",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      isVerified: true,
+      verificationId: "vrf_test123",
+    });
+    expect(fetchMock.mock.calls[1]?.[1]).toEqual(
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Origin: "https://playground.authbound.io",
+        }),
+      })
+    );
+  });
+
   it("rejects session finalization without the pending verification cookie", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({

@@ -22,7 +22,11 @@
  * ```
  */
 
-import { resolveWalletAuthorizationRequest } from "@authbound/core";
+import {
+  isSameOriginSessionRequest,
+  originForStatusProxy,
+  resolveWalletAuthorizationRequest,
+} from "@authbound/core";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 import { AuthboundClient, AuthboundClientError } from "../core/client";
@@ -94,50 +98,19 @@ const FinalizeVerificationRequestSchema = z.object({
   clientToken: z.string(),
 });
 
-function getFirstForwardedValue(value: string | undefined): string | undefined {
-  return value?.split(",")[0]?.trim();
-}
-
-function getRequestOrigin(req: Request): string | undefined {
-  const host =
-    getFirstForwardedValue(req.get("x-forwarded-host")) ?? req.get("host");
-  if (!host) {
-    return;
-  }
-
-  const protocol =
-    getFirstForwardedValue(req.get("x-forwarded-proto")) ?? req.protocol;
-  return `${protocol}://${host}`;
-}
-
-function normalizeBrowserOrigin(value: string | undefined): string | undefined {
-  if (!value) {
-    return;
-  }
-
-  try {
-    const origin = new URL(value).origin;
-    return origin === "null" ? undefined : origin;
-  } catch {
-    return;
-  }
-}
-
-function originForStatusProxy(req: Request): string | undefined {
-  return (
-    normalizeBrowserOrigin(req.get("origin")) ??
-    normalizeBrowserOrigin(getRequestOrigin(req))
-  );
-}
-
-function isSameOriginSessionRequest(req: Request): boolean {
-  const origin = req.get("origin");
-  const requestOrigin = getRequestOrigin(req);
-  if (origin && requestOrigin && origin !== requestOrigin) {
-    return false;
-  }
-
-  return req.get("sec-fetch-site") !== "cross-site";
+function sessionOriginRequest(req: Request) {
+  const host = req.get("host") ?? "localhost";
+  const path = req.originalUrl || req.url || "/";
+  const protocol = (req.socket as typeof req.socket & { encrypted?: boolean })
+    .encrypted
+    ? "https"
+    : "http";
+  return {
+    url: `${protocol}://${host}${path}`,
+    headers: {
+      get: (name: string) => req.get(name) ?? null,
+    },
+  };
 }
 
 // ============================================================================
@@ -423,7 +396,13 @@ async function handleFinalizeSession(
   client: AuthboundClient
 ): Promise<void> {
   try {
-    if (!isSameOriginSessionRequest(req)) {
+    const originRequest = sessionOriginRequest(req);
+    if (
+      !isSameOriginSessionRequest(originRequest, {
+        allowedOrigins: config.allowedOrigins,
+        trustProxy: config.trustProxy,
+      })
+    ) {
       res.status(403).json({
         error: "Cross-origin session finalization is not allowed",
         code: "CROSS_ORIGIN_FORBIDDEN",
@@ -480,7 +459,9 @@ async function handleFinalizeSession(
     const status = await client.verifications.getStatus(verificationId, {
       clientToken,
       publishableKey,
-      origin: originForStatusProxy(req),
+      origin: originForStatusProxy(originRequest, {
+        trustProxy: config.trustProxy,
+      }),
     });
 
     if (status.status !== "verified" || status.result?.verified === false) {

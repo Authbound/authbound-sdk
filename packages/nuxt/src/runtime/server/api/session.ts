@@ -1,4 +1,8 @@
 import {
+  isSameOriginSessionRequest,
+  originForStatusProxy,
+} from "@authbound/core";
+import {
   calculateAge,
   createToken,
   getVerificationFromToken,
@@ -36,47 +40,16 @@ function getPendingCookieName(cookieName: string): string {
   return `${cookieName}_pending`;
 }
 
-function assertSameOriginSessionRequest(
-  event: Parameters<typeof getRequestURL>[0]
-) {
-  const origin = getHeader(event, "origin");
-  if (origin && origin !== getRequestURL(event).origin) {
-    throw createError({
-      statusCode: 403,
-      message: "Cross-origin session finalization is not allowed",
-      data: { code: "CROSS_ORIGIN_FORBIDDEN" },
-    });
-  }
-
-  if (getHeader(event, "sec-fetch-site") === "cross-site") {
-    throw createError({
-      statusCode: 403,
-      message: "Cross-origin session finalization is not allowed",
-      data: { code: "CROSS_ORIGIN_FORBIDDEN" },
-    });
-  }
-}
-
-function normalizeBrowserOrigin(value: string | undefined): string | undefined {
-  if (!value) {
-    return;
-  }
-
-  try {
-    const origin = new URL(value).origin;
-    return origin === "null" ? undefined : origin;
-  } catch {
-    return;
-  }
-}
-
-function originForStatusProxy(
-  event: Parameters<typeof getRequestURL>[0]
-): string | undefined {
-  return (
-    normalizeBrowserOrigin(getHeader(event, "origin")) ??
-    normalizeBrowserOrigin(getRequestURL(event).origin)
-  );
+function sessionOriginRequest(event: Parameters<typeof getRequestURL>[0]) {
+  return {
+    url: getRequestURL(event, {
+      xForwardedHost: false,
+      xForwardedProto: false,
+    }).toString(),
+    headers: {
+      get: (name: string) => getHeader(event, name) ?? null,
+    },
+  };
 }
 
 function getBirthDate(
@@ -93,7 +66,19 @@ function getBirthDate(
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig();
-  assertSameOriginSessionRequest(event);
+  const originRequest = sessionOriginRequest(event);
+  if (
+    !isSameOriginSessionRequest(originRequest, {
+      allowedOrigins: config.authbound?.allowedOrigins,
+      trustProxy: config.authbound?.trustProxy,
+    })
+  ) {
+    throw createError({
+      statusCode: 403,
+      message: "Cross-origin session finalization is not allowed",
+      data: { code: "CROSS_ORIGIN_FORBIDDEN" },
+    });
+  }
 
   const body = await readBody<FinalizeSessionRequest>(event);
 
@@ -125,8 +110,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const sessionSecret =
-    config.authbound?.sessionSecret ??
-    process.env.AUTHBOUND_SESSION_SECRET;
+    config.authbound?.sessionSecret ?? process.env.AUTHBOUND_SESSION_SECRET;
 
   if (!sessionSecret) {
     throw createError({
@@ -159,7 +143,9 @@ export default defineEventHandler(async (event) => {
     Authorization: `Bearer ${clientToken}`,
     "X-Authbound-Publishable-Key": publishableKey,
   };
-  const origin = originForStatusProxy(event);
+  const origin = originForStatusProxy(originRequest, {
+    trustProxy: config.authbound?.trustProxy,
+  });
   if (origin) {
     statusHeaders.Origin = origin;
   }

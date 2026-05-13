@@ -117,6 +117,15 @@ export {
 } from "./types/verification";
 
 export {
+  isSameOriginSessionRequest,
+  normalizeBrowserOrigin,
+  originForStatusProxy,
+  publicRequestOrigin,
+  type SessionOriginOptions,
+  type SessionOriginRequest,
+} from "./verification/session-origin";
+
+export {
   resolveWalletAuthorizationRequest,
   type WalletAuthorizationRequestInput,
   type WalletAuthorizationRequestResolution,

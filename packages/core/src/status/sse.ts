@@ -85,12 +85,17 @@ function mapGatewayStatus(status: string): StatusEvent["status"] {
     case "awaiting_provider":
     case "pending":
       return "pending";
+    case "active":
     case "processing":
+      return "processing";
     case "verified":
     case "failed":
     case "canceled":
     case "expired":
       return status;
+    case "rejected":
+    case "invalid":
+      return "failed";
     default:
       throw new AuthboundError(
         "verification_invalid_state",
@@ -109,7 +114,9 @@ function isTerminalStatus(status: string): boolean {
     status === "timeout" ||
     status === "error" ||
     status === "expired" ||
-    status === "canceled"
+    status === "canceled" ||
+    status === "rejected" ||
+    status === "invalid"
   );
 }
 

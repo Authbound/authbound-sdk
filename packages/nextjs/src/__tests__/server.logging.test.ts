@@ -600,7 +600,73 @@ describe("Next.js server debug logging", () => {
     }
   });
 
-  it("accepts session finalization behind forwarded production origin", async () => {
+  it("rejects forwarded production origin unless proxy trust is enabled", async () => {
+    global.fetch = vi.fn() as typeof fetch;
+
+    const handler = createSessionRoute({
+      gatewayUrl: "https://api.authbound.io",
+      publishableKey: "pk_test_configured",
+      sessionSecret: SESSION_SECRET,
+    });
+
+    const response = await handler(
+      new Request("http://sdk-playground:3100/api/authbound/session", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://playground.authbound.io",
+          "sec-fetch-site": "same-origin",
+          "x-forwarded-host": "playground.authbound.io",
+          "x-forwarded-proto": "https",
+        },
+        body: JSON.stringify({
+          verificationId: "vrf_123",
+          clientToken: "client_token_123",
+        }),
+      }) as never
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      code: "CROSS_ORIGIN_FORBIDDEN",
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects framework-normalized forwarded https URLs unless proxy trust is enabled", async () => {
+    global.fetch = vi.fn() as typeof fetch;
+
+    const handler = createSessionRoute({
+      gatewayUrl: "https://api.authbound.io",
+      publishableKey: "pk_test_configured",
+      sessionSecret: SESSION_SECRET,
+    });
+
+    const response = await handler(
+      new Request("https://playground.authbound.io/api/authbound/session", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          host: "playground.authbound.io",
+          origin: "https://playground.authbound.io",
+          "sec-fetch-site": "same-origin",
+          "x-forwarded-proto": "https",
+        },
+        body: JSON.stringify({
+          verificationId: "vrf_123",
+          clientToken: "client_token_123",
+        }),
+      }) as never
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      code: "CROSS_ORIGIN_FORBIDDEN",
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("accepts session finalization behind forwarded production origin when proxy trust is enabled", async () => {
     global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
@@ -632,6 +698,7 @@ describe("Next.js server debug logging", () => {
       gatewayUrl: "https://api.authbound.io",
       publishableKey: "pk_test_configured",
       sessionSecret: SESSION_SECRET,
+      trustProxy: true,
     });
 
     const response = await handler(
