@@ -210,7 +210,7 @@ export default defineEventHandler(async (event) => {
 
   // Handle event types
   switch (eventType) {
-    case "identity.verification_session.verified":
+    case "verification.completed":
       if (debug) {
         console.log("[Authbound] Verification verified:", objectId);
       }
@@ -218,7 +218,9 @@ export default defineEventHandler(async (event) => {
       // Developers can use Nuxt's hooks to listen for these
       break;
 
-    case "identity.verification_session.failed":
+    case "verification.failed":
+    case "verification.canceled":
+    case "verification.expired":
       if (debug) {
         console.log("[Authbound] Verification failed:", objectId);
       }

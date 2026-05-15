@@ -2,7 +2,7 @@
  * VerificationStatus Component - Displays current verification status.
  */
 
-import type { EudiVerificationStatus } from "@authbound/core";
+import type { VerificationUiStatus } from "@authbound/core";
 import type { CSSProperties } from "vue";
 import { computed, defineComponent, h, type PropType } from "vue";
 
@@ -17,7 +17,7 @@ interface StatusConfig {
   color: string;
 }
 
-const STATUS_CONFIG: Record<EudiVerificationStatus, StatusConfig> = {
+const STATUS_CONFIG: Record<VerificationUiStatus, StatusConfig> = {
   idle: {
     label: "Ready",
     description: "Ready to start verification",
@@ -84,7 +84,7 @@ export const StatusBadge = defineComponent({
   props: {
     /** Current status */
     status: {
-      type: String as PropType<EudiVerificationStatus>,
+      type: String as PropType<VerificationUiStatus>,
       required: true,
     },
     /** Show icon */
@@ -200,7 +200,7 @@ export const VerificationStatus = defineComponent({
   props: {
     /** Current status */
     status: {
-      type: String as PropType<EudiVerificationStatus>,
+      type: String as PropType<VerificationUiStatus>,
       required: true,
     },
     /** Error message (if any) */

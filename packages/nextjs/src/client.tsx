@@ -27,7 +27,7 @@
 // Re-export all React components and hooks
 // ============================================================================
 
-export { asPolicyId } from "@authbound/core";
+export { asPolicyId, type VerificationUiStatus } from "@authbound/core";
 export {
   // Appearance
   type AuthboundAppearance,
@@ -46,7 +46,6 @@ export {
   // Deep Link Support (for mobile wallet opening)
   DeepLinkButton,
   type DeepLinkButtonProps,
-  type EudiVerificationStatus,
   isAuthboundError,
   // Utilities
   isTerminalStatus,

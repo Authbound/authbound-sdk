@@ -108,10 +108,9 @@ describe("Express Authbound router contract", () => {
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
-            object: "verification_status",
-            id: "vrf_test123",
+            verification_id: "vrf_test123",
             status: "verified",
-            result: { verified: true },
+            result_token: "signed_result_token",
           }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         )
@@ -182,7 +181,7 @@ describe("Express Authbound router contract", () => {
       expect(fetchMock.mock.calls[1]?.[1]).toEqual(
         expect.objectContaining({
           headers: expect.objectContaining({
-            Origin: origin,
+            "X-Authbound-Key": config.apiKey,
           }),
         })
       );
@@ -273,10 +272,9 @@ describe("Express Authbound router contract", () => {
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
-            object: "verification_status",
-            id: "vrf_test123",
+            verification_id: "vrf_test123",
             status: "verified",
-            result: { verified: true },
+            result_token: "signed_result_token",
           }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         )
@@ -337,7 +335,7 @@ describe("Express Authbound router contract", () => {
       expect(fetchMock.mock.calls[1]?.[1]).toEqual(
         expect.objectContaining({
           headers: expect.objectContaining({
-            Origin: publicOrigin,
+            "X-Authbound-Key": config.apiKey,
           }),
         })
       );
@@ -372,16 +370,13 @@ describe("Express Authbound router contract", () => {
       api_version: "2026-04-01",
       created: Math.floor(Date.now() / 1000),
       livemode: false,
-      type: "identity.verification_session.verified",
+      type: "verification.completed",
       data: {
         object: {
           id: "vrf_test123",
-          object: "identity.verification_session",
-          created: Math.floor(Date.now() / 1000),
-          livemode: false,
-          type: "id_number",
+          object: "verification",
           status: "verified",
-          client_reference_id: "user_123",
+          customer_user_ref: "user_123",
         },
       },
     });

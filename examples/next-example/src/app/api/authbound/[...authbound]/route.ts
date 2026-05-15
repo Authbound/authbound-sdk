@@ -18,7 +18,7 @@ export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig, {
       eventType: event.type,
       verificationId: verification.id,
       status: verification.status,
-      userRef: verification.client_reference_id,
+      userRef: verification.customer_user_ref,
     });
   },
 

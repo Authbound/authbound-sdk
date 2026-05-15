@@ -1,7 +1,7 @@
 /**
  * @authbound/nuxt
  *
- * Nuxt 4 module for Authbound EUDI wallet verification.
+ * Nuxt 4 module for Authbound wallet verification.
  *
  * @example
  * ```ts
@@ -16,7 +16,11 @@
  * ```
  */
 
-import type { PolicyId, PublishableKey } from "@authbound/core";
+import type {
+  PolicyId,
+  ProviderPreference,
+  PublishableKey,
+} from "@authbound/core";
 import {
   addComponent,
   addImports,
@@ -69,7 +73,7 @@ export interface ModuleOptions {
   sessionEndpoint?: string;
 
   /**
-   * Whether the SDK should create its own browser verification session.
+   * Whether the SDK should create its own browser session binding.
    * @default 'sdk'
    */
   sessionMode?: "sdk" | "manual";
@@ -98,7 +102,7 @@ export interface ModuleOptions {
   /**
    * Provider to use for verification creation.
    */
-  provider?: "auto" | "vcs" | "eudi";
+  provider?: ProviderPreference;
 
   /**
    * Path to redirect for verification.
@@ -310,7 +314,7 @@ declare module "@nuxt/schema" {
   interface RuntimeConfig {
     authbound: {
       policyId?: PolicyId | string;
-      provider?: "auto" | "vcs" | "eudi";
+      provider?: ProviderPreference;
       apiKey?: string;
       sessionSecret?: string;
       allowedOrigins?: string | string[];

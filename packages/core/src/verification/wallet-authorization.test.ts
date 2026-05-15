@@ -1,7 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { resolveWalletAuthorizationRequest } from "./wallet-authorization";
+import {
+  resolveWalletAuthorizationRequest,
+  resolveWalletHandoff,
+} from "./wallet-authorization";
 
 describe("resolveWalletAuthorizationRequest", () => {
+  it("returns a first-class wallet handoff that keeps hosted URLs separate", () => {
+    const result = resolveWalletHandoff({
+      verification_url:
+        "https://ab-1k2rbz6f9ab5p6xj.authbound.io/v/c525499e-1310-4dd8-bb91-3d6be3a45fbc",
+      client_action: {
+        kind: "qr",
+        data: "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.io&request_uri=https%3A%2F%2Feudi-verifier.authbound.io%2Fwallet%2Frequest.jwt%2Fabc",
+        expires_at: "2026-05-15T10:00:00.000Z",
+      },
+    });
+
+    expect(result).toEqual({
+      kind: "qr",
+      walletInvocationUrl:
+        "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.io&request_uri=https%3A%2F%2Feudi-verifier.authbound.io%2Fwallet%2Frequest.jwt%2Fabc",
+      qrPayload:
+        "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.io&request_uri=https%3A%2F%2Feudi-verifier.authbound.io%2Fwallet%2Frequest.jwt%2Fabc",
+      deepLink:
+        "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.io&request_uri=https%3A%2F%2Feudi-verifier.authbound.io%2Fwallet%2Frequest.jwt%2Fabc",
+      hostedVerificationUrl:
+        "https://ab-1k2rbz6f9ab5p6xj.authbound.io/v/c525499e-1310-4dd8-bb91-3d6be3a45fbc",
+      expiresAt: "2026-05-15T10:00:00.000Z",
+    });
+  });
+
   it("uses QR client_action data before the browser verification_url", () => {
     const result = resolveWalletAuthorizationRequest({
       verification_url:
@@ -47,6 +75,38 @@ describe("resolveWalletAuthorizationRequest", () => {
 
     expect(result.authorizationRequestUrl).toBe(
       "openid4vp://?request_uri=https%3A%2F%2Fapi.authbound.io%2Frequest%2F123"
+    );
+  });
+
+  it("uses explicit deepLink when it is already a wallet invocation URL", () => {
+    const result = resolveWalletAuthorizationRequest({
+      deepLink:
+        "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.io%2Frequest%2F123",
+      client_action: {
+        kind: "qr",
+        data: "eudi-openid4vp://?request_uri=https%3A%2F%2Fapi.authbound.io%2Frequest%2Fabc",
+      },
+    });
+
+    expect(result.authorizationRequestUrl).toBe(
+      "eudi-openid4vp://?request_uri=https%3A%2F%2Fapi.authbound.io%2Frequest%2Fabc"
+    );
+    expect(result.deepLink).toBe(
+      "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.io%2Frequest%2F123"
+    );
+  });
+
+  it("does not use hosted URLs as explicit deep links", () => {
+    const result = resolveWalletAuthorizationRequest({
+      deepLink: "https://ab-demo.authbound.io/v/vrf_test123",
+      client_action: {
+        kind: "qr",
+        data: "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.io%2Frequest%2F123",
+      },
+    });
+
+    expect(result.deepLink).toBe(
+      "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.io%2Frequest%2F123"
     );
   });
 

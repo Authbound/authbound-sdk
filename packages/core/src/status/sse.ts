@@ -9,6 +9,10 @@ import type { ResolvedConfig } from "../client/config";
 import type { ClientToken, VerificationId } from "../types/branded";
 import { AuthboundError } from "../types/errors";
 import type { StatusEvent } from "../types/verification";
+import {
+  isTerminalVerificationUiStatus,
+  projectVerificationStatusForUi,
+} from "../types/verification-contract";
 
 // ============================================================================
 // Constants
@@ -75,49 +79,18 @@ function parseSSEChunk(
 }
 
 /**
- * Map gateway status to SDK EudiVerificationStatus.
+ * Map gateway status to SDK VerificationUiStatus.
  * Passes through known statuses directly and rejects unknown gateway states.
  */
 function mapGatewayStatus(status: string): StatusEvent["status"] {
-  switch (status) {
-    case "created":
-    case "awaiting_user":
-    case "awaiting_provider":
-    case "pending":
-      return "pending";
-    case "active":
-    case "processing":
-      return "processing";
-    case "verified":
-    case "failed":
-    case "canceled":
-    case "expired":
-      return status;
-    case "rejected":
-    case "invalid":
-      return "failed";
-    default:
-      throw new AuthboundError(
-        "verification_invalid_state",
-        `Unknown verification status from gateway: ${status}`
-      );
-  }
+  return projectVerificationStatusForUi(status);
 }
 
 /**
  * Check if a status is terminal.
  */
 function isTerminalStatus(status: string): boolean {
-  return (
-    status === "verified" ||
-    status === "failed" ||
-    status === "timeout" ||
-    status === "error" ||
-    status === "expired" ||
-    status === "canceled" ||
-    status === "rejected" ||
-    status === "invalid"
-  );
+  return isTerminalVerificationUiStatus(projectVerificationStatusForUi(status));
 }
 
 async function fetchLatestStatus(
@@ -147,7 +120,13 @@ async function fetchLatestStatus(
     status?: string;
     error?: StatusEvent["error"];
   };
-  const status = mapGatewayStatus(data.status ?? "pending");
+  if (typeof data.status !== "string") {
+    throw new AuthboundError(
+      "verification_invalid_state",
+      "Status response is missing a verification status"
+    );
+  }
+  const status = mapGatewayStatus(data.status);
 
   return {
     type: data.error ? "error" : "status",
@@ -213,7 +192,6 @@ export function createStatusSubscription(
     // Build headers - include Last-Event-ID for reconnection replay
     const headers: Record<string, string> = {
       Accept: "text/event-stream",
-      "Cache-Control": "no-cache",
       Authorization: `Bearer ${clientToken}`,
       "x-authbound-publishable-key": config.publishableKey,
     };

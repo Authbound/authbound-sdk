@@ -5,21 +5,14 @@
  */
 
 import type {
-  EudiVerificationStatus,
   PolicyId,
+  ProviderPreference,
   VerificationId,
   VerificationSuccess,
+  VerificationUiStatus,
 } from "@authbound/core";
 import { AuthboundError, isTerminalStatus } from "@authbound/core";
-import {
-  type ComputedRef,
-  computed,
-  onMounted,
-  onUnmounted,
-  type Ref,
-  ref,
-  watch,
-} from "vue";
+import { type ComputedRef, computed, onMounted, watch } from "vue";
 import { useAuthbound } from "./useAuthbound";
 
 // ============================================================================
@@ -36,13 +29,13 @@ export interface UseVerificationOptions {
   /** Additional metadata */
   metadata?: Record<string, string>;
   /** Optional provider override */
-  provider?: "auto" | "vcs" | "eudi";
+  provider?: ProviderPreference;
   /** Callback when verified */
   onVerified?: (verification: VerificationSuccess) => void;
   /** Callback when failed */
   onFailed?: (error: AuthboundError) => void;
   /** Callback on any status change */
-  onStatusChange?: (status: EudiVerificationStatus) => void;
+  onStatusChange?: (status: VerificationUiStatus) => void;
   /** Callback when timeout or expiration occurs */
   onTimeout?: () => void;
 }
@@ -50,7 +43,7 @@ export interface UseVerificationOptions {
 export interface UseVerificationReturn {
   // State
   /** Current verification status */
-  status: ComputedRef<EudiVerificationStatus>;
+  status: ComputedRef<VerificationUiStatus>;
   /** Whether verification is in progress */
   isLoading: ComputedRef<boolean>;
   /** Whether verification succeeded */
@@ -70,7 +63,7 @@ export interface UseVerificationReturn {
   /** Current error (if any) */
   error: ComputedRef<AuthboundError | null>;
   /** Time remaining until verification expires (seconds) */
-  timeRemaining: Ref<number | null>;
+  timeRemaining: ComputedRef<number | null>;
 
   // Actions
   /** Start verification */
@@ -125,12 +118,8 @@ export function useVerification(
     resetVerification,
   } = useAuthbound();
 
-  // Local state for time tracking
-  const timeRemaining = ref<number | null>(null);
-  let timerInterval: ReturnType<typeof setInterval> | null = null;
-
   // Computed state from the active verification
-  const status = computed<EudiVerificationStatus>(
+  const status = computed<VerificationUiStatus>(
     () => verification.value?.status ?? "idle"
   );
 
@@ -162,48 +151,9 @@ export function useVerification(
   const deepLink = computed(() => verification.value?.deepLink ?? null);
 
   const error = computed(() => verification.value?.error ?? null);
-
-  // Timer management
-  const startTimer = () => {
-    if (timerInterval) {
-      clearInterval(timerInterval);
-    }
-
-    if (!verification.value?.expiresAt) {
-      timeRemaining.value = null;
-      return;
-    }
-
-    const updateTimeRemaining = () => {
-      if (!verification.value?.expiresAt) {
-        timeRemaining.value = null;
-        return;
-      }
-
-      const remaining = Math.max(
-        0,
-        Math.floor((verification.value.expiresAt.getTime() - Date.now()) / 1000)
-      );
-
-      timeRemaining.value = remaining;
-
-      if (remaining <= 0 && timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
-    };
-
-    updateTimeRemaining();
-    timerInterval = setInterval(updateTimeRemaining, 1000);
-  };
-
-  const stopTimer = () => {
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      timerInterval = null;
-    }
-    timeRemaining.value = null;
-  };
+  const timeRemaining = computed(
+    () => verification.value?.timeRemaining ?? null
+  );
 
   // Watch for status changes
   watch(
@@ -220,7 +170,6 @@ export function useVerification(
           verificationId: verificationId.value,
           status: "verified",
         });
-        stopTimer();
       } else if (isFailed.value) {
         if (newStatus === "timeout" || newStatus === "expired") {
           options.onTimeout?.();
@@ -238,23 +187,9 @@ export function useVerification(
                   : "Verification did not complete."
             )
         );
-        stopTimer();
       }
     },
     { immediate: false }
-  );
-
-  // Watch verification for timer start
-  watch(
-    () => verification.value?.expiresAt,
-    (expiresAt) => {
-      if (expiresAt && !isTerminal.value) {
-        startTimer();
-      } else {
-        stopTimer();
-      }
-    },
-    { immediate: true }
   );
 
   // Actions
@@ -274,7 +209,6 @@ export function useVerification(
 
   const reset = () => {
     resetVerification();
-    stopTimer();
   };
 
   onMounted(() => {
@@ -282,11 +216,6 @@ export function useVerification(
       return;
     }
     startVerification();
-  });
-
-  // Cleanup on unmount
-  onUnmounted(() => {
-    stopTimer();
   });
 
   return {

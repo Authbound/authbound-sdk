@@ -47,10 +47,9 @@ describe("Hono Authbound app contract", () => {
       )
       .mockResolvedValueOnce(
         jsonResponse({
-          object: "verification_status",
-          id: "vrf_test123",
+          verification_id: "vrf_test123",
           status: "verified",
-          result: { verified: true },
+          result_token: "signed_result_token",
         })
       );
     vi.stubGlobal("fetch", fetchMock);
@@ -111,7 +110,7 @@ describe("Hono Authbound app contract", () => {
     expect(fetchMock.mock.calls[1]?.[1]).toEqual(
       expect.objectContaining({
         headers: expect.objectContaining({
-          Origin: "http://app.example.com",
+          "X-Authbound-Key": config.apiKey,
         }),
       })
     );
@@ -163,10 +162,9 @@ describe("Hono Authbound app contract", () => {
       )
       .mockResolvedValueOnce(
         jsonResponse({
-          object: "verification_status",
-          id: "vrf_test123",
+          verification_id: "vrf_test123",
           status: "verified",
-          result: { verified: true },
+          result_token: "signed_result_token",
         })
       );
     vi.stubGlobal("fetch", fetchMock);
@@ -209,7 +207,7 @@ describe("Hono Authbound app contract", () => {
     expect(fetchMock.mock.calls[1]?.[1]).toEqual(
       expect.objectContaining({
         headers: expect.objectContaining({
-          Origin: "https://app.example.com",
+          "X-Authbound-Key": config.apiKey,
         }),
       })
     );

@@ -1,7 +1,7 @@
 /**
  * @authbound/vue
  *
- * Vue 3 SDK for Authbound EUDI wallet verification.
+ * Vue 3 SDK for Authbound wallet verification.
  *
  * @example
  * ```ts
@@ -110,7 +110,6 @@ export {
   AuthboundError,
   type AuthboundErrorCode,
   asPolicyId,
-  type EudiVerificationStatus,
   isAuthboundError,
   // Utilities
   isTerminalStatus,
@@ -123,4 +122,5 @@ export {
   type VerificationClaims,
   type VerificationId,
   type VerificationSuccess,
+  type VerificationUiStatus,
 } from "@authbound/core";

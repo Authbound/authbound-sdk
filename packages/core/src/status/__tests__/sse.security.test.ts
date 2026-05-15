@@ -159,6 +159,38 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
   });
 
   describe("Normal Operation", () => {
+    it("does not send cache-control as a browser SSE request header", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        body: createMockStream([
+          'event: status\ndata: {"status":"pending"}\n\n',
+        ]),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      cleanup = createStatusSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          onError: (error) => errors.push(error),
+          autoReconnect: false,
+        }
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://gateway.authbound.test/v1/verifications/vrf_test123/events/sse",
+        expect.objectContaining({
+          headers: expect.not.objectContaining({
+            "Cache-Control": expect.any(String),
+          }),
+        })
+      );
+    });
+
     it("processes large data with proper delimiters (buffer clears)", async () => {
       // Large chunks but with proper \n\n delimiters that clear the buffer
       const chunk1 = 'event: status\ndata: {"status":"pending"}\n\n';
@@ -381,14 +413,13 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
       );
     });
 
-    it("maps durable outbox statuses used by portal flows", async () => {
+    it("rejects stale durable outbox statuses", async () => {
       vi.stubGlobal(
         "fetch",
         vi.fn().mockResolvedValue({
           ok: true,
           body: createMockStream([
             'event: status\ndata: {"status":"active"}\n\n',
-            'event: status\ndata: {"status":"rejected"}\n\n',
           ]),
         })
       );
@@ -406,12 +437,14 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      expect(errors).toEqual([]);
       expect(events).toContainEqual(
-        expect.objectContaining({ type: "status", status: "processing" })
-      );
-      expect(events).toContainEqual(
-        expect.objectContaining({ type: "status", status: "failed" })
+        expect.objectContaining({
+          type: "error",
+          status: "error",
+          error: expect.objectContaining({
+            code: "verification_invalid_state",
+          }),
+        })
       );
     });
   });

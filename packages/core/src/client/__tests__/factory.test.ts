@@ -47,6 +47,36 @@ describe("createClient", () => {
     );
   });
 
+  it("projects public polling statuses to browser UI statuses", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            object: "verification_status",
+            id: "vrf_test123",
+            status: "awaiting_user",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        )
+      )
+    );
+
+    const client = createClient({
+      publishableKey: "pk_test_public123" as never,
+      gatewayUrl: "https://gateway.authbound.test",
+    });
+
+    await expect(
+      client.pollStatus("vrf_test123" as never, "client_token_123" as never)
+    ).resolves.toEqual({
+      status: "pending",
+    });
+  });
+
   it("sends provider preference through the configured verification endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(

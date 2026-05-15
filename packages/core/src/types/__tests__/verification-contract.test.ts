@@ -23,10 +23,11 @@ describe("browser verification type exports", () => {
       VerificationClaimsSchema.safeParse({ age_over_65: true }).success
     ).toBe(false);
     expect(
-      VerificationClaimsSchema.safeParse({ driving_license_valid: true }).success
+      VerificationClaimsSchema.safeParse({ driving_license_valid: true })
+        .success
     ).toBe(false);
-    expect(VerificationClaimsSchema.safeParse({ eu_resident: true }).success).toBe(
-      false
-    );
+    expect(
+      VerificationClaimsSchema.safeParse({ eu_resident: true }).success
+    ).toBe(false);
   });
 });

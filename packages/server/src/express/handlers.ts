@@ -24,20 +24,25 @@
 
 import {
   isSameOriginSessionRequest,
-  originForStatusProxy,
-  resolveWalletAuthorizationRequest,
+  ProviderPreferenceSchema,
 } from "@authbound/core";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
+import {
+  BrowserVerificationResponseError,
+  BrowserWalletUrlError,
+  toBrowserVerificationResponse,
+} from "../core/browser-verification";
 import { AuthboundClient, AuthboundClientError } from "../core/client";
 import { createSafeErrorResponse, logError } from "../core/error-utils";
+import { toVerifiedSessionFinalization } from "../core/session-finalization";
 import type {
   AuthboundConfig,
   CreateVerificationResponse,
   VerificationStatusResponse,
   WebhookEvent,
 } from "../core/types";
-import { calculateAge, parseConfig, WebhookEventSchema } from "../core/types";
+import { parseConfig, WebhookEventSchema } from "../core/types";
 import { verifyWebhookSignatureDetailed } from "../core/webhooks";
 import {
   clearPendingVerificationCookie,
@@ -90,7 +95,7 @@ const CreateVerificationRequestSchema = z.object({
   policyId: z.string(),
   customerUserRef: z.string().optional(),
   metadata: z.record(z.string(), z.string()).optional(),
-  provider: z.enum(["auto", "vcs", "eudi"]).optional(),
+  provider: ProviderPreferenceSchema.optional(),
 });
 
 const FinalizeVerificationRequestSchema = z.object({
@@ -117,70 +122,6 @@ function sessionOriginRequest(req: Request) {
 // Handler Implementations
 // ============================================================================
 
-class BrowserVerificationResponseError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "BrowserVerificationResponseError";
-  }
-}
-
-function getBrowserWalletUrl(result: {
-  verificationUrl?: string;
-  clientAction?: { kind: string; data: string };
-}): { authorizationRequestUrl: string; deepLink?: string } {
-  const resolvedWalletRequest = resolveWalletAuthorizationRequest({
-    verificationUrl: result.verificationUrl,
-    clientAction: result.clientAction,
-  });
-  const authorizationRequestUrl = resolvedWalletRequest.authorizationRequestUrl;
-
-  if (!authorizationRequestUrl) {
-    throw new BrowserVerificationResponseError(
-      "Authbound did not return a wallet invocation URL for this verification."
-    );
-  }
-
-  return {
-    authorizationRequestUrl,
-    deepLink: resolvedWalletRequest.deepLink,
-  };
-}
-
-function toBrowserVerificationResponse(result: {
-  id: string;
-  clientToken?: string;
-  expiresAt?: string;
-  verificationUrl?: string;
-  clientAction?: { kind: string; data: string; expiresAt?: string };
-}): CreateVerificationResponse {
-  const { authorizationRequestUrl, deepLink } = getBrowserWalletUrl(result);
-  const expiresAt = result.expiresAt ?? result.clientAction?.expiresAt;
-
-  if (!(result.clientToken && expiresAt)) {
-    throw new BrowserVerificationResponseError(
-      "Authbound verification response is missing client token or expiry."
-    );
-  }
-
-  return {
-    verificationId: result.id,
-    authorizationRequestUrl,
-    clientToken: result.clientToken,
-    expiresAt,
-    deepLink,
-  };
-}
-
-function getPublishableKey(config: AuthboundConfig): string | undefined {
-  return (
-    config.publishableKey ??
-    process.env.AUTHBOUND_PUBLISHABLE_KEY ??
-    process.env.NEXT_PUBLIC_AUTHBOUND_PK ??
-    process.env.NUXT_PUBLIC_AUTHBOUND_PK ??
-    process.env.VITE_AUTHBOUND_PK
-  );
-}
-
 function getRawBody(req: Request): string | null {
   const rawBody = (req as Request & { rawBody?: string | Buffer }).rawBody;
   if (typeof rawBody === "string") {
@@ -196,18 +137,6 @@ function getRawBody(req: Request): string | null {
     return req.body.toString("utf8");
   }
   return null;
-}
-
-function getBirthDate(
-  attributes: Record<string, unknown> | undefined
-): string | undefined {
-  if (typeof attributes?.birth_date === "string") {
-    return attributes.birth_date;
-  }
-  if (typeof attributes?.dateOfBirth === "string") {
-    return attributes.dateOfBirth;
-  }
-  return;
 }
 
 async function handleCreateVerification(
@@ -255,6 +184,13 @@ async function handleCreateVerification(
       res.status(400).json({
         error: "Invalid request",
         code: "INVALID_REQUEST",
+      });
+      return;
+    }
+    if (error instanceof BrowserWalletUrlError) {
+      res.status(502).json({
+        error: error.message,
+        code: "BROWSER_WALLET_URL_MISSING",
       });
       return;
     }
@@ -419,16 +355,7 @@ async function handleFinalizeSession(
       return;
     }
 
-    const publishableKey = getPublishableKey(config);
-    if (!publishableKey) {
-      res.status(500).json({
-        error: "Authbound publishable key is not configured",
-        code: "PUBLISHABLE_KEY_MISSING",
-      });
-      return;
-    }
-
-    const { verificationId, clientToken } = parsed.data;
+    const { verificationId } = parsed.data;
     const pendingVerification = await getPendingVerificationFromCookie(
       req,
       config
@@ -456,15 +383,9 @@ async function handleFinalizeSession(
       return;
     }
 
-    const status = await client.verifications.getStatus(verificationId, {
-      clientToken,
-      publishableKey,
-      origin: originForStatusProxy(originRequest, {
-        trustProxy: config.trustProxy,
-      }),
-    });
-
-    if (status.status !== "verified" || status.result?.verified === false) {
+    const result = await client.verifications.getResult(verificationId);
+    const verifiedSession = toVerifiedSessionFinalization(result);
+    if (!verifiedSession) {
       res.status(409).json({
         error: "Verification is not verified",
         code: "VERIFICATION_NOT_VERIFIED",
@@ -472,29 +393,20 @@ async function handleFinalizeSession(
       return;
     }
 
-    const attributes = status.result?.attributes;
-    const birthDate = getBirthDate(attributes);
-    const age =
-      typeof attributes?.age === "number"
-        ? attributes.age
-        : birthDate
-          ? calculateAge(birthDate)
-          : undefined;
-
     await setVerificationCookie(res, config, {
       userRef,
       verificationId,
       status: "VERIFIED",
       assuranceLevel: "SUBSTANTIAL",
-      age,
-      dateOfBirth: birthDate,
+      age: verifiedSession.age,
+      dateOfBirth: verifiedSession.dateOfBirth,
     });
     clearPendingVerificationCookie(res, config);
 
     res.status(200).json({
       isVerified: true,
       verificationId,
-      status: status.status,
+      status: verifiedSession.status,
     });
   } catch (error) {
     if (error instanceof AuthboundClientError) {
@@ -561,9 +473,9 @@ async function handleSignOut(
  * Create an Express Router with all Authbound endpoints.
  *
  * Routes:
- * - POST /         - Create a verification session
+ * - POST /         - Create a verification
  * - POST /callback - Handle webhook callbacks
- * - GET /status    - Get current session status
+ * - GET /status    - Get current browser session status
  * - DELETE /       - Sign out (clear session)
  *
  * @example

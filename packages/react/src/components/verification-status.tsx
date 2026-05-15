@@ -2,7 +2,7 @@
  * Verification status display components.
  */
 
-import type { AuthboundError, EudiVerificationStatus } from "@authbound/core";
+import type { AuthboundError, VerificationUiStatus } from "@authbound/core";
 import type { CSSProperties, ReactNode } from "react";
 
 // ============================================================================
@@ -11,7 +11,7 @@ import type { CSSProperties, ReactNode } from "react";
 
 export interface VerificationStatusProps {
   /** Current verification status */
-  status: EudiVerificationStatus;
+  status: VerificationUiStatus;
   /** Error if verification failed */
   error?: AuthboundError | null;
   /** Time remaining in seconds */
@@ -19,7 +19,7 @@ export interface VerificationStatusProps {
   /** Show timer when pending */
   showTimer?: boolean;
   /** Custom messages for each status */
-  messages?: Partial<Record<EudiVerificationStatus, string>>;
+  messages?: Partial<Record<VerificationUiStatus, string>>;
   /** Additional className */
   className?: string;
   /** Additional styles */
@@ -30,7 +30,7 @@ export interface VerificationStatusProps {
 // Default Messages
 // ============================================================================
 
-const DEFAULT_MESSAGES: Record<EudiVerificationStatus, string> = {
+const DEFAULT_MESSAGES: Record<VerificationUiStatus, string> = {
   idle: "Ready to verify",
   pending: "Waiting for wallet...",
   processing: "Verifying credentials...",
@@ -167,7 +167,7 @@ function TimeoutIcon() {
   );
 }
 
-function getStatusIcon(status: EudiVerificationStatus): ReactNode {
+function getStatusIcon(status: VerificationUiStatus): ReactNode {
   switch (status) {
     case "idle":
       return <IdleIcon />;
@@ -192,7 +192,7 @@ function getStatusIcon(status: EudiVerificationStatus): ReactNode {
 // Status Colors
 // ============================================================================
 
-function getStatusColor(status: EudiVerificationStatus): string {
+function getStatusColor(status: VerificationUiStatus): string {
   switch (status) {
     case "verified":
       return "var(--ab-color-success)";
@@ -312,7 +312,7 @@ export function VerificationStatus({
 // ============================================================================
 
 export interface StatusBadgeProps {
-  status: EudiVerificationStatus;
+  status: VerificationUiStatus;
   size?: "sm" | "md" | "lg";
   className?: string;
   style?: CSSProperties;

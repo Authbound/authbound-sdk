@@ -123,13 +123,12 @@ export function publicRequestOrigin(
 
   const host = firstHeaderValue(request.headers.get("host"));
   if (host) {
-    const protocol =
-      options.trustProxy
-        ? firstHeaderValue(request.headers.get("x-forwarded-proto")) ??
-          requestUrl.protocol
-        : hasForwardedOriginHeaders(request)
-          ? "http"
-          : requestUrl.protocol;
+    const protocol = options.trustProxy
+      ? (firstHeaderValue(request.headers.get("x-forwarded-proto")) ??
+        requestUrl.protocol)
+      : hasForwardedOriginHeaders(request)
+        ? "http"
+        : requestUrl.protocol;
     return originFromParts(protocol, host);
   }
 

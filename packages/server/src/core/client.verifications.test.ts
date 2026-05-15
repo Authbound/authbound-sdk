@@ -175,17 +175,75 @@ describe("AuthboundClient verifications API", () => {
     );
   });
 
+  it("normalizes nullable verification fields from the gateway", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          ...verificationResponse,
+          policy_hash: null,
+          terminal_at: null,
+          failure_code: null,
+          client_action: null,
+          customer_user_ref: null,
+          metadata: null,
+        })
+      )
+    );
+
+    const verification = await createClient().verifications.get("vrf_123");
+
+    expect(verification).toMatchObject({
+      object: "verification",
+      id: "vrf_123",
+      status: "pending",
+    });
+    expect(verification.policyHash).toBeUndefined();
+    expect(verification.terminalAt).toBeUndefined();
+    expect(verification.failureCode).toBeUndefined();
+    expect(verification.clientAction).toBeUndefined();
+    expect(verification.customerUserRef).toBeUndefined();
+    expect(verification.metadata).toBeUndefined();
+  });
+
+  it("preserves precise public verification progress statuses from the API", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          ...verificationResponse,
+          status: "awaiting_user",
+        })
+      )
+    );
+
+    const verification = await createClient().verifications.get("vrf_123");
+
+    expect(verification.status).toBe("awaiting_user");
+  });
+
+  it("rejects stale provider preferences before sending create requests", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(verificationResponse));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      createClient().verifications.create({
+        policyId: "pol_authbound_pension_v1",
+        provider: "reverify" as never,
+      })
+    ).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      statusCode: 400,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("gets client-token status with publishable-key scoped headers", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         object: "verification_status",
         id: "vrf_123",
         status: "verified",
-        result: {
-          verified: true,
-          attributes: { "Pension.startDate": "2025-01-01" },
-          assertions: { "Pension.startDate": "2025-01-01" },
-        },
       })
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -200,11 +258,6 @@ describe("AuthboundClient verifications API", () => {
       object: "verification_status",
       id: "vrf_123",
       status: "verified",
-      result: {
-        verified: true,
-        attributes: { "Pension.startDate": "2025-01-01" },
-        assertions: { "Pension.startDate": "2025-01-01" },
-      },
     });
     expect(fetchMock).toHaveBeenCalledWith(
       `${apiUrl}/v1/verifications/vrf_123/status`,

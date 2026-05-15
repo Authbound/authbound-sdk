@@ -7,11 +7,12 @@
 import type { ResolvedConfig } from "../client/config";
 import type { ClientToken, VerificationId } from "../types/branded";
 import { AuthboundError } from "../types/errors";
-import type {
-  EudiVerificationStatus,
-  StatusEvent,
-} from "../types/verification";
+import type { StatusEvent } from "../types/verification";
 import { isTerminalStatus } from "../types/verification";
+import {
+  projectVerificationStatusForUi,
+  type VerificationUiStatus,
+} from "../types/verification-contract";
 
 // ============================================================================
 // Status Mapping
@@ -21,48 +22,8 @@ import { isTerminalStatus } from "../types/verification";
  * Gateway status values returned by the API.
  * These are mapped to SDK-friendly statuses for consumers.
  */
-type GatewayStatus =
-  | "created"
-  | "awaiting_user"
-  | "awaiting_provider"
-  | "pending"
-  | "active"
-  | "processing"
-  | "verified"
-  | "failed"
-  | "rejected"
-  | "invalid"
-  | "canceled"
-  | "expired";
-
-/**
- * Map gateway status to SDK EudiVerificationStatus.
- * Passes through known statuses directly and rejects unknown gateway states.
- */
-function mapGatewayStatus(status: string): EudiVerificationStatus {
-  switch (status) {
-    case "created":
-    case "awaiting_user":
-    case "awaiting_provider":
-    case "pending":
-      return "pending";
-    case "active":
-    case "processing":
-      return "processing";
-    case "verified":
-    case "failed":
-    case "canceled":
-    case "expired":
-      return status;
-    case "rejected":
-    case "invalid":
-      return "failed";
-    default:
-      throw new AuthboundError(
-        "verification_invalid_state",
-        `Unknown verification status from gateway: ${status}`
-      );
-  }
+function mapGatewayStatus(status: string): VerificationUiStatus {
+  return projectVerificationStatusForUi(status);
 }
 
 // ============================================================================
@@ -124,7 +85,7 @@ export function createPollingSubscription(
   let isCleanedUp = false;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let currentInterval = pollingConfig.initialInterval;
-  let lastStatus: EudiVerificationStatus = "idle";
+  let lastStatus: VerificationUiStatus = "idle";
   const startTime = Date.now();
 
   const url = new URL(
@@ -303,7 +264,7 @@ export async function pollOnce(
   verificationId: VerificationId,
   clientToken: ClientToken
 ): Promise<{
-  status: EudiVerificationStatus;
+  status: VerificationUiStatus;
   error?: { code: string; message: string };
   timeRemaining?: number;
 }> {

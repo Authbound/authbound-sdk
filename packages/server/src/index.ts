@@ -59,6 +59,10 @@ export {
   refreshToken,
   verifyToken,
 } from "./core/jwt";
+export {
+  toVerifiedSessionFinalization,
+  type VerifiedSessionFinalization,
+} from "./core/session-finalization";
 // Core Types
 export type {
   AssuranceLevel,
@@ -114,6 +118,12 @@ export {
 // API Client (Manual Orchestration)
 // ============================================================================
 
+export {
+  BrowserVerificationResponseError,
+  type BrowserVerificationSource,
+  BrowserWalletUrlError,
+  toBrowserVerificationResponse,
+} from "./core/browser-verification";
 export {
   // Client class
   AuthboundClient,

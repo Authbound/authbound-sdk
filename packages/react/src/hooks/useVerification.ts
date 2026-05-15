@@ -5,10 +5,11 @@
  */
 
 import type {
-  EudiVerificationStatus,
   PolicyId,
+  ProviderPreference,
   VerificationId,
   VerificationSuccess,
+  VerificationUiStatus,
 } from "@authbound/core";
 import { AuthboundError } from "@authbound/core";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -28,20 +29,20 @@ export interface UseVerificationOptions {
   /** Additional metadata */
   metadata?: Record<string, string>;
   /** Optional provider override */
-  provider?: "auto" | "vcs" | "eudi";
+  provider?: ProviderPreference;
   /** Callback when verification succeeds */
   onVerified?: (verification: VerificationSuccess) => void;
   /** Callback when verification fails */
   onFailed?: (error: AuthboundError) => void;
   /** Callback when status changes */
-  onStatusChange?: (status: EudiVerificationStatus) => void;
+  onStatusChange?: (status: VerificationUiStatus) => void;
   /** Callback when timeout occurs */
   onTimeout?: () => void;
 }
 
 export interface UseVerificationReturn {
   /** Current verification status */
-  status: EudiVerificationStatus;
+  status: VerificationUiStatus;
   /** Whether verification is in progress */
   isLoading: boolean;
   /** Whether verification completed successfully */
@@ -71,7 +72,7 @@ export interface UseVerificationReturn {
 // ============================================================================
 
 export function isVerificationFailureStatus(
-  status: EudiVerificationStatus
+  status: VerificationUiStatus
 ): boolean {
   return (
     status === "failed" ||
@@ -83,7 +84,7 @@ export function isVerificationFailureStatus(
 }
 
 function errorForTerminalStatus(
-  status: EudiVerificationStatus,
+  status: VerificationUiStatus,
   error: AuthboundError | null
 ): AuthboundError {
   if (error) return error;
@@ -164,15 +165,11 @@ export function useVerification(
   const policyId = optionsPolicyId ?? contextPolicyId;
 
   // Track previous status for change detection
-  const prevStatusRef = useRef<EudiVerificationStatus>("idle");
+  const prevStatusRef = useRef<VerificationUiStatus>("idle");
   const verifiedCallbackIdRef = useRef<VerificationId | null>(null);
 
   // Local loading state for start operation
   const [isStarting, setIsStarting] = useState(false);
-
-  // Timer for countdown
-  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Derive state from the current verification
   const status = verification?.status ?? "idle";
@@ -193,6 +190,7 @@ export function useVerification(
     client.log("Failed to generate deep link:", err);
   }
   const error = verification?.error ?? null;
+  const timeRemaining = verification?.timeRemaining ?? null;
 
   // Start verification
   const startVerification = useCallback(async () => {
@@ -233,11 +231,6 @@ export function useVerification(
   // Reset to initial state
   const reset = useCallback(() => {
     resetVerification();
-    setTimeRemaining(null);
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
   }, [resetVerification]);
 
   // Handle status changes
@@ -268,58 +261,12 @@ export function useVerification(
     }
   }, [status, verificationId, onVerified]);
 
-  // Countdown timer
-  useEffect(() => {
-    // Always clear any existing interval first to prevent race conditions
-    // where multiple intervals could stack up during rapid verification changes
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-
-    if (verification?.expiresAt && status === "pending") {
-      const updateTimer = () => {
-        const remaining = Math.max(
-          0,
-          Math.floor((verification.expiresAt.getTime() - Date.now()) / 1000)
-        );
-        setTimeRemaining(remaining);
-
-        if (remaining <= 0 && timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
-      };
-
-      updateTimer();
-      timerRef.current = setInterval(updateTimer, 1000);
-
-      return () => {
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
-      };
-    }
-    setTimeRemaining(null);
-  }, [verification?.expiresAt, status]);
-
   // Auto-start on mount
   useEffect(() => {
     if (autoStart && status === "idle") {
       startVerification();
     }
   }, [autoStart, status, startVerification]);
-
-  // Cleanup on unmount
-  useEffect(
-    () => () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    },
-    []
-  );
 
   return {
     status,

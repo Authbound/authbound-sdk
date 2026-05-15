@@ -4,7 +4,7 @@
  * Creates verifications by proxying to the Authbound API.
  */
 
-import type { PolicyId } from "@authbound/core";
+import type { PolicyId, ProviderPreference } from "@authbound/core";
 import { createToken } from "@authbound/server";
 import {
   createError,
@@ -23,7 +23,7 @@ type CreateVerificationRequest = {
   policyId?: PolicyId | string;
   customerUserRef?: string;
   metadata?: Record<string, string>;
-  provider?: "auto" | "vcs" | "eudi";
+  provider?: ProviderPreference;
 };
 
 function getPendingCookieName(cookieName: string): string {
@@ -128,8 +128,7 @@ export default defineEventHandler(async (event) => {
       }
 
       const sessionSecret =
-        config.authbound?.sessionSecret ??
-        process.env.AUTHBOUND_SESSION_SECRET;
+        config.authbound?.sessionSecret ?? process.env.AUTHBOUND_SESSION_SECRET;
       if (!sessionSecret) {
         throw createError({
           statusCode: 500,

@@ -19,6 +19,15 @@ export type WalletAuthorizationRequestResolution = {
   deepLink?: string;
 };
 
+export type WalletHandoffResolution = {
+  kind?: "qr" | "link" | "request_blob";
+  walletInvocationUrl?: string;
+  qrPayload?: string;
+  deepLink?: string;
+  hostedVerificationUrl?: string;
+  expiresAt?: string;
+};
+
 function getString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
@@ -74,12 +83,39 @@ function getClientActionUrl(
     : undefined;
 }
 
-/**
- * Resolve the wallet invocation payload that should be encoded in QR codes.
- */
-export function resolveWalletAuthorizationRequest(
+function getClientActionKind(
+  clientAction: WalletClientAction | undefined
+): WalletHandoffResolution["kind"] | undefined {
+  return clientAction?.kind === "qr" ||
+    clientAction?.kind === "link" ||
+    clientAction?.kind === "request_blob"
+    ? clientAction.kind
+    : undefined;
+}
+
+function getHostedVerificationUrl(
   input: WalletAuthorizationRequestInput
-): WalletAuthorizationRequestResolution {
+): string | undefined {
+  const url =
+    getString(input.verification_url) ?? getString(input.verificationUrl);
+  if (!url || isWalletInvocationUrl(url)) {
+    return;
+  }
+
+  const parsed = parseUrl(url);
+  const scheme = parsed?.protocol.slice(0, -1).toLowerCase();
+  return scheme === "http" || scheme === "https" ? url : undefined;
+}
+
+/**
+ * Resolve the wallet handoff data from a public verification response.
+ *
+ * `verification_url` is a browser-hosted fallback page. Wallet QR/deep-link
+ * payloads must come from explicit wallet URLs or `client_action.data`.
+ */
+export function resolveWalletHandoff(
+  input: WalletAuthorizationRequestInput
+): WalletHandoffResolution {
   const explicitAuthorizationRequestUrl = getString(
     input.authorizationRequestUrl
   );
@@ -87,19 +123,46 @@ export function resolveWalletAuthorizationRequest(
     input.client_action ?? input.clientAction
   );
   const clientActionUrl = getClientActionUrl(clientAction);
-  const normalizedAuthorizationRequestUrl =
+  const explicitWalletUrl =
     explicitAuthorizationRequestUrl &&
     isWalletInvocationUrl(explicitAuthorizationRequestUrl)
       ? explicitAuthorizationRequestUrl
       : undefined;
-  const authorizationRequestUrl =
-    normalizedAuthorizationRequestUrl ?? clientActionUrl;
+  const walletInvocationUrl = explicitWalletUrl ?? clientActionUrl;
   const explicitDeepLink = getString(input.deepLink);
+  const validExplicitDeepLink =
+    explicitDeepLink && isWalletInvocationUrl(explicitDeepLink)
+      ? explicitDeepLink
+      : undefined;
+  const deepLink = validExplicitDeepLink ?? walletInvocationUrl;
+  const expiresAt = getString(
+    clientAction?.expiresAt ?? clientAction?.expires_at
+  );
+  const kind = getClientActionKind(clientAction);
+  const hostedVerificationUrl = getHostedVerificationUrl(input);
 
   return {
-    ...(authorizationRequestUrl ? { authorizationRequestUrl } : {}),
-    ...(explicitDeepLink || clientActionUrl
-      ? { deepLink: explicitDeepLink ?? clientActionUrl }
+    ...(kind ? { kind } : {}),
+    ...(walletInvocationUrl ? { walletInvocationUrl } : {}),
+    ...(walletInvocationUrl ? { qrPayload: walletInvocationUrl } : {}),
+    ...(deepLink ? { deepLink } : {}),
+    ...(hostedVerificationUrl ? { hostedVerificationUrl } : {}),
+    ...(expiresAt ? { expiresAt } : {}),
+  };
+}
+
+/**
+ * Resolve the wallet invocation payload that should be encoded in QR codes.
+ */
+export function resolveWalletAuthorizationRequest(
+  input: WalletAuthorizationRequestInput
+): WalletAuthorizationRequestResolution {
+  const handoff = resolveWalletHandoff(input);
+
+  return {
+    ...(handoff.walletInvocationUrl
+      ? { authorizationRequestUrl: handoff.walletInvocationUrl }
       : {}),
+    ...(handoff.deepLink ? { deepLink: handoff.deepLink } : {}),
   };
 }

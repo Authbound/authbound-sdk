@@ -163,10 +163,7 @@ export async function fetchPresetRegistry(
   };
 
   // Persist to localStorage (browser only)
-  if (
-    typeof localStorage !== "undefined" &&
-    typeof document !== "undefined"
-  ) {
+  if (typeof localStorage !== "undefined" && typeof document !== "undefined") {
     try {
       localStorage.setItem(
         CACHE_KEY,
@@ -325,5 +322,7 @@ export function getPresetPolicyId(
     return presetKeyOrSlug;
   }
 
-  throw new TypeError(`Unknown policy preset or invalid policy ID: ${presetKeyOrSlug}`);
+  throw new TypeError(
+    `Unknown policy preset or invalid policy ID: ${presetKeyOrSlug}`
+  );
 }

@@ -8,10 +8,10 @@
 import type {
   AuthboundErrorCode,
   ClientToken,
-  EudiVerificationStatus,
   PolicyId,
   VerificationClaims,
   VerificationId,
+  VerificationUiStatus,
 } from "@authbound/core";
 import { AuthboundError } from "@authbound/core";
 import {
@@ -100,7 +100,7 @@ export interface MockConfig {
   /** Test scenario to use */
   scenario?: MockScenario | (typeof MockScenarios)[MockScenario];
   /** Initial status */
-  initialStatus?: EudiVerificationStatus;
+  initialStatus?: VerificationUiStatus;
   /** Custom delay in ms */
   delay?: number;
   /** Custom error */
@@ -123,7 +123,7 @@ interface MockContextValue {
   /** Reset to idle */
   triggerReset: () => void;
   /** Set status directly */
-  setStatus: (status: EudiVerificationStatus) => void;
+  setStatus: (status: VerificationUiStatus) => void;
   /** Current mock config */
   config: MockConfig;
 }
@@ -160,7 +160,7 @@ export function useMockAuthbound(): MockContextValue {
 
 interface MockVerification {
   verificationId: VerificationId;
-  status: EudiVerificationStatus;
+  status: VerificationUiStatus;
   authorizationRequestUrl: string;
   clientToken: string;
   error?: AuthboundError;
@@ -252,7 +252,7 @@ export function MockAuthboundProvider({
     setSession(null);
   }, []);
 
-  const setStatus = useCallback((status: EudiVerificationStatus) => {
+  const setStatus = useCallback((status: VerificationUiStatus) => {
     setSession((prev) => {
       if (!prev) return null;
       return { ...prev, status };
@@ -416,8 +416,8 @@ export function MockAuthboundProvider({
  * Wait for a specific status in tests.
  */
 export function waitForStatus(
-  getStatus: () => EudiVerificationStatus,
-  targetStatus: EudiVerificationStatus,
+  getStatus: () => VerificationUiStatus,
+  targetStatus: VerificationUiStatus,
   timeout = 5000
 ): Promise<void> {
   return new Promise((resolve, reject) => {

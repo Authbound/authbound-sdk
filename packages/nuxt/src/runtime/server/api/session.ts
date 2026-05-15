@@ -1,11 +1,10 @@
+import { isSameOriginSessionRequest } from "@authbound/core";
 import {
-  isSameOriginSessionRequest,
-  originForStatusProxy,
-} from "@authbound/core";
-import {
-  calculateAge,
+  AuthboundClient,
+  AuthboundClientError,
   createToken,
   getVerificationFromToken,
+  toVerifiedSessionFinalization,
 } from "@authbound/server";
 import {
   createError,
@@ -24,18 +23,6 @@ type FinalizeSessionRequest = {
   clientToken?: string;
 };
 
-const KNOWN_VERIFICATION_STATUSES = new Set([
-  "created",
-  "awaiting_user",
-  "awaiting_provider",
-  "pending",
-  "processing",
-  "verified",
-  "failed",
-  "canceled",
-  "expired",
-]);
-
 function getPendingCookieName(cookieName: string): string {
   return `${cookieName}_pending`;
 }
@@ -50,18 +37,6 @@ function sessionOriginRequest(event: Parameters<typeof getRequestURL>[0]) {
       get: (name: string) => getHeader(event, name) ?? null,
     },
   };
-}
-
-function getBirthDate(
-  attributes: Record<string, unknown> | undefined
-): string | undefined {
-  if (typeof attributes?.birth_date === "string") {
-    return attributes.birth_date;
-  }
-  if (typeof attributes?.dateOfBirth === "string") {
-    return attributes.dateOfBirth;
-  }
-  return;
 }
 
 export default defineEventHandler(async (event) => {
@@ -95,20 +70,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const publishableKey =
-    config.public.authbound?.publishableKey ??
-    process.env.NUXT_PUBLIC_AUTHBOUND_PK ??
-    process.env.VITE_AUTHBOUND_PK ??
-    process.env.AUTHBOUND_PUBLISHABLE_KEY;
-
-  if (!publishableKey) {
-    throw createError({
-      statusCode: 500,
-      message: "Authbound publishable key is not configured",
-      data: { code: "CONFIG_MISSING" },
-    });
-  }
-
   const sessionSecret =
     config.authbound?.sessionSecret ?? process.env.AUTHBOUND_SESSION_SECRET;
 
@@ -139,53 +100,32 @@ export default defineEventHandler(async (event) => {
 
   const gatewayUrl =
     process.env.AUTHBOUND_API_URL ?? "https://api.authbound.io";
-  const statusHeaders: Record<string, string> = {
-    Authorization: `Bearer ${clientToken}`,
-    "X-Authbound-Publishable-Key": publishableKey,
-  };
-  const origin = originForStatusProxy(originRequest, {
-    trustProxy: config.authbound?.trustProxy,
-  });
-  if (origin) {
-    statusHeaders.Origin = origin;
-  }
+  const apiKey = config.authbound?.apiKey ?? process.env.AUTHBOUND_SECRET_KEY;
 
-  const statusResponse = await fetch(
-    `${gatewayUrl}/v1/verifications/${encodeURIComponent(verificationId)}/status`,
-    { headers: statusHeaders }
-  );
-
-  if (!statusResponse.ok) {
+  if (!apiKey) {
     throw createError({
-      statusCode: statusResponse.status,
-      message: "Failed to get verification status",
-      data: { code: "STATUS_REQUEST_FAILED" },
+      statusCode: 500,
+      message: "AUTHBOUND_SECRET_KEY not configured",
+      data: { code: "CONFIG_MISSING" },
     });
   }
 
-  const statusBody = (await statusResponse.json()) as {
-    status?: string;
-    result?: {
-      verified?: boolean;
-      attributes?: Record<string, unknown>;
-    };
-  };
-
-  if (
-    typeof statusBody.status !== "string" ||
-    !KNOWN_VERIFICATION_STATUSES.has(statusBody.status)
-  ) {
-    throw createError({
-      statusCode: 502,
-      message: "Unknown verification status from Authbound",
-      data: { code: "VERIFICATION_INVALID_STATE" },
+  const client = new AuthboundClient({ apiKey, apiUrl: gatewayUrl });
+  const result = await client.verifications
+    .getResult(verificationId)
+    .catch((error: unknown) => {
+      if (error instanceof AuthboundClientError) {
+        throw createError({
+          statusCode: error.statusCode ?? 500,
+          message: error.message,
+          data: { code: error.code },
+        });
+      }
+      throw error;
     });
-  }
+  const verifiedSession = toVerifiedSessionFinalization(result);
 
-  if (
-    statusBody.status !== "verified" ||
-    statusBody.result?.verified === false
-  ) {
+  if (!verifiedSession) {
     throw createError({
       statusCode: 409,
       message: "Verification is not verified",
@@ -193,14 +133,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const attributes = statusBody.result?.attributes;
-  const birthDate = getBirthDate(attributes);
-  const age =
-    typeof attributes?.age === "number"
-      ? attributes.age
-      : birthDate
-        ? calculateAge(birthDate)
-        : undefined;
   const cookieMaxAge = 60 * 60 * 24 * 7;
   const token = await createToken({
     secret: sessionSecret,
@@ -208,8 +140,8 @@ export default defineEventHandler(async (event) => {
     verificationId,
     status: "VERIFIED",
     assuranceLevel: "SUBSTANTIAL",
-    age,
-    dateOfBirth: birthDate,
+    age: verifiedSession.age,
+    dateOfBirth: verifiedSession.dateOfBirth,
     expiresIn: cookieMaxAge,
   });
 
@@ -230,6 +162,6 @@ export default defineEventHandler(async (event) => {
   return {
     isVerified: true,
     verificationId,
-    status: statusBody.status,
+    status: verifiedSession.status,
   };
 });

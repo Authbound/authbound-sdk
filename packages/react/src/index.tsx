@@ -1,7 +1,7 @@
 /**
  * @authbound/react
  *
- * React SDK for Authbound EUDI wallet verification.
+ * React SDK for Authbound wallet verification.
  *
  * @example
  * ```tsx
@@ -117,7 +117,6 @@ export {
   AuthboundError,
   type AuthboundErrorCode,
   asPolicyId,
-  type EudiVerificationStatus,
   isAuthboundError,
   // Utilities
   isTerminalStatus,
@@ -130,4 +129,5 @@ export {
   type VerificationClaims,
   type VerificationId,
   type VerificationSuccess,
+  type VerificationUiStatus,
 } from "@authbound/core";

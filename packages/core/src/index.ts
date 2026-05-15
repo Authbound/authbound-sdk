@@ -1,7 +1,7 @@
 /**
  * @authbound/core
  *
- * Framework-agnostic SDK for Authbound EUDI wallet verification.
+ * Framework-agnostic SDK for Authbound wallet verification.
  *
  * @example
  * ```ts
@@ -99,8 +99,6 @@ export {
   CreateVerificationOptionsSchema,
   type CreateVerificationResponse,
   CreateVerificationResponseSchema,
-  type EudiVerificationStatus,
-  EudiVerificationStatusSchema,
   type FinalizeVerificationResponse,
   FinalizeVerificationResponseSchema,
   isTerminalStatus,
@@ -117,6 +115,37 @@ export {
 } from "./types/verification";
 
 export {
+  isTerminalVerificationProgressStatus,
+  isTerminalVerificationUiStatus,
+  type ProviderPreference,
+  ProviderPreferenceSchema,
+  PublicVerificationListSchema,
+  PublicVerificationSchema,
+  PublicVerificationStatusSnapshotSchema,
+  parseProviderPreference,
+  parseVerificationProgressStatus,
+  projectVerificationStatusForUi,
+  SignedVerificationResultSchema,
+  TERMINAL_VERIFICATION_PROGRESS_STATUSES,
+  TERMINAL_VERIFICATION_UI_STATUSES,
+  VerificationClientActionSchema,
+  type VerificationClientActionWire,
+  type VerificationProgressStatus,
+  VerificationProgressStatusSchema,
+  type VerificationUiStatus,
+  VerificationUiStatusSchema,
+} from "./types/verification-contract";
+
+export {
+  type BrowserVerificationFlowClient,
+  type BrowserVerificationFlowController,
+  type BrowserVerificationFlowOptions,
+  type BrowserVerificationFlowStartOptions,
+  type BrowserVerificationFlowState,
+  createBrowserVerificationFlow,
+} from "./verification/browser-flow";
+
+export {
   isSameOriginSessionRequest,
   normalizeBrowserOrigin,
   originForStatusProxy,
@@ -127,9 +156,11 @@ export {
 
 export {
   resolveWalletAuthorizationRequest,
+  resolveWalletHandoff,
   type WalletAuthorizationRequestInput,
   type WalletAuthorizationRequestResolution,
   type WalletClientAction,
+  type WalletHandoffResolution,
 } from "./verification/wallet-authorization";
 
 // ============================================================================

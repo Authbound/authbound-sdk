@@ -1,11 +1,16 @@
 import {
   isSameOriginSessionRequest,
-  originForStatusProxy,
-  resolveWalletAuthorizationRequest,
+  ProviderPreferenceSchema,
 } from "@authbound/core";
 import { z } from "zod";
+import {
+  BrowserVerificationResponseError,
+  BrowserWalletUrlError,
+  toBrowserVerificationResponse,
+} from "../core/browser-verification";
 import { AuthboundClient, AuthboundClientError } from "../core/client";
 import { createSafeErrorResponse, logError } from "../core/error-utils";
+import { toVerifiedSessionFinalization } from "../core/session-finalization";
 import type {
   AuthboundConfig,
   CreateVerificationResponse,
@@ -13,7 +18,7 @@ import type {
   WebhookEvent,
   WebhookEventType,
 } from "../core/types";
-import { calculateAge, parseConfig, WebhookEventSchema } from "../core/types";
+import { parseConfig, WebhookEventSchema } from "../core/types";
 import { verifyWebhookSignatureDetailed } from "../core/webhooks";
 import {
   type CookieReadableRequest,
@@ -46,7 +51,7 @@ export interface HandlersOptions {
    * Use this to sync verification status with your database.
    *
    * The event uses a nested structure:
-   * - event.type: The event type (e.g., "identity.verification_session.verified")
+   * - event.type: The event type (e.g., "verification.completed")
    * - event.data.object: The verification event object with status and verified_outputs
    */
   onWebhook?: (event: WebhookEvent) => void | Promise<void>;
@@ -97,7 +102,7 @@ const CreateVerificationRequestSchema = z.object({
   policyId: z.string().min(1),
   customerUserRef: z.string().optional(),
   metadata: z.record(z.string(), z.string()).optional(),
-  provider: z.enum(["auto", "vcs", "eudi"]).optional(),
+  provider: ProviderPreferenceSchema.optional(),
 });
 
 const FinalizeVerificationRequestSchema = z.object({
@@ -235,80 +240,19 @@ export function createAuthboundHandlers(
 // Handler Implementations
 // ============================================================================
 
-class BrowserWalletUrlError extends Error {
-  constructor() {
-    super(
-      "Authbound did not return a wallet invocation URL for this verification."
-    );
-    this.name = "BrowserWalletUrlError";
-  }
-}
-
-class BrowserVerificationResponseError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "BrowserVerificationResponseError";
-  }
-}
-
-function toBrowserVerificationResponse(
-  verification: Awaited<ReturnType<AuthboundClient["verifications"]["create"]>>
-): CreateVerificationResponse {
-  const resolvedWalletRequest = resolveWalletAuthorizationRequest({
-    verificationUrl: verification.verificationUrl,
-    clientAction: verification.clientAction,
-  });
-  const authorizationRequestUrl = resolvedWalletRequest.authorizationRequestUrl;
-
-  if (!authorizationRequestUrl) {
-    throw new BrowserWalletUrlError();
-  }
-
-  if (!verification.clientToken) {
-    throw new BrowserVerificationResponseError(
-      "Authbound did not return a client token for this verification."
-    );
-  }
-
-  const expiresAt =
-    verification.expiresAt ?? verification.clientAction?.expiresAt;
-  if (!expiresAt) {
-    throw new BrowserVerificationResponseError(
-      "Authbound did not return an expiry for this verification."
-    );
-  }
-
-  return {
-    verificationId: verification.id,
-    authorizationRequestUrl,
-    clientToken: verification.clientToken,
-    expiresAt,
-    ...(resolvedWalletRequest.deepLink
-      ? { deepLink: resolvedWalletRequest.deepLink }
-      : {}),
-  };
-}
-
-function getPublishableKey(config: AuthboundConfig): string | undefined {
-  return (
-    config.publishableKey ??
-    process.env.NEXT_PUBLIC_AUTHBOUND_PK ??
-    process.env.AUTHBOUND_PUBLISHABLE_KEY
-  );
-}
-
 function getWebhookSecret(config: AuthboundConfig): string | undefined {
   return config.webhookSecret ?? process.env.AUTHBOUND_WEBHOOK_SECRET;
 }
 
 function isVerifiedWebhook(type: WebhookEventType): boolean {
-  return type === "identity.verification_session.verified";
+  return type === "verification.completed";
 }
 
 function isFailedWebhook(type: WebhookEventType): boolean {
   return (
-    type === "identity.verification_session.failed" ||
-    type === "identity.verification_session.canceled"
+    type === "verification.failed" ||
+    type === "verification.canceled" ||
+    type === "verification.expired"
   );
 }
 
@@ -372,6 +316,7 @@ async function handleCreateVerification(
         "BROWSER_WALLET_URL_MISSING"
       );
     }
+
     if (error instanceof BrowserVerificationResponseError) {
       return createErrorResponse(
         error.message,
@@ -419,16 +364,7 @@ async function handleFinalizeSession(
       return createErrorResponse("Invalid request", 400, "INVALID_REQUEST");
     }
 
-    const publishableKey = getPublishableKey(config);
-    if (!publishableKey) {
-      return createErrorResponse(
-        "Authbound publishable key is not configured",
-        500,
-        "PUBLISHABLE_KEY_MISSING"
-      );
-    }
-
-    const { verificationId, clientToken } = parsed.data;
+    const { verificationId } = parsed.data;
     const pendingVerification = await getPendingVerificationFromCookie(
       request as CookieReadableRequest,
       config
@@ -456,13 +392,9 @@ async function handleFinalizeSession(
       );
     }
 
-    const status = await client.verifications.getStatus(verificationId, {
-      clientToken,
-      publishableKey,
-      origin: originForStatusProxy(request, { trustProxy: config.trustProxy }),
-    });
-
-    if (status.status !== "verified" || status.result?.verified === false) {
+    const result = await client.verifications.getResult(verificationId);
+    const verifiedSession = toVerifiedSessionFinalization(result);
+    if (!verifiedSession) {
       return createErrorResponse(
         "Verification is not verified",
         409,
@@ -470,23 +402,10 @@ async function handleFinalizeSession(
       );
     }
 
-    const attributes = status.result?.attributes;
-    const birthDate =
-      typeof attributes?.birth_date === "string"
-        ? attributes.birth_date
-        : typeof attributes?.dateOfBirth === "string"
-          ? attributes.dateOfBirth
-          : undefined;
-    const age =
-      typeof attributes?.age === "number"
-        ? attributes.age
-        : birthDate
-          ? calculateAge(birthDate)
-          : undefined;
     const response = createJsonResponse({
       isVerified: true,
       verificationId,
-      status: status.status,
+      status: verifiedSession.status,
     });
 
     await setVerificationCookie(response, config, {
@@ -494,8 +413,8 @@ async function handleFinalizeSession(
       verificationId,
       status: "VERIFIED",
       assuranceLevel: "SUBSTANTIAL",
-      age,
-      dateOfBirth: birthDate,
+      age: verifiedSession.age,
+      dateOfBirth: verifiedSession.dateOfBirth,
     });
     clearPendingVerificationCookie(response, config);
 
@@ -700,7 +619,7 @@ export function createVerificationHandler(
 }
 
 /**
- * Create a standalone verification session finalization handler.
+ * Create a standalone browser session finalization handler.
  */
 export function createSessionHandler(
   config: AuthboundConfig,

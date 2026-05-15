@@ -8,13 +8,14 @@ import {
   type AuthboundClient,
   type AuthboundClientConfig,
   AuthboundError,
-  type AuthboundErrorCode,
+  type BrowserVerificationFlowState,
+  createBrowserVerificationFlow,
   createClient,
-  type EudiVerificationStatus,
   type PolicyId,
+  type ProviderPreference,
   type PublishableKey,
-  type StatusEvent,
   type VerificationId,
+  type VerificationUiStatus,
 } from "@authbound/core";
 import {
   type App,
@@ -44,7 +45,7 @@ export interface VerificationState {
   /** Verification ID */
   verificationId: VerificationId;
   /** Current status */
-  status: EudiVerificationStatus;
+  status: VerificationUiStatus;
   /** Authorization request URL (for QR code) */
   authorizationRequestUrl: string;
   /** Client token for status polling */
@@ -57,6 +58,31 @@ export interface VerificationState {
   timeRemaining?: number;
   /** When verification expires */
   expiresAt: Date;
+}
+
+function toVerificationState(
+  flowState: BrowserVerificationFlowState
+): VerificationState | null {
+  if (flowState.status === "idle") {
+    return null;
+  }
+
+  const base = {
+    verificationId: (flowState.verificationId ?? "vrf_error") as VerificationId,
+    status: flowState.status,
+    authorizationRequestUrl: flowState.authorizationRequestUrl ?? "",
+    clientToken: flowState.clientToken ?? "",
+    expiresAt: flowState.expiresAt ?? new Date(),
+  };
+
+  return {
+    ...base,
+    ...(flowState.deepLink ? { deepLink: flowState.deepLink } : {}),
+    ...(flowState.error ? { error: flowState.error } : {}),
+    ...(typeof flowState.timeRemaining === "number"
+      ? { timeRemaining: flowState.timeRemaining }
+      : {}),
+  };
 }
 
 /**
@@ -81,7 +107,7 @@ export interface AuthboundContext {
     policyId?: PolicyId;
     customerUserRef?: string;
     metadata?: Record<string, string>;
-    provider?: "auto" | "vcs" | "eudi";
+    provider?: ProviderPreference;
   }) => Promise<void>;
 
   /** Reset current verification */
@@ -110,7 +136,7 @@ export interface AuthboundPluginOptions {
   verificationEndpoint?: string;
   /** Browser session finalization endpoint (default: /api/authbound/session) */
   sessionEndpoint?: string;
-  /** Whether the SDK should create its own browser verification session */
+  /** Whether the SDK should create its own browser session binding */
   sessionMode?: "sdk" | "manual";
   /** Gateway URL override (for testing) */
   gatewayUrl?: string;
@@ -180,8 +206,6 @@ export const AuthboundPlugin = {
     // Reactive state
     const isReady = ref(false);
     const verification = ref<VerificationState | null>(null);
-    let statusCleanup: (() => void) | null = null;
-    const finalizedVerificationIds = new Set<string>();
 
     // Track OS color scheme preference for auto theme
     const prefersDark = ref(
@@ -247,148 +271,34 @@ export const AuthboundPlugin = {
       }
     };
 
-    const cleanupStatusSubscription = () => {
-      statusCleanup?.();
-      statusCleanup = null;
-    };
+    const flow = createBrowserVerificationFlow({
+      client,
+      policyId,
+      sessionMode,
+      onStateChange: (flowState) => {
+        verification.value = toVerificationState(flowState);
+      },
+    });
 
     const resetVerification = () => {
-      cleanupStatusSubscription();
-      verification.value = null;
-    };
-
-    const finalizeSdkSession = async (
-      verificationId: string,
-      clientToken: string
-    ) => {
-      if (sessionMode !== "sdk") {
-        return;
-      }
-
-      if (finalizedVerificationIds.has(verificationId)) {
-        return;
-      }
-
-      finalizedVerificationIds.add(verificationId);
-
-      try {
-        await client.finalizeVerification(
-          verificationId as VerificationId,
-          clientToken as Parameters<typeof client.finalizeVerification>[1]
-        );
-      } catch (error) {
-        finalizedVerificationIds.delete(verificationId);
-        const authboundError = AuthboundError.from(error);
-        if (
-          !verification.value ||
-          verification.value.verificationId !== verificationId
-        ) {
-          throw authboundError;
-        }
-        verification.value = {
-          ...verification.value,
-          status: "error",
-          error: authboundError,
-        };
-        throw authboundError;
-      }
+      flow.reset();
     };
 
     const startVerification = async (verifyOptions?: {
       policyId?: PolicyId;
       customerUserRef?: string;
       metadata?: Record<string, string>;
-      provider?: "auto" | "vcs" | "eudi";
+      provider?: ProviderPreference;
     }) => {
       try {
-        cleanupStatusSubscription();
-
-        // Create verification
-        const response = await client.startVerification({
+        await flow.start({
           policyId: verifyOptions?.policyId ?? policyId,
           customerUserRef: verifyOptions?.customerUserRef,
           metadata: verifyOptions?.metadata,
           provider: verifyOptions?.provider,
         });
-        finalizedVerificationIds.delete(response.verificationId);
-
-        // Initialize verification state
-        const newVerification: VerificationState = {
-          verificationId: response.verificationId as VerificationId,
-          status: "pending",
-          authorizationRequestUrl: response.authorizationRequestUrl,
-          clientToken: response.clientToken,
-          deepLink: response.deepLink,
-          expiresAt: new Date(response.expiresAt),
-        };
-
-        verification.value = newVerification;
-
-        // Subscribe to status updates
-        statusCleanup = client.subscribeToStatus(
-          response.verificationId as VerificationId,
-          response.clientToken as Parameters<
-            typeof client.subscribeToStatus
-          >[1],
-          (event: StatusEvent) => {
-            (async () => {
-              if (event.status === "verified") {
-                try {
-                  await finalizeSdkSession(
-                    response.verificationId,
-                    response.clientToken
-                  );
-                } catch {
-                  return;
-                }
-              }
-
-              if (
-                !verification.value ||
-                verification.value.verificationId !== response.verificationId
-              ) {
-                return;
-              }
-
-              verification.value = {
-                ...verification.value,
-                status: event.status,
-                error: event.error
-                  ? new AuthboundError(
-                      event.error.code as AuthboundErrorCode,
-                      event.error.message
-                    )
-                  : undefined,
-              };
-            })().catch(() => undefined);
-          },
-          {
-            onError: (error) => {
-              if (
-                !verification.value ||
-                verification.value.verificationId !== response.verificationId
-              ) {
-                return;
-              }
-              verification.value = {
-                ...verification.value,
-                status: "error",
-                error,
-              };
-            },
-          }
-        );
       } catch (error) {
-        const authboundError = AuthboundError.from(error);
-        verification.value = {
-          verificationId: "vrf_error" as VerificationId,
-          status: "error",
-          authorizationRequestUrl: "",
-          clientToken: "",
-          error: authboundError,
-          expiresAt: new Date(),
-        };
-        throw authboundError;
+        throw AuthboundError.from(error);
       }
     };
 

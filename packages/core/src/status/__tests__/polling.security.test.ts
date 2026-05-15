@@ -305,7 +305,7 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
       );
     });
 
-    it("maps durable outbox statuses used by portal flows", async () => {
+    it("rejects stale durable outbox statuses", async () => {
       fetchMock
         .mockResolvedValueOnce({
           ok: true,
@@ -327,11 +327,15 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
       await vi.advanceTimersByTimeAsync(300);
 
       expect(events).toContainEqual(
-        expect.objectContaining({ type: "status", status: "processing" })
+        expect.objectContaining({
+          type: "error",
+          status: "error",
+          error: expect.objectContaining({
+            code: "verification_invalid_state",
+          }),
+        })
       );
-      expect(events).toContainEqual(
-        expect.objectContaining({ type: "status", status: "failed" })
-      );
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -3,16 +3,18 @@
  */
 
 import type {
-  AuthboundErrorCode,
   ClientToken,
-  EudiVerificationStatus,
   PolicyId,
+  ProviderPreference,
   VerificationId,
   VerificationSuccess,
+  VerificationUiStatus,
 } from "@authbound/core";
 import {
   AuthboundError,
-  asClientToken,
+  type BrowserVerificationFlowClient,
+  type BrowserVerificationFlowState,
+  createBrowserVerificationFlow,
   isTerminalStatus,
 } from "@authbound/core";
 import { useRouter } from "nuxt/app";
@@ -33,7 +35,7 @@ export interface UseVerificationOptions {
   /** Additional metadata */
   metadata?: Record<string, string>;
   /** Optional provider override. The Nuxt server route may restrict this. */
-  provider?: "auto" | "vcs" | "eudi";
+  provider?: ProviderPreference;
   /** Redirect on success */
   redirectOnSuccess?: string;
   /** Callback when verified */
@@ -41,7 +43,7 @@ export interface UseVerificationOptions {
   /** Callback when failed */
   onFailed?: (error: AuthboundError) => void;
   /** Callback on any status change */
-  onStatusChange?: (status: EudiVerificationStatus) => void;
+  onStatusChange?: (status: VerificationUiStatus) => void;
   /** Callback when timeout or expiration occurs */
   onTimeout?: () => void;
 }
@@ -81,7 +83,7 @@ export function useVerification(options: UseVerificationOptions = {}) {
   const router = useRouter();
 
   // State
-  const status = ref<EudiVerificationStatus>("idle");
+  const status = ref<VerificationUiStatus>("idle");
   const verificationId = ref<VerificationId | null>(null);
   const authorizationRequestUrl = ref<string | null>(null);
   const deepLink = ref<string | null>(null);
@@ -105,80 +107,77 @@ export function useVerification(options: UseVerificationOptions = {}) {
   );
   const isTerminal = computed(() => isTerminalStatus(status.value));
 
-  // Timer
-  let timerInterval: ReturnType<typeof setInterval> | null = null;
-  let statusCleanup: (() => void) | null = null;
-  const finalizedVerificationIds = new Set<string>();
-
-  const startTimer = () => {
-    if (timerInterval) clearInterval(timerInterval);
-
-    if (!expiresAt.value) {
-      timeRemaining.value = null;
-      return;
-    }
-
-    const updateTime = () => {
-      if (!expiresAt.value) {
-        timeRemaining.value = null;
-        return;
-      }
-      const remaining = Math.max(
-        0,
-        Math.floor((expiresAt.value.getTime() - Date.now()) / 1000)
-      );
-      timeRemaining.value = remaining;
-
-      if (remaining <= 0 && timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
-    };
-
-    updateTime();
-    timerInterval = setInterval(updateTime, 1000);
+  const applyFlowState = (flowState: BrowserVerificationFlowState) => {
+    status.value = flowState.status;
+    verificationId.value = flowState.verificationId ?? null;
+    authorizationRequestUrl.value = flowState.authorizationRequestUrl ?? null;
+    clientToken.value = flowState.clientToken ?? null;
+    deepLink.value = flowState.deepLink ?? null;
+    error.value = flowState.error ?? null;
+    expiresAt.value = flowState.expiresAt ?? null;
+    timeRemaining.value =
+      typeof flowState.timeRemaining === "number"
+        ? flowState.timeRemaining
+        : null;
   };
 
-  const stopTimer = () => {
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      timerInterval = null;
-    }
-    timeRemaining.value = null;
-  };
-
-  const finalizeSdkSession = async (id: string, token: string) => {
-    if (config.sessionMode === "manual") {
-      return;
-    }
-
-    if (finalizedVerificationIds.has(id)) {
-      return;
-    }
-
-    finalizedVerificationIds.add(id);
-
-    try {
-      if (client) {
-        await client.finalizeVerification(
-          id as VerificationId,
-          asClientToken(token)
-        );
-        return;
+  const fallbackClient = {
+    startVerification: async (
+      startOptions: {
+        policyId?: PolicyId;
+        customerUserRef?: string;
+        metadata?: Record<string, string>;
+        provider?: ProviderPreference;
+      } = {}
+    ) => {
+      const body: Record<string, unknown> = {};
+      if (startOptions.policyId) {
+        body.policyId = startOptions.policyId;
+      }
+      if (startOptions.customerUserRef) {
+        body.customerUserRef = startOptions.customerUserRef;
+      }
+      if (startOptions.metadata) {
+        body.metadata = startOptions.metadata;
+      }
+      if (startOptions.provider) {
+        body.provider = startOptions.provider;
       }
 
+      return await $fetch<{
+        verificationId: VerificationId;
+        authorizationRequestUrl: string;
+        clientToken: ClientToken;
+        deepLink?: string;
+        expiresAt: string;
+      }>(config.verificationEndpoint ?? "/api/authbound/verification", {
+        method: "POST",
+        body,
+      });
+    },
+    subscribeToStatus: () => () => undefined,
+    finalizeVerification: async (id: VerificationId, token: ClientToken) =>
       await $fetch(config.sessionEndpoint ?? "/api/authbound/session", {
         method: "POST",
         body: {
           verificationId: id,
           clientToken: token,
         },
-      });
-    } catch (err) {
-      finalizedVerificationIds.delete(id);
-      throw AuthboundError.from(err);
-    }
-  };
+      }),
+    getDeepLink: (authorizationRequestUrl: string) => authorizationRequestUrl,
+    log: (...args: unknown[]) => {
+      if (config.debug) {
+        console.log("[Authbound]", ...args);
+      }
+    },
+  } satisfies BrowserVerificationFlowClient;
+
+  const flow = createBrowserVerificationFlow({
+    client: client ?? fallbackClient,
+    policyId: (options.policyId ?? config.policyId) as PolicyId | undefined,
+    sessionMode: config.sessionMode ?? "sdk",
+    onStateChange: applyFlowState,
+  });
 
   // Watch status changes
   watch(status, (newStatus, oldStatus) => {
@@ -191,7 +190,6 @@ export function useVerification(options: UseVerificationOptions = {}) {
         verificationId: verificationId.value,
         status: "verified",
       });
-      stopTimer();
 
       // Redirect if configured
       if (options.redirectOnSuccess) {
@@ -214,86 +212,20 @@ export function useVerification(options: UseVerificationOptions = {}) {
                 : "Verification did not complete."
           )
       );
-      stopTimer();
     }
   });
 
   // Start verification
   const startVerification = async () => {
     try {
-      status.value = "pending";
-      error.value = null;
-
-      statusCleanup?.();
-      statusCleanup = null;
-
-      // Create verification via API route
-      const response = await $fetch<{
-        verificationId: string;
-        authorizationRequestUrl: string;
-        clientToken: string;
-        deepLink?: string;
-        expiresAt: string;
-      }>(config.verificationEndpoint ?? "/api/authbound/verification", {
-        method: "POST",
-        body: {
-          policyId: options.policyId ?? config.policyId,
-          customerUserRef: options.customerUserRef,
-          metadata: options.metadata,
-          provider: options.provider,
-        },
+      await flow.start({
+        policyId: (options.policyId ?? config.policyId) as PolicyId | undefined,
+        customerUserRef: options.customerUserRef,
+        metadata: options.metadata,
+        provider: options.provider,
       });
-
-      verificationId.value = response.verificationId as VerificationId;
-      finalizedVerificationIds.delete(response.verificationId);
-      authorizationRequestUrl.value = response.authorizationRequestUrl;
-      clientToken.value = asClientToken(response.clientToken);
-      deepLink.value = response.deepLink ?? null;
-      expiresAt.value = new Date(response.expiresAt);
-
-      startTimer();
-
-      // Subscribe to status updates if client is available
-      if (client && verificationId.value && clientToken.value) {
-        statusCleanup = client.subscribeToStatus(
-          verificationId.value,
-          clientToken.value,
-          (event) => {
-            (async () => {
-              if (event.status === "verified") {
-                try {
-                  await finalizeSdkSession(
-                    response.verificationId,
-                    response.clientToken
-                  );
-                } catch (err) {
-                  status.value = "error";
-                  error.value = AuthboundError.from(err);
-                  return;
-                }
-              }
-
-              status.value = event.status;
-              if (event.error) {
-                error.value = new AuthboundError(
-                  event.error.code as AuthboundErrorCode,
-                  event.error.message
-                );
-              }
-            })().catch(() => undefined);
-          },
-          {
-            onError: (err) => {
-              status.value = "error";
-              error.value = err;
-            },
-          }
-        );
-      }
     } catch (err) {
-      status.value = "error";
-      error.value = AuthboundError.from(err);
-      throw error.value;
+      throw AuthboundError.from(err);
     }
   };
 
@@ -305,17 +237,7 @@ export function useVerification(options: UseVerificationOptions = {}) {
 
   // Reset
   const reset = () => {
-    status.value = "idle";
-    verificationId.value = null;
-    authorizationRequestUrl.value = null;
-    clientToken.value = null;
-    deepLink.value = null;
-    error.value = null;
-    expiresAt.value = null;
-    finalizedVerificationIds.clear();
-    statusCleanup?.();
-    statusCleanup = null;
-    stopTimer();
+    flow.reset();
   };
 
   // Auto-start
@@ -325,8 +247,7 @@ export function useVerification(options: UseVerificationOptions = {}) {
 
   // Cleanup
   onUnmounted(() => {
-    statusCleanup?.();
-    stopTimer();
+    flow.dispose();
   });
 
   return {

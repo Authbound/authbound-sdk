@@ -8,13 +8,14 @@ import {
   type AuthboundClient,
   type AuthboundClientConfig,
   AuthboundError,
-  type AuthboundErrorCode,
+  type BrowserVerificationFlowState,
+  createBrowserVerificationFlow,
   createClient,
-  type EudiVerificationStatus,
   type PolicyId,
+  type ProviderPreference,
   type PublishableKey,
-  type StatusEvent,
   type VerificationId,
+  type VerificationUiStatus,
 } from "@authbound/core";
 import {
   Component,
@@ -25,7 +26,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import type { AuthboundAppearance } from "../types/appearance";
@@ -47,7 +47,7 @@ export interface VerificationState {
   /** Verification ID */
   verificationId: VerificationId;
   /** Current status */
-  status: EudiVerificationStatus;
+  status: VerificationUiStatus;
   /** Authorization request URL (for QR code) */
   authorizationRequestUrl: string;
   /** Client token for status polling */
@@ -60,6 +60,31 @@ export interface VerificationState {
   timeRemaining?: number;
   /** When verification expires */
   expiresAt: Date;
+}
+
+function toVerificationState(
+  flowState: BrowserVerificationFlowState
+): VerificationState | null {
+  if (flowState.status === "idle") {
+    return null;
+  }
+
+  const base = {
+    verificationId: (flowState.verificationId ?? "vrf_error") as VerificationId,
+    status: flowState.status,
+    authorizationRequestUrl: flowState.authorizationRequestUrl ?? "",
+    clientToken: flowState.clientToken ?? "",
+    expiresAt: flowState.expiresAt ?? new Date(),
+  };
+
+  return {
+    ...base,
+    ...(flowState.deepLink ? { deepLink: flowState.deepLink } : {}),
+    ...(flowState.error ? { error: flowState.error } : {}),
+    ...(typeof flowState.timeRemaining === "number"
+      ? { timeRemaining: flowState.timeRemaining }
+      : {}),
+  };
 }
 
 /**
@@ -82,7 +107,7 @@ export interface AuthboundContextValue {
     policyId?: PolicyId;
     customerUserRef?: string;
     metadata?: Record<string, string>;
-    provider?: "auto" | "vcs" | "eudi";
+    provider?: ProviderPreference;
   }) => Promise<void>;
 
   /** Reset current verification */
@@ -118,7 +143,7 @@ export interface AuthboundProviderProps {
   verificationEndpoint?: string;
   /** Browser session finalization endpoint (default: /api/authbound/session) */
   sessionEndpoint?: string;
-  /** Whether the SDK should create its own browser verification session */
+  /** Whether the SDK should create its own browser session binding */
   sessionMode?: "sdk" | "manual";
   /** Gateway URL override (for testing) */
   gatewayUrl?: string;
@@ -171,8 +196,6 @@ export function AuthboundProvider({
     null
   );
   const [isReady, setIsReady] = useState(false);
-  const statusCleanupRef = useRef<(() => void) | null>(null);
-  const finalizedVerificationIdsRef = useRef<Set<string>>(new Set());
 
   // Track OS color scheme preference for auto theme
   const [prefersDark, setPrefersDark] = useState(() => {
@@ -257,54 +280,25 @@ export function AuthboundProvider({
     []
   );
 
-  const cleanupStatusSubscription = useCallback(() => {
-    if (statusCleanupRef.current) {
-      statusCleanupRef.current();
-      statusCleanupRef.current = null;
-    }
-  }, []);
+  const flow = useMemo(
+    () =>
+      createBrowserVerificationFlow({
+        client,
+        policyId,
+        sessionMode,
+        onStateChange: (flowState) => {
+          setVerification(toVerificationState(flowState));
+        },
+      }),
+    [client, policyId, sessionMode]
+  );
+
+  useEffect(() => () => flow.dispose(), [flow]);
 
   // Reset verification
   const resetVerification = useCallback(() => {
-    cleanupStatusSubscription();
-    setVerification(null);
-  }, [cleanupStatusSubscription]);
-
-  const finalizeSdkSession = useCallback(
-    async (verificationId: string, clientToken: string) => {
-      if (sessionMode !== "sdk") {
-        return;
-      }
-
-      if (finalizedVerificationIdsRef.current.has(verificationId)) {
-        return;
-      }
-
-      finalizedVerificationIdsRef.current.add(verificationId);
-
-      try {
-        await client.finalizeVerification(
-          verificationId as VerificationId,
-          clientToken as Parameters<typeof client.finalizeVerification>[1]
-        );
-      } catch (error) {
-        finalizedVerificationIdsRef.current.delete(verificationId);
-        const authboundError = AuthboundError.from(error);
-        setVerification((prev) => {
-          if (!prev || prev.verificationId !== verificationId) {
-            return prev;
-          }
-          return {
-            ...prev,
-            status: "error",
-            error: authboundError,
-          };
-        });
-        throw authboundError;
-      }
-    },
-    [client, sessionMode]
-  );
+    flow.reset();
+  }, [flow]);
 
   // Start verification
   const startVerification = useCallback(
@@ -312,104 +306,20 @@ export function AuthboundProvider({
       policyId?: PolicyId;
       customerUserRef?: string;
       metadata?: Record<string, string>;
-      provider?: "auto" | "vcs" | "eudi";
+      provider?: ProviderPreference;
     }) => {
       try {
-        cleanupStatusSubscription();
-
-        // Create verification
-        const response = await client.startVerification({
+        await flow.start({
           policyId: options?.policyId ?? policyId,
           customerUserRef: options?.customerUserRef,
           metadata: options?.metadata,
           provider: options?.provider,
         });
-        finalizedVerificationIdsRef.current.delete(response.verificationId);
-
-        // Initialize verification state
-        const newVerification: VerificationState = {
-          verificationId: response.verificationId as VerificationId,
-          status: "pending",
-          authorizationRequestUrl: response.authorizationRequestUrl,
-          clientToken: response.clientToken,
-          deepLink: response.deepLink,
-          expiresAt: new Date(response.expiresAt),
-        };
-
-        setVerification(newVerification);
-
-        // Subscribe to status updates
-        statusCleanupRef.current = client.subscribeToStatus(
-          response.verificationId as VerificationId,
-          response.clientToken as Parameters<
-            typeof client.subscribeToStatus
-          >[1],
-          (event: StatusEvent) => {
-            (async () => {
-              if (event.status === "verified") {
-                try {
-                  await finalizeSdkSession(
-                    response.verificationId,
-                    response.clientToken
-                  );
-                } catch {
-                  return;
-                }
-              }
-
-              setVerification((prev) => {
-                if (!prev || prev.verificationId !== response.verificationId)
-                  return prev;
-
-                return {
-                  ...prev,
-                  status: event.status,
-                  error: event.error
-                    ? new AuthboundError(
-                        event.error.code as AuthboundErrorCode,
-                        event.error.message
-                      )
-                    : undefined,
-                  timeRemaining: undefined, // Will be updated by timer
-                };
-              });
-            })().catch(() => undefined);
-          },
-          {
-            onError: (error) => {
-              setVerification((prev) => {
-                if (!prev || prev.verificationId !== response.verificationId)
-                  return prev;
-                return {
-                  ...prev,
-                  status: "error",
-                  error,
-                };
-              });
-            },
-          }
-        );
       } catch (error) {
-        const authboundError = AuthboundError.from(error);
-        setVerification({
-          verificationId: "vrf_error" as VerificationId,
-          status: "error",
-          authorizationRequestUrl: "",
-          clientToken: "",
-          error: authboundError,
-          expiresAt: new Date(),
-        });
-        throw authboundError;
+        throw AuthboundError.from(error);
       }
     },
-    [cleanupStatusSubscription, client, finalizeSdkSession, policyId]
-  );
-
-  useEffect(
-    () => () => {
-      cleanupStatusSubscription();
-    },
-    [cleanupStatusSubscription]
+    [flow, policyId]
   );
 
   // Build CSS custom properties

@@ -215,6 +215,53 @@ describe("Next.js server debug logging", () => {
     });
   });
 
+  it("maps first-class wallet URLs from gateway responses", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        object: "verification",
+        id: "00000000-0000-4000-8000-000000000123",
+        policy_id: "pol_authbound_pension_v1",
+        status: "awaiting_user",
+        client_token: "client_token_secret_value",
+        verification_url:
+          "https://ab-1k2rbz6f9ab5p6xj.authbound.io/v/00000000-0000-4000-8000-000000000123",
+        authorizationRequestUrl:
+          "openid4vp://authorize?request_uri=https%3A%2F%2Fgateway.example.com",
+        deepLink:
+          "openid4vp://authorize?request_uri=https%3A%2F%2Fgateway.example.com",
+        expires_at: "2026-03-09T12:00:00.000Z",
+      }),
+    }) as typeof fetch;
+
+    const handler = createVerificationRoute({
+      policyId: "pol_authbound_pension_v1" as PolicyId,
+      gatewayUrl: "https://api.authbound.io",
+      secret: "sk_test_secret",
+    });
+
+    const response = await handler(
+      new Request(
+        "https://playground.authbound.io/api/authbound/verification",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ customerUserRef: "demo-user" }),
+        }
+      ) as never
+    );
+
+    expect(await response.json()).toEqual({
+      verificationId: "00000000-0000-4000-8000-000000000123",
+      authorizationRequestUrl:
+        "openid4vp://authorize?request_uri=https%3A%2F%2Fgateway.example.com",
+      clientToken: "client_token_secret_value",
+      expiresAt: "2026-03-09T12:00:00.000Z",
+      deepLink:
+        "openid4vp://authorize?request_uri=https%3A%2F%2Fgateway.example.com",
+    });
+  });
+
   it("returns a clear server error when the API response has no browser URL", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -471,13 +518,10 @@ describe("Next.js server debug logging", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          object: "verification_status",
-          id: "vrf_123",
+          verification_id: "vrf_123",
           status: "verified",
-          result: {
-            verified: true,
-            attributes: { birth_date: "1990-05-15" },
-          },
+          result_token: "signed_result_token",
+          assertions: { birth_date: "1990-05-15" },
         }),
       }) as typeof fetch;
 
@@ -504,7 +548,7 @@ describe("Next.js server debug logging", () => {
 
       const handler = createSessionRoute({
         gatewayUrl: "https://api.authbound.io",
-        publishableKey: "pk_test_configured",
+        secret: "sk_test_secret",
         sessionSecret: SESSION_SECRET,
       });
 
@@ -535,14 +579,12 @@ describe("Next.js server debug logging", () => {
         "__authbound_pending=;"
       );
       expect(global.fetch).toHaveBeenCalledWith(
-        "https://api.authbound.io/v1/verifications/vrf_123/status",
-        {
-          headers: {
-            Authorization: "Bearer client_token_123",
-            Origin: "https://playground.authbound.io",
-            "X-Authbound-Publishable-Key": "pk_test_configured",
-          },
-        }
+        "https://api.authbound.io/v1/verifications/vrf_123/result",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            "X-Authbound-Key": "sk_test_secret",
+          }),
+        })
       );
     } finally {
       if (originalSessionSecret === undefined) {
@@ -686,17 +728,16 @@ describe("Next.js server debug logging", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          object: "verification_status",
-          id: "vrf_123",
+          verification_id: "vrf_123",
           status: "verified",
-          result: { verified: true },
+          result_token: "signed_result_token",
         }),
       }) as typeof fetch;
 
     const pendingCookie = await createPendingVerificationCookie();
     const handler = createSessionRoute({
       gatewayUrl: "https://api.authbound.io",
-      publishableKey: "pk_test_configured",
+      secret: "sk_test_secret",
       sessionSecret: SESSION_SECRET,
       trustProxy: true,
     });
@@ -721,14 +762,12 @@ describe("Next.js server debug logging", () => {
 
     expect(response.status).toBe(200);
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://api.authbound.io/v1/verifications/vrf_123/status",
-      {
-        headers: {
-          Authorization: "Bearer client_token_123",
-          Origin: "https://playground.authbound.io",
-          "X-Authbound-Publishable-Key": "pk_test_configured",
-        },
-      }
+      "https://api.authbound.io/v1/verifications/vrf_123/result",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "X-Authbound-Key": "sk_test_secret",
+        }),
+      })
     );
   });
 
@@ -752,17 +791,16 @@ describe("Next.js server debug logging", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          object: "verification_status",
-          id: "vrf_123",
+          verification_id: "vrf_123",
           status: "verified",
-          result: { verified: true },
+          result_token: "signed_result_token",
         }),
       }) as typeof fetch;
 
     const pendingCookie = await createPendingVerificationCookie();
     const handler = createSessionRoute({
       gatewayUrl: "https://api.authbound.io",
-      publishableKey: "pk_test_configured",
+      secret: "sk_test_secret",
       sessionSecret: SESSION_SECRET,
       allowedOrigins: ["https://playground.authbound.io"],
     });
@@ -785,10 +823,10 @@ describe("Next.js server debug logging", () => {
 
     expect(response.status).toBe(200);
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://api.authbound.io/v1/verifications/vrf_123/status",
+      "https://api.authbound.io/v1/verifications/vrf_123/result",
       expect.objectContaining({
         headers: expect.objectContaining({
-          Origin: "https://playground.authbound.io",
+          "X-Authbound-Key": "sk_test_secret",
         }),
       })
     );
@@ -979,7 +1017,7 @@ describe("Next.js server debug logging", () => {
   it("logs only webhook metadata when debug logging is enabled", async () => {
     const eventPayload = JSON.stringify({
       id: "evt_1234567890abcdef",
-      type: "identity.verification_session.verified",
+      type: "verification.completed",
       created: 1_741_510_400,
       data: {
         object: {
@@ -1021,7 +1059,7 @@ describe("Next.js server debug logging", () => {
 
     expect(consoleLog).toHaveBeenCalledWith("[Authbound] Webhook event:", {
       eventId: "evt_...cdef",
-      type: "identity.verification_session.verified",
+      type: "verification.completed",
       created: 1_741_510_400,
       verificationId: "ver_...cdef",
       status: "verified",

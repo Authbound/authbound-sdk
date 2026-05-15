@@ -18,21 +18,26 @@
 
 import {
   isSameOriginSessionRequest,
-  originForStatusProxy,
-  resolveWalletAuthorizationRequest,
+  ProviderPreferenceSchema,
 } from "@authbound/core";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
+import {
+  BrowserVerificationResponseError,
+  BrowserWalletUrlError,
+  toBrowserVerificationResponse,
+} from "../core/browser-verification";
 import { AuthboundClient, AuthboundClientError } from "../core/client";
 import { createSafeErrorResponse, logError } from "../core/error-utils";
+import { toVerifiedSessionFinalization } from "../core/session-finalization";
 import type {
   AuthboundConfig,
   CreateVerificationResponse,
   VerificationStatusResponse,
   WebhookEvent,
 } from "../core/types";
-import { calculateAge, parseConfig, WebhookEventSchema } from "../core/types";
+import { parseConfig, WebhookEventSchema } from "../core/types";
 import { verifyWebhookSignatureDetailed } from "../core/webhooks";
 import {
   clearPendingVerificationCookie,
@@ -85,7 +90,7 @@ const CreateVerificationRequestSchema = z.object({
   policyId: z.string(),
   customerUserRef: z.string().optional(),
   metadata: z.record(z.string(), z.string()).optional(),
-  provider: z.enum(["auto", "vcs", "eudi"]).optional(),
+  provider: ProviderPreferenceSchema.optional(),
 });
 
 const FinalizeVerificationRequestSchema = z.object({
@@ -105,82 +110,6 @@ function sessionOriginRequest(c: Context) {
 // ============================================================================
 // Handler Implementations
 // ============================================================================
-
-class BrowserVerificationResponseError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "BrowserVerificationResponseError";
-  }
-}
-
-function getBrowserWalletUrl(result: {
-  verificationUrl?: string;
-  clientAction?: { kind: string; data: string };
-}): { authorizationRequestUrl: string; deepLink?: string } {
-  const resolvedWalletRequest = resolveWalletAuthorizationRequest({
-    verificationUrl: result.verificationUrl,
-    clientAction: result.clientAction,
-  });
-  const authorizationRequestUrl = resolvedWalletRequest.authorizationRequestUrl;
-
-  if (!authorizationRequestUrl) {
-    throw new BrowserVerificationResponseError(
-      "Authbound did not return a wallet invocation URL for this verification."
-    );
-  }
-
-  return {
-    authorizationRequestUrl,
-    deepLink: resolvedWalletRequest.deepLink,
-  };
-}
-
-function toBrowserVerificationResponse(result: {
-  id: string;
-  clientToken?: string;
-  expiresAt?: string;
-  verificationUrl?: string;
-  clientAction?: { kind: string; data: string; expiresAt?: string };
-}): CreateVerificationResponse {
-  const { authorizationRequestUrl, deepLink } = getBrowserWalletUrl(result);
-  const expiresAt = result.expiresAt ?? result.clientAction?.expiresAt;
-
-  if (!(result.clientToken && expiresAt)) {
-    throw new BrowserVerificationResponseError(
-      "Authbound verification response is missing client token or expiry."
-    );
-  }
-
-  return {
-    verificationId: result.id,
-    authorizationRequestUrl,
-    clientToken: result.clientToken,
-    expiresAt,
-    deepLink,
-  };
-}
-
-function getPublishableKey(config: AuthboundConfig): string | undefined {
-  return (
-    config.publishableKey ??
-    process.env.AUTHBOUND_PUBLISHABLE_KEY ??
-    process.env.NEXT_PUBLIC_AUTHBOUND_PK ??
-    process.env.NUXT_PUBLIC_AUTHBOUND_PK ??
-    process.env.VITE_AUTHBOUND_PK
-  );
-}
-
-function getBirthDate(
-  attributes: Record<string, unknown> | undefined
-): string | undefined {
-  if (typeof attributes?.birth_date === "string") {
-    return attributes.birth_date;
-  }
-  if (typeof attributes?.dateOfBirth === "string") {
-    return attributes.dateOfBirth;
-  }
-  return;
-}
 
 async function handleCreateVerification(
   c: Context,
@@ -230,6 +159,15 @@ async function handleCreateVerification(
           code: "INVALID_REQUEST",
         },
         400
+      );
+    }
+    if (error instanceof BrowserWalletUrlError) {
+      return c.json(
+        {
+          error: error.message,
+          code: "BROWSER_WALLET_URL_MISSING",
+        },
+        502
       );
     }
     if (error instanceof BrowserVerificationResponseError) {
@@ -402,18 +340,7 @@ async function handleFinalizeSession(
       );
     }
 
-    const publishableKey = getPublishableKey(config);
-    if (!publishableKey) {
-      return c.json(
-        {
-          error: "Authbound publishable key is not configured",
-          code: "PUBLISHABLE_KEY_MISSING",
-        },
-        500
-      );
-    }
-
-    const { verificationId, clientToken } = parsed.data;
+    const { verificationId } = parsed.data;
     const pendingVerification = await getPendingVerificationFromCookie(
       c,
       config
@@ -446,15 +373,9 @@ async function handleFinalizeSession(
       );
     }
 
-    const status = await client.verifications.getStatus(verificationId, {
-      clientToken,
-      publishableKey,
-      origin: originForStatusProxy(originRequest, {
-        trustProxy: config.trustProxy,
-      }),
-    });
-
-    if (status.status !== "verified" || status.result?.verified === false) {
+    const result = await client.verifications.getResult(verificationId);
+    const verifiedSession = toVerifiedSessionFinalization(result);
+    if (!verifiedSession) {
       return c.json(
         {
           error: "Verification is not verified",
@@ -464,22 +385,13 @@ async function handleFinalizeSession(
       );
     }
 
-    const attributes = status.result?.attributes;
-    const birthDate = getBirthDate(attributes);
-    const age =
-      typeof attributes?.age === "number"
-        ? attributes.age
-        : birthDate
-          ? calculateAge(birthDate)
-          : undefined;
-
     await setVerificationCookie(c, config, {
       userRef,
       verificationId,
       status: "VERIFIED",
       assuranceLevel: "SUBSTANTIAL",
-      age,
-      dateOfBirth: birthDate,
+      age: verifiedSession.age,
+      dateOfBirth: verifiedSession.dateOfBirth,
     });
     clearPendingVerificationCookie(c, config);
 
@@ -487,7 +399,7 @@ async function handleFinalizeSession(
       {
         isVerified: true,
         verificationId,
-        status: status.status,
+        status: verifiedSession.status,
       },
       200
     );
@@ -565,10 +477,10 @@ async function handleSignOut(
  * Create a Hono app with all Authbound endpoints.
  *
  * Routes:
- * - POST /         - Create a verification session
+ * - POST /         - Create a verification
  * - POST /callback - Handle webhook callbacks
- * - GET /          - Get current session status
- * - GET /status    - Get current session status (alias)
+ * - GET /          - Get current browser session status
+ * - GET /status    - Get current browser session status (alias)
  * - DELETE /       - Sign out (clear session)
  * - POST /signout  - Sign out (alias)
  *

@@ -1,4 +1,4 @@
-import { resolveWalletAuthorizationRequest } from "@authbound/core";
+import { resolveWalletHandoff } from "@authbound/core";
 import { createError } from "h3";
 
 export type GatewayVerificationResponse = {
@@ -11,6 +11,7 @@ export type GatewayVerificationResponse = {
   client_action?: {
     kind?: string;
     data?: string;
+    expires_at?: string;
   };
   expires_at?: string;
   expiresAt?: string;
@@ -20,15 +21,14 @@ export type GatewayVerificationResponse = {
 export function mapGatewayVerificationResponse(
   raw: GatewayVerificationResponse
 ) {
-  const resolvedWalletRequest = resolveWalletAuthorizationRequest({
+  const handoff = resolveWalletHandoff({
     authorizationRequestUrl: raw.authorizationRequestUrl,
     deepLink: raw.deepLink,
     verification_url: raw.verification_url,
     client_action: raw.client_action,
   });
-  const authorizationRequestUrl = resolvedWalletRequest.authorizationRequestUrl;
 
-  if (!authorizationRequestUrl) {
+  if (!handoff.walletInvocationUrl) {
     throw createError({
       statusCode: 502,
       message:
@@ -38,9 +38,9 @@ export function mapGatewayVerificationResponse(
 
   return {
     verificationId: raw.verificationId ?? raw.id,
-    authorizationRequestUrl,
+    authorizationRequestUrl: handoff.walletInvocationUrl,
     clientToken: raw.clientToken ?? raw.client_token,
-    expiresAt: raw.expiresAt ?? raw.expires_at,
-    deepLink: resolvedWalletRequest.deepLink,
+    expiresAt: raw.expiresAt ?? raw.expires_at ?? handoff.expiresAt,
+    deepLink: handoff.deepLink,
   };
 }

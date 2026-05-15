@@ -52,9 +52,9 @@
     "jose": "^5.10.0"
   },
   "peerDependencies": {
-    "next": ">=14.0.0 <17",
     "express": ">=4.18.0",
-    "hono": ">=4.0.0"
+    "hono": ">=4.0.0",
+    "next": ">=14.0.0 <17"
   },
   "peerDependenciesMeta": {
     "next": {
@@ -72,10 +72,11 @@
     "@types/node": "24.10.1",
     "express": "^5.0.1",
     "hono": "4.11.3",
-    "next": "^16.1.0",
+    "next": "^16.2.5",
     "tsup": "8.5.0",
     "typescript": "5.9.2",
     "vitest": "4.0.8",
+    "yaml": "^2.8.2",
     "zod": "4.1.12"
   },
   "scripts": {

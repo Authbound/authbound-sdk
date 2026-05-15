@@ -24,6 +24,16 @@
  * ```
  */
 
+import {
+  type ProviderPreference,
+  ProviderPreferenceSchema,
+  PublicVerificationListSchema as VerificationListSchema,
+  type VerificationProgressStatus,
+  VerificationProgressStatusSchema,
+  SignedVerificationResultSchema as VerificationResultSchema,
+  PublicVerificationSchema as VerificationSchema,
+  PublicVerificationStatusSnapshotSchema as VerificationStatusSchema,
+} from "@authbound/core";
 import { z } from "zod";
 
 // ============================================================================
@@ -84,89 +94,6 @@ function normalizeBrowserOrigin(value: string | undefined): string | undefined {
 // ============================================================================
 // Request/Response Schemas
 // ============================================================================
-
-const PublicVerificationStatusSchema = z.enum([
-  "pending",
-  "processing",
-  "verified",
-  "failed",
-  "canceled",
-  "expired",
-]);
-
-const GatewayVerificationStatusSchema = z.enum([
-  "created",
-  "awaiting_user",
-  "awaiting_provider",
-  "processing",
-  "verified",
-  "failed",
-  "canceled",
-  "expired",
-]);
-
-const ClientActionSchema = z.object({
-  kind: z.enum(["qr", "link", "request_blob"]),
-  data: z.string(),
-  expires_at: z.string().optional(),
-});
-
-// Response schema for /v1/verifications endpoint.
-const VerificationSchema = z.object({
-  object: z.literal("verification"),
-  id: z.string(),
-  status: z.union([
-    PublicVerificationStatusSchema,
-    GatewayVerificationStatusSchema,
-  ]),
-  policy_id: z.string().optional(),
-  policy_hash: z.string().optional(),
-  provider: z.string().optional(),
-  env_mode: z.enum(["test", "live"]).optional(),
-  created_at: z.string().optional(),
-  expires_at: z.string().optional(),
-  terminal_at: z.string().optional(),
-  failure_code: z.string().optional(),
-  client_token: z.string().optional(),
-  client_action: ClientActionSchema.optional(),
-  verification_url: z.string().optional(),
-  customer_user_ref: z.string().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-});
-
-const VerificationListSchema = z.object({
-  object: z.literal("list"),
-  data: z.array(VerificationSchema),
-  has_more: z.boolean().optional().default(false),
-  next_cursor: z.string().nullable().optional(),
-});
-
-// Response schema for /v1/verifications/:id/status endpoint.
-const VerificationStatusSchema = z.object({
-  object: z.literal("verification_status"),
-  id: z.string(),
-  status: z.union([
-    PublicVerificationStatusSchema,
-    GatewayVerificationStatusSchema,
-  ]),
-  result: z
-    .object({
-      verified: z.boolean(),
-      attributes: z.record(z.string(), z.unknown()).optional(),
-      assertions: z.record(z.string(), z.unknown()).optional(),
-    })
-    .optional(),
-  failure_code: z.string().optional(),
-  client_action: ClientActionSchema.optional(),
-});
-
-const VerificationResultSchema = z.object({
-  verification_id: z.string(),
-  status: z.enum(["verified", "failed"]),
-  result_token: z.string(),
-  assertions: z.record(z.string(), z.unknown()).optional(),
-  failure_code: z.string().optional(),
-});
 
 const PublicCredentialFormatSchema = z.enum([
   "dc+sd-jwt",
@@ -263,7 +190,7 @@ export interface CreateVerificationOptions {
   /**
    * Optional provider override.
    */
-  provider?: "auto" | "vcs" | "eudi";
+  provider?: ProviderPreference;
 
   /**
    * Idempotency key for safe retries.
@@ -288,9 +215,7 @@ export interface GetVerificationStatusOptions {
   origin?: string;
 }
 
-export type PublicVerificationStatus = z.infer<
-  typeof PublicVerificationStatusSchema
->;
+export type PublicVerificationStatus = VerificationProgressStatus;
 
 export interface VerificationClientAction {
   kind: "qr" | "link" | "request_blob";
@@ -328,11 +253,6 @@ export interface VerificationStatus {
   object: "verification_status";
   id: string;
   status: PublicVerificationStatus;
-  result?: {
-    verified: boolean;
-    attributes?: Record<string, unknown>;
-    assertions?: Record<string, unknown>;
-  };
   failureCode?: string;
   clientAction?: VerificationClientAction;
 }
@@ -439,28 +359,18 @@ export class AuthboundClientError extends Error {
 }
 
 function normalizeVerificationStatus(status: string): PublicVerificationStatus {
-  switch (status) {
-    case "created":
-    case "awaiting_user":
-    case "awaiting_provider":
-    case "pending":
-      return "pending";
-    case "processing":
-    case "verified":
-    case "failed":
-    case "canceled":
-    case "expired":
-      return status;
-    default:
-      throw new AuthboundClientError(
-        `Invalid verification status from API: ${status}`,
-        "INVALID_RESPONSE"
-      );
+  const parsed = VerificationProgressStatusSchema.safeParse(status);
+  if (!parsed.success) {
+    throw new AuthboundClientError(
+      `Invalid verification status from API: ${status}`,
+      "INVALID_RESPONSE"
+    );
   }
+  return parsed.data;
 }
 
 function mapClientAction(
-  action: z.infer<typeof ClientActionSchema> | undefined
+  action: z.infer<typeof VerificationSchema>["client_action"]
 ): VerificationClientAction | undefined {
   if (!action) {
     return;
@@ -469,7 +379,7 @@ function mapClientAction(
   return {
     kind: action.kind,
     data: action.data,
-    expiresAt: action.expires_at,
+    ...(action.expires_at ? { expiresAt: action.expires_at } : {}),
   };
 }
 
@@ -480,19 +390,19 @@ function mapVerification(
     object: raw.object,
     id: raw.id,
     status: normalizeVerificationStatus(raw.status),
-    policyId: raw.policy_id,
-    policyHash: raw.policy_hash,
-    provider: raw.provider,
-    envMode: raw.env_mode,
-    createdAt: raw.created_at,
-    expiresAt: raw.expires_at,
-    terminalAt: raw.terminal_at,
-    failureCode: raw.failure_code,
-    clientToken: raw.client_token,
+    policyId: raw.policy_id ?? undefined,
+    policyHash: raw.policy_hash ?? undefined,
+    provider: raw.provider ?? undefined,
+    envMode: raw.env_mode ?? undefined,
+    createdAt: raw.created_at ?? undefined,
+    expiresAt: raw.expires_at ?? undefined,
+    terminalAt: raw.terminal_at ?? undefined,
+    failureCode: raw.failure_code ?? undefined,
+    clientToken: raw.client_token ?? undefined,
     clientAction: mapClientAction(raw.client_action),
-    verificationUrl: raw.verification_url,
-    customerUserRef: raw.customer_user_ref,
-    metadata: raw.metadata,
+    verificationUrl: raw.verification_url ?? undefined,
+    customerUserRef: raw.customer_user_ref ?? undefined,
+    metadata: raw.metadata ?? undefined,
   };
 }
 
@@ -503,8 +413,7 @@ function mapVerificationStatus(
     object: raw.object,
     id: raw.id,
     status: normalizeVerificationStatus(raw.status),
-    result: raw.result,
-    failureCode: raw.failure_code,
+    failureCode: raw.failure_code ?? undefined,
     clientAction: mapClientAction(raw.client_action),
   };
 }
@@ -517,7 +426,7 @@ function mapSignedVerificationResult(
     status: raw.status,
     resultToken: raw.result_token,
     assertions: raw.assertions,
-    failureCode: raw.failure_code,
+    failureCode: raw.failure_code ?? undefined,
   };
 }
 
@@ -752,6 +661,26 @@ function assertNonEmpty(value: string, field: string): void {
   }
 }
 
+function assertProviderPreference(
+  value: ProviderPreference | undefined
+): ProviderPreference | undefined {
+  if (value === undefined) {
+    return;
+  }
+
+  const parsed = ProviderPreferenceSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new AuthboundClientError(
+      'provider must be one of "auto", "vcs", or "eudi"',
+      "VALIDATION_ERROR",
+      400,
+      parsed.error.format()
+    );
+  }
+
+  return parsed.data;
+}
+
 function assertCredentialDefinitionAuthoringFormat(format: string): void {
   if (!CredentialDefinitionAuthoringFormatSchema.safeParse(format).success) {
     throw new AuthboundClientError(
@@ -931,13 +860,14 @@ class VerificationsApi {
    * Create a new verification.
    */
   async create(options: CreateVerificationOptions): Promise<Verification> {
+    const provider = assertProviderPreference(options.provider);
     const requestBody = {
       policy_id: options.policyId,
       ...(options.customerUserRef && {
         customer_user_ref: options.customerUserRef,
       }),
       ...(options.metadata && { metadata: options.metadata }),
-      ...(options.provider && { provider: options.provider }),
+      ...(provider && { provider }),
     };
 
     const response = await this.client.request<unknown>(

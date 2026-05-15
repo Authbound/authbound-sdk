@@ -5,6 +5,7 @@
  */
 
 import { AuthboundError } from "../types/errors";
+import type { ProviderPreference } from "../types/verification-contract";
 import type { ResolvedConfig } from "./config";
 
 // ============================================================================
@@ -191,7 +192,7 @@ export function createVerificationClient(config: ResolvedConfig) {
     policyId: string;
     customerUserRef?: string;
     metadata?: Record<string, string>;
-    provider?: "auto" | "vcs" | "eudi";
+    provider?: ProviderPreference;
   }): Promise<{
     verificationId: string;
     authorizationRequestUrl: string;
@@ -246,7 +247,7 @@ export type VerificationClient = ReturnType<typeof createVerificationClient>;
 // ============================================================================
 
 /**
- * Create a client for your server's verification session endpoint.
+ * Create a client for your server's browser session finalization endpoint.
  */
 export function createSessionClient(config: ResolvedConfig) {
   const endpoint = config.sessionEndpoint;

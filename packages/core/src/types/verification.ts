@@ -1,8 +1,8 @@
 /**
- * Verification types for EUDI wallet verification flows.
+ * Verification types for wallet-based verification flows.
  *
- * These types model the verification lifecycle for wallet-based
- * identity verification (QR code scan → wallet presentation → verified).
+ * These types model the verification lifecycle from wallet handoff through
+ * terminal verification status.
  */
 
 import { z } from "zod";
@@ -13,64 +13,30 @@ import {
   type PolicyId,
   type VerificationId,
 } from "./branded";
+import {
+  isTerminalVerificationUiStatus,
+  type ProviderPreference,
+  ProviderPreferenceSchema,
+  TERMINAL_VERIFICATION_UI_STATUSES,
+  type VerificationUiStatus,
+  VerificationUiStatusSchema,
+} from "./verification-contract";
 
 // ============================================================================
 // Verification Status
 // ============================================================================
 
 /**
- * Verification status.
- *
- * State machine: idle → pending → processing → verified/failed/timeout/error
- *
- * - idle: Initial state, no verification started
- * - pending: Waiting for user to scan QR / open wallet
- * - processing: Wallet presentation received, validating
- * - verified: Verification successful
- * - failed: Verification failed (user rejected, credentials invalid, etc.)
- * - timeout: Verification expired without response
- * - error: Unexpected error occurred
- */
-export type EudiVerificationStatus =
-  | "idle"
-  | "pending"
-  | "processing"
-  | "verified"
-  | "failed"
-  | "canceled"
-  | "expired"
-  | "timeout"
-  | "error";
-
-export const EudiVerificationStatusSchema = z.enum([
-  "idle",
-  "pending",
-  "processing",
-  "verified",
-  "failed",
-  "canceled",
-  "expired",
-  "timeout",
-  "error",
-]);
-
-/**
  * Terminal states where verification flow has ended.
  */
-export const TERMINAL_STATUSES: readonly EudiVerificationStatus[] = [
-  "verified",
-  "failed",
-  "canceled",
-  "expired",
-  "timeout",
-  "error",
-] as const;
+export const TERMINAL_STATUSES: readonly VerificationUiStatus[] =
+  TERMINAL_VERIFICATION_UI_STATUSES;
 
 /**
  * Check if a status is terminal (verification flow has ended).
  */
-export function isTerminalStatus(status: EudiVerificationStatus): boolean {
-  return TERMINAL_STATUSES.includes(status);
+export function isTerminalStatus(status: VerificationUiStatus): boolean {
+  return isTerminalVerificationUiStatus(status);
 }
 
 // ============================================================================
@@ -114,7 +80,7 @@ export interface CreateVerificationOptions {
   /** Optional metadata for your records */
   metadata?: Record<string, string>;
   /** Optional provider override */
-  provider?: "auto" | "vcs" | "eudi";
+  provider?: ProviderPreference;
   /** Override default timeout (seconds) */
   timeoutSeconds?: number;
 }
@@ -123,7 +89,7 @@ export const CreateVerificationOptionsSchema = z.object({
   policyId: z.string().refine(isPolicyId, "Invalid policy ID"),
   customerUserRef: z.string().optional(),
   metadata: z.record(z.string(), z.string()).optional(),
-  provider: z.enum(["auto", "vcs", "eudi"]).optional(),
+  provider: ProviderPreferenceSchema.optional(),
   timeoutSeconds: z.number().int().positive().max(600).optional(),
 });
 
@@ -162,7 +128,7 @@ export interface FinalizeVerificationResponse {
   /** Verification identifier that was finalized */
   verificationId: VerificationId;
   /** Final verification status observed by the server */
-  status: EudiVerificationStatus;
+  status: VerificationUiStatus;
 }
 
 export const FinalizeVerificationResponseSchema = z.object({
@@ -170,7 +136,7 @@ export const FinalizeVerificationResponseSchema = z.object({
   verificationId: z
     .string()
     .refine(isVerificationId, "Invalid verification ID"),
-  status: EudiVerificationStatusSchema,
+  status: VerificationUiStatusSchema,
 });
 
 /**
@@ -178,7 +144,7 @@ export const FinalizeVerificationResponseSchema = z.object({
  */
 export interface VerificationStatusResponse {
   /** Current status */
-  status: EudiVerificationStatus;
+  status: VerificationUiStatus;
   /** Error details if failed */
   error?: {
     code: string;
@@ -189,7 +155,7 @@ export interface VerificationStatusResponse {
 }
 
 export const VerificationStatusResponseSchema = z.object({
-  status: EudiVerificationStatusSchema,
+  status: VerificationUiStatusSchema,
   error: z
     .object({
       code: z.string(),
@@ -220,7 +186,7 @@ export interface StatusEvent {
   /** Event type */
   type: "status" | "error" | "timeout" | "canceled" | "expired" | "heartbeat";
   /** Current status */
-  status: EudiVerificationStatus;
+  status: VerificationUiStatus;
   /** Error details (if type is "error") */
   error?: {
     code: string;
@@ -239,7 +205,7 @@ export const StatusEventSchema = z.object({
     "expired",
     "heartbeat",
   ]),
-  status: EudiVerificationStatusSchema,
+  status: VerificationUiStatusSchema,
   error: z
     .object({
       code: z.string(),

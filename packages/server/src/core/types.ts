@@ -64,18 +64,26 @@ export const VerifiedOutputsSchema = z.object({
 });
 
 export type VerificationEventStatus =
-  | "requires_input"
+  | "created"
+  | "awaiting_user"
+  | "awaiting_provider"
+  | "pending"
   | "processing"
   | "verified"
   | "failed"
-  | "canceled";
+  | "canceled"
+  | "expired";
 
 export const VerificationEventStatusSchema = z.enum([
-  "requires_input",
+  "created",
+  "awaiting_user",
+  "awaiting_provider",
+  "pending",
   "processing",
   "verified",
   "failed",
   "canceled",
+  "expired",
 ]);
 
 export type VerificationEventObjectType = "document" | "id_number";
@@ -87,12 +95,13 @@ export const VerificationEventObjectTypeSchema = z.enum([
 
 export type VerificationEventObject = {
   id: string;
-  object: "identity.verification_session";
-  created: number;
-  livemode: boolean;
-  type: VerificationEventObjectType;
+  object: "verification";
   status: VerificationEventStatus;
-  client_reference_id: string;
+  created?: number;
+  livemode?: boolean;
+  type?: VerificationEventObjectType;
+  customer_user_ref?: string;
+  failure_code?: string | null;
   last_error?: LastError;
   last_verification_report?: string;
   verified_outputs?: VerifiedOutputs;
@@ -100,32 +109,31 @@ export type VerificationEventObject = {
 
 export const VerificationEventObjectSchema = z.object({
   id: z.string(),
-  object: z.literal("identity.verification_session"),
-  created: z.number(),
-  livemode: z.boolean(),
-  type: VerificationEventObjectTypeSchema,
+  object: z.literal("verification"),
   status: VerificationEventStatusSchema,
-  client_reference_id: z.string(),
+  created: z.number().optional(),
+  livemode: z.boolean().optional(),
+  type: VerificationEventObjectTypeSchema.optional(),
+  customer_user_ref: z.string().optional(),
+  failure_code: z.string().nullable().optional(),
   last_error: LastErrorSchema.optional(),
   last_verification_report: z.string().optional(),
   verified_outputs: VerifiedOutputsSchema.optional(),
 });
 
 export type WebhookEventType =
-  | "identity.verification_session.processing"
-  | "identity.verification_session.verified"
-  | "identity.verification_session.requires_input"
-  | "identity.verification_session.failed"
-  | "identity.verification_session.canceled"
-  | "identity.verification_session.redacted";
+  | "verification.state_changed"
+  | "verification.completed"
+  | "verification.failed"
+  | "verification.canceled"
+  | "verification.expired";
 
 export const WebhookEventTypeSchema = z.enum([
-  "identity.verification_session.processing",
-  "identity.verification_session.verified",
-  "identity.verification_session.requires_input",
-  "identity.verification_session.failed",
-  "identity.verification_session.canceled",
-  "identity.verification_session.redacted",
+  "verification.state_changed",
+  "verification.completed",
+  "verification.failed",
+  "verification.canceled",
+  "verification.expired",
 ]);
 
 export type WebhookEvent = {
@@ -481,10 +489,17 @@ export function mapVerificationEventStatusToVerificationStatus(
       return "VERIFIED";
     case "failed":
     case "canceled":
+    case "expired":
       return "REJECTED";
-    case "requires_input":
-      return "MANUAL_REVIEW_NEEDED";
-    default:
+    case "created":
+    case "awaiting_user":
+    case "awaiting_provider":
+    case "pending":
+    case "processing":
       return "PENDING";
+    default: {
+      const exhaustive: never = status;
+      throw new Error(`Unsupported verification event status: ${exhaustive}`);
+    }
   }
 }

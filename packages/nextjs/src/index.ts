@@ -3,7 +3,7 @@
  *
  * Complete Authbound SDK for Next.js.
  *
- * This package provides everything you need to add EUDI wallet verification
+ * This package provides everything you need to add Authbound wallet verification
  * to your Next.js application:
  *
  * - Simplified middleware (`withAuthbound`)
@@ -136,7 +136,6 @@ export {
   AuthboundError,
   type AuthboundErrorCode,
   asPolicyId,
-  type EudiVerificationStatus,
   isAuthboundError,
   isTerminalStatus,
   type PolicyId,
@@ -146,4 +145,5 @@ export {
   type VerificationClaims,
   type VerificationId,
   type VerificationSuccess,
+  type VerificationUiStatus,
 } from "@authbound/core";

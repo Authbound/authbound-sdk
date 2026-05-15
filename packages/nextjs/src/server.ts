@@ -18,12 +18,16 @@ import {
   isSameOriginSessionRequest,
   originForStatusProxy,
   type PolicyId,
-  resolveWalletAuthorizationRequest,
 } from "@authbound/core";
 import {
-  calculateAge,
+  AuthboundClient,
+  AuthboundClientError,
+  BrowserVerificationResponseError,
+  BrowserWalletUrlError,
   createToken,
   getVerificationFromToken,
+  toBrowserVerificationResponse,
+  toVerifiedSessionFinalization,
   verifyWebhookSignatureDetailed,
 } from "@authbound/server";
 import { NextResponse } from "next/server";
@@ -323,41 +327,46 @@ export {
  * SDK expects camelCase with semantic names:
  *   { verificationId, clientToken, authorizationRequestUrl, expiresAt, deepLink }
  */
-class BrowserWalletUrlError extends Error {
-  constructor() {
-    super(
-      "Authbound did not return a wallet invocation URL for this verification."
-    );
-    this.name = "BrowserWalletUrlError";
-  }
-}
-
 function mapGatewayResponse(
   raw: Record<string, unknown>
 ): Record<string, unknown> {
   const clientAction = (raw.client_action ?? raw.clientAction) as
     | { kind?: string; data?: string; expires_at?: string }
     | undefined;
-  const resolvedWalletRequest = resolveWalletAuthorizationRequest({
-    authorizationRequestUrl: raw.authorizationRequestUrl,
-    deepLink: raw.deepLink,
-    verification_url: raw.verification_url,
-    verificationUrl: raw.verificationUrl,
-    client_action: clientAction,
-    clientAction: raw.clientAction,
-  });
-  const authorizationRequestUrl = resolvedWalletRequest.authorizationRequestUrl;
-
-  if (!authorizationRequestUrl) {
-    throw new BrowserWalletUrlError();
-  }
-
   return {
-    verificationId: raw.verificationId ?? raw.id,
-    authorizationRequestUrl,
-    clientToken: raw.clientToken ?? raw.client_token,
-    expiresAt: raw.expiresAt ?? raw.expires_at,
-    deepLink: resolvedWalletRequest.deepLink,
+    ...toBrowserVerificationResponse({
+      id: String(raw.verificationId ?? raw.id ?? ""),
+      clientToken:
+        typeof raw.clientToken === "string"
+          ? raw.clientToken
+          : typeof raw.client_token === "string"
+            ? raw.client_token
+            : undefined,
+      expiresAt:
+        typeof raw.expiresAt === "string"
+          ? raw.expiresAt
+          : typeof raw.expires_at === "string"
+            ? raw.expires_at
+            : undefined,
+      authorizationRequestUrl:
+        typeof raw.authorizationRequestUrl === "string"
+          ? raw.authorizationRequestUrl
+          : undefined,
+      deepLink: typeof raw.deepLink === "string" ? raw.deepLink : undefined,
+      verificationUrl:
+        typeof raw.verificationUrl === "string"
+          ? raw.verificationUrl
+          : typeof raw.verification_url === "string"
+            ? raw.verification_url
+            : undefined,
+      clientAction: clientAction
+        ? {
+            kind: clientAction.kind,
+            data: clientAction.data,
+            expiresAt: clientAction.expires_at,
+          }
+        : undefined,
+    }),
   };
 }
 
@@ -523,6 +532,16 @@ export function createVerificationRoute(
         );
       }
 
+      if (error instanceof BrowserVerificationResponseError) {
+        return NextResponse.json(
+          {
+            error: error.message,
+            code: "INVALID_GATEWAY_RESPONSE",
+          },
+          { status: 502 }
+        );
+      }
+
       if (debug) {
         console.error(
           "[Authbound] Verification creation error:",
@@ -638,12 +657,14 @@ export function createWebhookRoute(
 
       // Call specific handlers
       switch (event.type) {
-        case "identity.verification_session.verified":
+        case "verification.completed":
           if (onVerified) {
             await onVerified(event);
           }
           break;
-        case "identity.verification_session.failed":
+        case "verification.failed":
+        case "verification.canceled":
+        case "verification.expired":
           if (onFailed) {
             await onFailed(event);
           }
@@ -702,8 +723,14 @@ export interface SessionRouteOptions {
   gatewayUrl?: string;
 
   /**
-   * Authbound publishable key used to scope client-token status requests.
-   * @default Uses NEXT_PUBLIC_AUTHBOUND_PK or AUTHBOUND_PUBLISHABLE_KEY env var
+   * Authbound secret key used to retrieve signed verification results.
+   * @default Uses AUTHBOUND_SECRET_KEY env var
+   */
+  secret?: string;
+
+  /**
+   * Deprecated. Session finalization now uses `secret` and the signed result
+   * endpoint instead of client-token status polling.
    */
   publishableKey?: string;
 
@@ -936,30 +963,6 @@ function clearPendingVerificationCookie(
   });
 }
 
-function getBirthDate(
-  attributes: Record<string, unknown> | undefined
-): string | undefined {
-  if (typeof attributes?.birth_date === "string") {
-    return attributes.birth_date;
-  }
-  if (typeof attributes?.dateOfBirth === "string") {
-    return attributes.dateOfBirth;
-  }
-  return;
-}
-
-const KNOWN_VERIFICATION_STATUSES = new Set([
-  "created",
-  "awaiting_user",
-  "awaiting_provider",
-  "pending",
-  "processing",
-  "verified",
-  "failed",
-  "canceled",
-  "expired",
-]);
-
 /**
  * Create a same-origin browser session finalization route.
  */
@@ -968,7 +971,7 @@ export function createSessionRoute(
 ): (request: Request) => Promise<Response> {
   const {
     gatewayUrl = getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io"),
-    publishableKey: configuredPublishableKey,
+    secret: configuredSecret,
     sessionSecret: configuredSessionSecret,
     cookieName = "__authbound",
     cookieMaxAge = 60 * 60 * 24 * 7,
@@ -1041,53 +1044,15 @@ export function createSessionRoute(
         );
       }
 
-      const publishableKey = getPublishableKey(configuredPublishableKey);
-      const statusHeaders: Record<string, string> = {
-        Authorization: `Bearer ${clientToken}`,
-        "X-Authbound-Publishable-Key": publishableKey,
-      };
-      const origin = originForStatusProxy(request, { trustProxy });
-      if (origin) {
-        statusHeaders.Origin = origin;
-      }
+      const client = new AuthboundClient({
+        apiKey: getSecretKey(configuredSecret),
+        apiUrl: gatewayUrl,
+        debug,
+      });
+      const result = await client.verifications.getResult(verificationId);
+      const verifiedSession = toVerifiedSessionFinalization(result);
 
-      const statusResponse = await fetch(
-        `${gatewayUrl}/v1/verifications/${encodeURIComponent(verificationId)}/status`,
-        { headers: statusHeaders }
-      );
-
-      if (!statusResponse.ok) {
-        return NextResponse.json(
-          { error: "Failed to get status", code: "STATUS_REQUEST_FAILED" },
-          { status: statusResponse.status }
-        );
-      }
-
-      const statusBody = (await statusResponse.json()) as {
-        status?: string;
-        result?: {
-          verified?: boolean;
-          attributes?: Record<string, unknown>;
-        };
-      };
-
-      if (
-        typeof statusBody.status !== "string" ||
-        !KNOWN_VERIFICATION_STATUSES.has(statusBody.status)
-      ) {
-        return NextResponse.json(
-          {
-            error: "Unknown verification status from Authbound",
-            code: "VERIFICATION_INVALID_STATE",
-          },
-          { status: 502 }
-        );
-      }
-
-      if (
-        statusBody.status !== "verified" ||
-        statusBody.result?.verified === false
-      ) {
+      if (!verifiedSession) {
         return NextResponse.json(
           {
             error: "Verification is not verified",
@@ -1097,28 +1062,20 @@ export function createSessionRoute(
         );
       }
 
-      const attributes = statusBody.result?.attributes;
-      const birthDate = getBirthDate(attributes);
-      const age =
-        typeof attributes?.age === "number"
-          ? attributes.age
-          : birthDate
-            ? calculateAge(birthDate)
-            : undefined;
       const token = await createToken({
         secret: sessionSecret,
         userRef,
         verificationId,
         status: "VERIFIED",
         assuranceLevel: "SUBSTANTIAL",
-        age,
-        dateOfBirth: birthDate,
+        age: verifiedSession.age,
+        dateOfBirth: verifiedSession.dateOfBirth,
         expiresIn: cookieMaxAge,
       });
       const response = NextResponse.json({
         isVerified: true,
         verificationId,
-        status: statusBody.status,
+        status: verifiedSession.status,
       });
 
       response.cookies.set(cookieName, token, {
@@ -1136,6 +1093,12 @@ export function createSessionRoute(
         console.error(
           "[Authbound] Session finalization error:",
           summarizeError(error)
+        );
+      }
+      if (error instanceof AuthboundClientError) {
+        return NextResponse.json(
+          { error: error.message, code: error.code },
+          { status: error.statusCode ?? 500 }
         );
       }
       return NextResponse.json(

@@ -119,13 +119,10 @@ describe("createAuthboundHandlers browser verification contract", () => {
       )
       .mockResolvedValueOnce(
         jsonResponse({
-          object: "verification_status",
-          id: "vrf_test123",
+          verification_id: "vrf_test123",
           status: "verified",
-          result: {
-            verified: true,
-            attributes: { birth_date: "1990-05-15" },
-          },
+          result_token: "signed_result_token",
+          assertions: { birth_date: "1990-05-15" },
         })
       );
     vi.stubGlobal("fetch", fetchMock);
@@ -174,7 +171,7 @@ describe("createAuthboundHandlers browser verification contract", () => {
     expect(fetchMock.mock.calls[1]?.[1]).toEqual(
       expect.objectContaining({
         headers: expect.objectContaining({
-          Origin: "https://app.example.com",
+          "X-Authbound-Key": apiKey,
         }),
       })
     );
@@ -199,10 +196,9 @@ describe("createAuthboundHandlers browser verification contract", () => {
       )
       .mockResolvedValueOnce(
         jsonResponse({
-          object: "verification_status",
-          id: "vrf_test123",
+          verification_id: "vrf_test123",
           status: "verified",
-          result: { verified: true },
+          result_token: "signed_result_token",
         })
       );
     vi.stubGlobal("fetch", fetchMock);
@@ -247,7 +243,7 @@ describe("createAuthboundHandlers browser verification contract", () => {
     expect(fetchMock.mock.calls[1]?.[1]).toEqual(
       expect.objectContaining({
         headers: expect.objectContaining({
-          Origin: "https://playground.authbound.io",
+          "X-Authbound-Key": apiKey,
         }),
       })
     );
@@ -288,7 +284,7 @@ describe("createAuthboundHandlers browser verification contract", () => {
     expect(response.headers.get("set-cookie")).toBeNull();
   });
 
-  it("rejects cross-origin session finalization before checking gateway status", async () => {
+  it("rejects cross-origin session finalization before checking gateway result", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         object: "verification_status",
@@ -323,7 +319,7 @@ describe("createAuthboundHandlers browser verification contract", () => {
     expect(response.headers.get("set-cookie")).toBeNull();
   });
 
-  it("rejects session finalization when status is not verified", async () => {
+  it("rejects session finalization when the signed result is not verified", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -342,9 +338,10 @@ describe("createAuthboundHandlers browser verification contract", () => {
       )
       .mockResolvedValueOnce(
         jsonResponse({
-          object: "verification_status",
-          id: "vrf_test123",
-          status: "processing",
+          verification_id: "vrf_test123",
+          status: "failed",
+          result_token: "signed_result_token",
+          failure_code: "policy_not_satisfied",
         })
       );
     vi.stubGlobal("fetch", fetchMock);
@@ -408,16 +405,13 @@ describe("createAuthboundHandlers browser verification contract", () => {
       api_version: "2026-04-01",
       created: Math.floor(Date.now() / 1000),
       livemode: false,
-      type: "identity.verification_session.verified",
+      type: "verification.completed",
       data: {
         object: {
           id: "vrf_test123",
-          object: "identity.verification_session",
-          created: Math.floor(Date.now() / 1000),
-          livemode: false,
-          type: "id_number",
+          object: "verification",
           status: "verified",
-          client_reference_id: "user_123",
+          customer_user_ref: "user_123",
         },
       },
     });

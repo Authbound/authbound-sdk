@@ -51,13 +51,13 @@ describe("PolicyPresets", () => {
     expect(getPresetPolicyId("identity_basic")).toBe(
       "pol_identity_basic_authbound_v1"
     );
-    expect(getPresetPolicyId("kyc_basic_eudi")).toBe(
-      "pol_kyc_basic_eudi_v1"
-    );
+    expect(getPresetPolicyId("kyc_basic_eudi")).toBe("pol_kyc_basic_eudi_v1");
   });
 
   it("does not treat unknown preset slugs as policy IDs", () => {
-    expect(() => getPresetPolicyId("kyc-full")).toThrow(/Unknown policy preset/);
+    expect(() => getPresetPolicyId("kyc-full")).toThrow(
+      /Unknown policy preset/
+    );
     expect(() => getPresetPolicyId("identity-basic@1.0.0")).toThrow(
       /Unknown policy preset/
     );

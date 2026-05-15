@@ -27,7 +27,6 @@ import type { ClientToken, PolicyId, VerificationId } from "../types/branded";
 import { AuthboundError } from "../types/errors";
 import type {
   CreateVerificationResponse,
-  EudiVerificationStatus,
   FinalizeVerificationResponse,
   StatusEvent,
   VerificationStatusResponse,
@@ -37,6 +36,10 @@ import {
   FinalizeVerificationResponseSchema,
   StatusEventSchema,
 } from "../types/verification";
+import {
+  type ProviderPreference,
+  projectVerificationStatusForUi,
+} from "../types/verification-contract";
 import type { AuthboundClientConfig, ResolvedConfig } from "./config";
 import { resolveConfig } from "./config";
 import {
@@ -63,7 +66,7 @@ export interface AuthboundClient {
     policyId?: PolicyId;
     customerUserRef?: string;
     metadata?: Record<string, string>;
-    provider?: "auto" | "vcs" | "eudi";
+    provider?: ProviderPreference;
   }): Promise<CreateVerificationResponse>;
 
   /**
@@ -287,7 +290,7 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
 
     async pollStatus(verificationId, clientToken) {
       const response = await httpClient.get<{
-        status: EudiVerificationStatus;
+        status: string;
         error?: { code: string; message: string };
         timeRemaining?: number;
       }>(`/v1/verifications/${verificationId}/status`, {
@@ -298,7 +301,7 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
       });
 
       return {
-        status: response.data.status,
+        status: projectVerificationStatusForUi(response.data.status),
         ...(response.data.error ? { error: response.data.error } : {}),
         ...(typeof response.data.timeRemaining === "number"
           ? { timeRemaining: response.data.timeRemaining }
@@ -307,7 +310,7 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
     },
 
     async finalizeVerification(verificationId, clientToken) {
-      log("Finalizing verification session:", verificationId);
+      log("Finalizing browser session for verification:", verificationId);
 
       const response = await sessionClient.finalizeVerification({
         verificationId,

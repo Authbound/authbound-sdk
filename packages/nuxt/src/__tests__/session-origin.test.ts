@@ -8,7 +8,18 @@ const runtimeConfig = vi.hoisted(() => ({
 }));
 
 const authboundServer = vi.hoisted(() => ({
-  calculateAge: vi.fn(() => 36),
+  AuthboundClient: vi.fn(function AuthboundClient() {
+    return {
+      verifications: {
+        getResult: vi.fn(async () => ({
+          resultToken: "signed_result_token",
+          status: "verified",
+          verificationId: "vrf_test123",
+        })),
+      },
+    };
+  }),
+  AuthboundClientError: class AuthboundClientError extends Error {},
   createToken: vi.fn(async () => "verified-session-token"),
   getVerificationFromToken: vi.fn(async () => ({
     assuranceLevel: "NONE",
@@ -16,6 +27,7 @@ const authboundServer = vi.hoisted(() => ({
     userRef: "user_123",
     verificationId: "vrf_test123",
   })),
+  toVerifiedSessionFinalization: vi.fn(() => ({ status: "verified" })),
 }));
 
 vi.mock("nitropack/runtime", () => ({
@@ -77,19 +89,10 @@ function createEvent(
 describe("Nuxt session origin handling", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        Response.json({
-          object: "verification_status",
-          id: "vrf_test123",
-          status: "verified",
-          result: { verified: true },
-        })
-      )
-    );
+    vi.stubGlobal("fetch", vi.fn());
     runtimeConfig.current = {
       authbound: {
+        apiKey: `sk_test_${"x".repeat(32)}`,
         cookieName: "__authbound",
         sessionSecret: "session-secret-at-least-32-characters",
       },
@@ -136,13 +139,12 @@ describe("Nuxt session origin handling", () => {
       status: "verified",
       verificationId: "vrf_test123",
     });
-    expect(fetch).toHaveBeenCalledWith(
-      "https://api.authbound.io/v1/verifications/vrf_test123/status",
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          Origin: "https://app.example.com",
-        }),
-      })
-    );
+    expect(authboundServer.AuthboundClient).toHaveBeenCalledWith({
+      apiKey: `sk_test_${"x".repeat(32)}`,
+      apiUrl: "https://api.authbound.io",
+    });
+    const client = authboundServer.AuthboundClient.mock.results[0]?.value;
+    expect(client.verifications.getResult).toHaveBeenCalledWith("vrf_test123");
+    expect(fetch).not.toHaveBeenCalled();
   });
 });
