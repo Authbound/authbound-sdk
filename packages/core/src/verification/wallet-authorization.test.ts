@@ -155,6 +155,32 @@ describe("resolveWalletAuthorizationRequest", () => {
     });
   });
 
+  it("uses URL-shaped request_blob data that is not a wallet invocation URL as QR payload", () => {
+    const handoff = resolveWalletHandoff({
+      client_action: {
+        kind: "request_blob",
+        data: "https://wallet.example/request.jwt",
+      },
+    });
+
+    expect(handoff).toEqual({
+      kind: "request_blob",
+      qrPayload: "https://wallet.example/request.jwt",
+    });
+
+    const result = resolveWalletAuthorizationRequest({
+      client_action: {
+        kind: "request_blob",
+        data: "https://wallet.example/request.jwt",
+      },
+    });
+
+    expect(result.authorizationRequestUrl).toBe(
+      "https://wallet.example/request.jwt"
+    );
+    expect(result.deepLink).toBeUndefined();
+  });
+
   it("uses HTTPS wallet request_uri payloads", () => {
     const result = resolveWalletAuthorizationRequest({
       client_action: {

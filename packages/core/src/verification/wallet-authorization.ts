@@ -89,8 +89,7 @@ function getRequestBlobPayload(
     return;
   }
 
-  const parsed = parseUrl(data);
-  return parsed && !isWalletInvocationUrl(data) ? undefined : data;
+  return data;
 }
 
 function getClientActionKind(
