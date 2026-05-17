@@ -137,6 +137,22 @@ describe("resolveWalletAuthorizationRequest", () => {
     expect(result.authorizationRequestUrl).toBe(
       "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.io&request=eyJ0eXAiOiJvcGVuaWQ0dnAifQ"
     );
+    expect(result.deepLink).toBeUndefined();
+  });
+
+  it("uses URL-shaped request_blob data as QR payload without making it a deep link", () => {
+    const handoff = resolveWalletHandoff({
+      client_action: {
+        kind: "request_blob",
+        data: "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.io&request=eyJ0eXAiOiJvcGVuaWQ0dnAifQ",
+      },
+    });
+
+    expect(handoff).toEqual({
+      kind: "request_blob",
+      qrPayload:
+        "eudi-openid4vp://?client_id=https%3A%2F%2Feudi-verifier.authbound.io&request=eyJ0eXAiOiJvcGVuaWQ0dnAifQ",
+    });
   });
 
   it("uses HTTPS wallet request_uri payloads", () => {

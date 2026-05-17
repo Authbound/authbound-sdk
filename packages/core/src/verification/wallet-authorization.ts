@@ -76,9 +76,7 @@ function getClientActionUrl(
     return;
   }
 
-  return clientAction?.kind === "qr" ||
-    clientAction?.kind === "link" ||
-    clientAction?.kind === "request_blob"
+  return clientAction?.kind === "qr" || clientAction?.kind === "link"
     ? data
     : undefined;
 }

@@ -103,6 +103,12 @@ describe("public verification contract module", () => {
 
     expect(PublicVerificationSchema.safeParse(response).success).toBe(true);
     expect(
+      PublicVerificationSchema.safeParse({
+        ...response,
+        client_token: "client_token_123",
+      }).success
+    ).toBe(false);
+    expect(
       PublicCreateVerificationResponseSchema.safeParse(response).success
     ).toBe(false);
     expect(

@@ -11,7 +11,7 @@ const publishableKey = `pk_test_${"x".repeat(32)}`;
 const apiUrl = "https://api.example.com";
 const timestamp = "2026-04-21T10:00:00.000Z";
 
-const verificationResponse = {
+const verificationReadResponse = {
   object: "verification",
   id: "vrf_123",
   status: "pending",
@@ -20,7 +20,6 @@ const verificationResponse = {
   env_mode: "test",
   created_at: timestamp,
   expires_at: "2026-04-21T10:10:00.000Z",
-  client_token: "client_token_123",
   client_action: {
     kind: "link",
     data: "openid4vp://authorize?request_uri=https%3A%2F%2Fgateway.example.com%2Frequest",
@@ -28,6 +27,11 @@ const verificationResponse = {
   },
   customer_user_ref: "demo-user",
   metadata: { demo: "pension" },
+};
+
+const verificationResponse = {
+  ...verificationReadResponse,
+  client_token: "client_token_123",
 };
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -124,21 +128,40 @@ describe("AuthboundClient verifications API", () => {
     });
   });
 
+  it("rejects read responses that leak create-only client tokens", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(verificationResponse))
+    );
+
+    await expect(
+      createClient().verifications.get("vrf_123")
+    ).rejects.toMatchObject({
+      code: "INVALID_RESPONSE",
+    });
+  });
+
   it("lists, gets, cancels, and fetches signed results with secret-key endpoints", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
         jsonResponse({
           object: "list",
-          data: [verificationResponse],
+          data: [verificationReadResponse],
           has_more: true,
         })
       )
       .mockResolvedValueOnce(
-        jsonResponse({ ...verificationResponse, status: "processing" })
+        jsonResponse({
+          ...verificationReadResponse,
+          status: "processing",
+        })
       )
       .mockResolvedValueOnce(
-        jsonResponse({ ...verificationResponse, status: "canceled" })
+        jsonResponse({
+          ...verificationReadResponse,
+          status: "canceled",
+        })
       )
       .mockResolvedValueOnce(
         jsonResponse({
@@ -200,7 +223,7 @@ describe("AuthboundClient verifications API", () => {
       "fetch",
       vi.fn(async () =>
         jsonResponse({
-          ...verificationResponse,
+          ...verificationReadResponse,
           policy_hash: null,
           terminal_at: null,
           failure_code: null,
@@ -231,7 +254,7 @@ describe("AuthboundClient verifications API", () => {
       "fetch",
       vi.fn(async () =>
         jsonResponse({
-          ...verificationResponse,
+          ...verificationReadResponse,
           status: "awaiting_user",
         })
       )

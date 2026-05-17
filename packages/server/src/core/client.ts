@@ -25,6 +25,7 @@
  */
 
 import {
+  PublicCreateVerificationResponseSchema as CreateVerificationResponseSchema,
   type ProviderPreference,
   ProviderPreferenceSchema,
   PublicVerificationListSchema as VerificationListSchema,
@@ -35,10 +36,6 @@ import {
   PublicVerificationStatusSnapshotSchema as VerificationStatusSchema,
 } from "@authbound/core";
 import { z } from "zod";
-
-const CreateVerificationResponseSchema = VerificationSchema.extend({
-  client_token: z.string(),
-});
 
 // ============================================================================
 // Configuration
@@ -402,11 +399,19 @@ function mapVerification(
     expiresAt: raw.expires_at ?? undefined,
     terminalAt: raw.terminal_at ?? undefined,
     failureCode: raw.failure_code ?? undefined,
-    clientToken: raw.client_token ?? undefined,
     clientAction: mapClientAction(raw.client_action),
     verificationUrl: raw.verification_url ?? undefined,
     customerUserRef: raw.customer_user_ref ?? undefined,
     metadata: raw.metadata ?? undefined,
+  };
+}
+
+function mapCreateVerification(
+  raw: z.infer<typeof CreateVerificationResponseSchema>
+): Verification {
+  return {
+    ...mapVerification(raw),
+    clientToken: raw.client_token,
   };
 }
 
@@ -888,7 +893,7 @@ class VerificationsApi {
     return parseApiResponse(
       CreateVerificationResponseSchema,
       response,
-      mapVerification
+      mapCreateVerification
     );
   }
 
