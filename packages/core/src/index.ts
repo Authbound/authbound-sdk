@@ -112,6 +112,8 @@ export {
   type VerificationStatusResponse,
   VerificationStatusResponseSchema,
   type VerificationSuccess,
+  type WalletHandoffKind,
+  WalletHandoffKindSchema,
 } from "./types/verification";
 
 export {

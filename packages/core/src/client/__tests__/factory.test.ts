@@ -114,6 +114,39 @@ describe("createClient", () => {
     );
   });
 
+  it("accepts opaque request_blob QR payloads from the configured verification endpoint", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            verificationId: "vrf_test123",
+            authorizationRequestUrl: "eyJ0eXAiOiJvcGVuaWQ0dnAifQ",
+            clientToken: "client_token_123",
+            expiresAt: "2026-04-21T10:10:00.000Z",
+            walletHandoffKind: "request_blob",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        )
+      )
+    );
+
+    const client = createClient({
+      publishableKey: "pk_test_public123" as never,
+      policyId: "pol_authbound_pension_v1" as never,
+      verificationEndpoint: "/api/authbound/verification",
+    });
+
+    await expect(client.startVerification()).resolves.toMatchObject({
+      verificationId: "vrf_test123",
+      authorizationRequestUrl: "eyJ0eXAiOiJvcGVuaWQ0dnAifQ",
+      walletHandoffKind: "request_blob",
+    });
+  });
+
   it("finalizes a verified browser session through the configured session endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(

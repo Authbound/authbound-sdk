@@ -66,6 +66,7 @@ describe("browser verification handler kernel", () => {
       authorizationRequestUrl: "eyJ0eXAiOiJvcGVuaWQ0dnAifQ",
       clientToken: "client_token_123",
       expiresAt: "2026-05-15T10:00:00.000Z",
+      walletHandoffKind: "request_blob",
     });
   });
 

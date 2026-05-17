@@ -155,7 +155,6 @@ export function useVerification(
   } = options;
 
   const {
-    client,
     verification,
     policyId: contextPolicyId,
     startVerification: contextStart,
@@ -179,16 +178,7 @@ export function useVerification(
   const isFailed = isVerificationFailureStatus(status);
   const verificationId = verification?.verificationId ?? null;
   const authorizationRequestUrl = verification?.authorizationRequestUrl ?? null;
-  let deepLink: string | null = null;
-  try {
-    deepLink =
-      verification?.deepLink ??
-      (authorizationRequestUrl
-        ? client.getDeepLink(authorizationRequestUrl)
-        : null);
-  } catch (err) {
-    client.log("Failed to generate deep link:", err);
-  }
+  const deepLink = verification?.deepLink ?? null;
   const error = verification?.error ?? null;
   const timeRemaining = verification?.timeRemaining ?? null;
 

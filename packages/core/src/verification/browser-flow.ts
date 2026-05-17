@@ -9,6 +9,7 @@ import type {
   ProviderPreference,
   VerificationUiStatus,
 } from "../types/verification-contract";
+import { resolveWalletHandoff } from "./wallet-authorization";
 
 export interface BrowserVerificationFlowStartOptions {
   policyId?: PolicyId;
@@ -89,12 +90,26 @@ function isFailureStatus(status: VerificationUiStatus): boolean {
   );
 }
 
+function shouldSynthesizeDeepLink(
+  response: CreateVerificationResponse
+): boolean {
+  if (response.walletHandoffKind === "request_blob") {
+    return false;
+  }
+
+  return Boolean(
+    resolveWalletHandoff({
+      authorizationRequestUrl: response.authorizationRequestUrl,
+    }).deepLink
+  );
+}
+
 function stateFromResponse(
   client: BrowserVerificationFlowClient,
   response: CreateVerificationResponse
 ): BrowserVerificationFlowState {
   let deepLink = response.deepLink;
-  if (!deepLink) {
+  if (!deepLink && shouldSynthesizeDeepLink(response)) {
     try {
       deepLink = client.getDeepLink(response.authorizationRequestUrl);
     } catch (error) {

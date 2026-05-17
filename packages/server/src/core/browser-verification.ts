@@ -73,5 +73,8 @@ export function toBrowserVerificationResponse(
     clientToken: verification.clientToken,
     expiresAt,
     ...(handoff.deepLink ? { deepLink: handoff.deepLink } : {}),
+    ...(handoff.kind === "request_blob"
+      ? { walletHandoffKind: handoff.kind }
+      : {}),
   };
 }

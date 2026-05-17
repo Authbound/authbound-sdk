@@ -93,13 +93,17 @@ export const CreateVerificationOptionsSchema = z.object({
   timeoutSeconds: z.number().int().positive().max(600).optional(),
 });
 
+export type WalletHandoffKind = "qr" | "link" | "request_blob";
+
+export const WalletHandoffKindSchema = z.enum(["qr", "link", "request_blob"]);
+
 /**
  * Verification creation response from your server route.
  */
 export interface CreateVerificationResponse {
   /** Unique verification identifier */
   verificationId: VerificationId;
-  /** URL for wallet to initiate verification (encode in QR) */
+  /** Wallet handoff payload to encode in QR */
   authorizationRequestUrl: string;
   /** Short-lived token for client-side status polling */
   clientToken: ClientToken;
@@ -107,16 +111,19 @@ export interface CreateVerificationResponse {
   expiresAt: string;
   /** Deep link for mobile */
   deepLink?: string;
+  /** Handoff kind returned by Authbound client_action */
+  walletHandoffKind?: WalletHandoffKind;
 }
 
 export const CreateVerificationResponseSchema = z.object({
   verificationId: z
     .string()
     .refine(isVerificationId, "Invalid verification ID"),
-  authorizationRequestUrl: z.string().url(),
+  authorizationRequestUrl: z.string().min(1),
   clientToken: z.string(),
   expiresAt: z.string(),
   deepLink: z.string().optional(),
+  walletHandoffKind: WalletHandoffKindSchema.optional(),
 });
 
 /**
