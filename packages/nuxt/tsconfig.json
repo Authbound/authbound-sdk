@@ -1,10 +1,14 @@
 {
   "extends": "../tsconfig/base.json",
   "compilerOptions": {
+    "baseUrl": ".",
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": "..",
     "declarationMap": false,
     "sourceMap": false,
+    "paths": {
+      "@authbound/server": ["../server/src/index.ts"]
+    },
     "types": ["node"]
   },
   "include": ["src"],

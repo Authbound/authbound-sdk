@@ -49,6 +49,26 @@ describe("browser verification handler kernel", () => {
     });
   });
 
+  it("accepts request_blob client_action data as a QR payload", () => {
+    const response = toBrowserVerificationResponse({
+      id: "vrf_test123",
+      clientToken: "client_token_123",
+      expiresAt: "2026-05-15T10:00:00.000Z",
+      verificationUrl: "https://ab-demo.authbound.io/v/vrf_test123",
+      clientAction: {
+        kind: "request_blob",
+        data: "eyJ0eXAiOiJvcGVuaWQ0dnAifQ",
+      },
+    });
+
+    expect(response).toEqual({
+      verificationId: "vrf_test123",
+      authorizationRequestUrl: "eyJ0eXAiOiJvcGVuaWQ0dnAifQ",
+      clientToken: "client_token_123",
+      expiresAt: "2026-05-15T10:00:00.000Z",
+    });
+  });
+
   it("rejects browser responses that only contain a hosted verification URL", () => {
     expect(() =>
       toBrowserVerificationResponse({

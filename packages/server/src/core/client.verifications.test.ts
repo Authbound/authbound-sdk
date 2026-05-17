@@ -104,6 +104,26 @@ describe("AuthboundClient verifications API", () => {
     });
   });
 
+  it("rejects create responses without the required client token", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          ...verificationResponse,
+          client_token: undefined,
+        })
+      )
+    );
+
+    await expect(
+      createClient().verifications.create({
+        policyId: "pol_authbound_pension_v1",
+      })
+    ).rejects.toMatchObject({
+      code: "INVALID_RESPONSE",
+    });
+  });
+
   it("lists, gets, cancels, and fetches signed results with secret-key endpoints", async () => {
     const fetchMock = vi
       .fn()

@@ -171,7 +171,19 @@ describe("resolveWalletAuthorizationRequest", () => {
     }
   });
 
-  it("ignores non-URL request_blob data without another wallet URL", () => {
+  it("uses opaque request_blob data as QR payload without treating it as a deep link", () => {
+    const handoff = resolveWalletHandoff({
+      client_action: {
+        kind: "request_blob",
+        data: "eyJ0eXAiOiJvcGVuaWQ0dnAifQ",
+      },
+    });
+
+    expect(handoff).toEqual({
+      kind: "request_blob",
+      qrPayload: "eyJ0eXAiOiJvcGVuaWQ0dnAifQ",
+    });
+
     const result = resolveWalletAuthorizationRequest({
       client_action: {
         kind: "request_blob",
@@ -179,7 +191,7 @@ describe("resolveWalletAuthorizationRequest", () => {
       },
     });
 
-    expect(result.authorizationRequestUrl).toBeUndefined();
+    expect(result.authorizationRequestUrl).toBe("eyJ0eXAiOiJvcGVuaWQ0dnAifQ");
     expect(result.deepLink).toBeUndefined();
   });
 

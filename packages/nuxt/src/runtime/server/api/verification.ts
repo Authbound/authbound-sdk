@@ -5,19 +5,14 @@
  */
 
 import type { PolicyId, ProviderPreference } from "@authbound/core";
-import { createToken } from "@authbound/server";
 import {
-  createError,
-  defineEventHandler,
-  getHeader,
-  readBody,
-  setCookie,
-} from "h3";
+  AuthboundClient,
+  type CreateVerificationResponse,
+  createVerificationHandlerKernel,
+} from "@authbound/server";
+import { createError, defineEventHandler, getHeader, readBody } from "h3";
 import { useRuntimeConfig } from "nitropack/runtime";
-import {
-  type GatewayVerificationResponse,
-  mapGatewayVerificationResponse,
-} from "./verification-mapper";
+import { returnNuxtKernelResult } from "./server-kernel";
 
 type CreateVerificationRequest = {
   policyId?: PolicyId | string;
@@ -25,10 +20,6 @@ type CreateVerificationRequest = {
   metadata?: Record<string, string>;
   provider?: ProviderPreference;
 };
-
-function getPendingCookieName(cookieName: string): string {
-  return `${cookieName}_pending`;
-}
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig();
@@ -71,96 +62,44 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const idempotencyKey = getHeader(event, "idempotency-key");
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "X-Authbound-Key": apiKey,
-    };
-    if (idempotencyKey) {
-      headers["Idempotency-Key"] = idempotencyKey;
+    const sessionSecret =
+      config.authbound?.sessionSecret ?? process.env.AUTHBOUND_SESSION_SECRET;
+    const sessionMode = config.public.authbound?.sessionMode ?? "sdk";
+    if (sessionMode === "sdk" && !sessionSecret) {
+      throw createError({
+        statusCode: 500,
+        message: "AUTHBOUND_SESSION_SECRET not configured",
+      });
     }
 
-    const response = await fetch(`${gatewayUrl}/v1/verifications`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        policy_id: policyId,
-        customer_user_ref: body?.customerUserRef,
+    const client = new AuthboundClient({
+      apiKey,
+      apiUrl: gatewayUrl,
+      debug: config.public.authbound?.debug,
+    });
+    const result = await createVerificationHandlerKernel({
+      requestBody: {
+        policyId,
+        customerUserRef: body?.customerUserRef,
         metadata: body?.metadata,
         provider: provider ?? body?.provider,
-      }),
+      },
+      config: { debug: config.public.authbound?.debug },
+      client,
+      idempotencyKey: getHeader(event, "idempotency-key") ?? undefined,
     });
 
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => ({}));
-      if (config.public.authbound?.debug) {
-        console.error("[Authbound] Gateway verification error:", {
-          status: response.status,
-          code:
-            typeof errorBody === "object" && errorBody && "code" in errorBody
-              ? errorBody.code
-              : undefined,
-        });
-      }
-      throw createError({
-        statusCode: response.status,
-        message:
-          typeof errorBody === "object" &&
-          errorBody &&
-          "message" in errorBody &&
-          typeof errorBody.message === "string"
-            ? errorBody.message
-            : "Failed to create verification",
-        data: errorBody,
-      });
-    }
-
-    const rawResponse = (await response.json()) as GatewayVerificationResponse;
-    const verificationResponse = mapGatewayVerificationResponse(rawResponse);
-
-    if ((config.public.authbound?.sessionMode ?? "sdk") === "sdk") {
-      const verificationId = verificationResponse.verificationId;
-      if (!verificationId) {
-        throw createError({
-          statusCode: 502,
-          message: "Authbound verification response is missing an id.",
-        });
-      }
-
-      const sessionSecret =
-        config.authbound?.sessionSecret ?? process.env.AUTHBOUND_SESSION_SECRET;
-      if (!sessionSecret) {
-        throw createError({
-          statusCode: 500,
-          message: "AUTHBOUND_SESSION_SECRET not configured",
-        });
-      }
-
-      const maxAge = 600;
-      const token = await createToken({
-        secret: sessionSecret,
-        userRef: body?.customerUserRef ?? verificationId,
-        verificationId,
-        status: "PENDING",
-        assuranceLevel: "NONE",
-        expiresIn: maxAge,
-      });
-
-      setCookie(
-        event,
-        getPendingCookieName(config.authbound?.cookieName ?? "__authbound"),
-        token,
-        {
-          httpOnly: true,
-          maxAge,
-          path: "/",
-          sameSite: "lax",
-          secure: process.env.NODE_ENV === "production",
-        }
-      );
-    }
-
-    return verificationResponse;
+    return returnNuxtKernelResult<CreateVerificationResponse>(
+      event,
+      result,
+      sessionMode === "sdk" && sessionSecret
+        ? {
+            sessionSecret,
+            cookieName: config.authbound?.cookieName ?? "__authbound",
+            secure: process.env.NODE_ENV === "production",
+          }
+        : undefined
+    );
   } catch (error) {
     if (typeof error === "object" && error && "statusCode" in error) {
       throw error;

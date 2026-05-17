@@ -36,6 +36,10 @@ import {
 } from "@authbound/core";
 import { z } from "zod";
 
+const CreateVerificationResponseSchema = VerificationSchema.extend({
+  client_token: z.string(),
+});
+
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -881,7 +885,11 @@ class VerificationsApi {
       }
     );
 
-    return parseApiResponse(VerificationSchema, response, mapVerification);
+    return parseApiResponse(
+      CreateVerificationResponseSchema,
+      response,
+      mapVerification
+    );
   }
 
   /**

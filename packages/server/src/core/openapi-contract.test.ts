@@ -5,6 +5,7 @@ import { parse } from "yaml";
 
 type OpenApiSchema = Record<string, unknown>;
 type OpenApiDocument = {
+  paths?: Record<string, Record<string, unknown>>;
   components?: {
     schemas?: Record<string, OpenApiSchema>;
   };
@@ -119,5 +120,45 @@ describe("public issuer SDK/OpenAPI contract", () => {
     expect(verificationProperties?.terminal_at).toMatchObject({
       type: ["string", "null"],
     });
+  });
+
+  it("documents public verification provider vocabulary and cancel response shape", () => {
+    const openApi = readRootOpenApi();
+    const verification = getSchema(openApi, "Verification");
+    const verificationProperties = verification.properties as
+      | Record<string, OpenApiSchema>
+      | undefined;
+    const cancelRoute = openApi.paths?.["/v1/verifications/{id}/cancel"]
+      ?.post as
+      | {
+          responses: Record<
+            string,
+            { content: { "application/json": { schema: { $ref: string } } } }
+          >;
+        }
+      | undefined;
+
+    expect(verificationProperties?.provider).toMatchObject({
+      enum: ["vcs", "eudi"],
+      type: "string",
+    });
+    expect(verificationProperties?.failure_code).toMatchObject({
+      enum: [
+        "presentation_invalid",
+        "credential_expired",
+        "credential_revoked",
+        "issuer_untrusted",
+        "policy_not_satisfied",
+        "processing_timeout",
+        "provider_error",
+        "user_declined",
+        "wallet_error",
+        null,
+      ],
+      type: ["string", "null"],
+    });
+    expect(
+      cancelRoute?.responses["200"].content["application/json"].schema.$ref
+    ).toBe("#/components/schemas/Verification");
   });
 });

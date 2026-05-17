@@ -268,10 +268,14 @@ describe("Next.js server debug logging", () => {
       json: async () => ({
         object: "verification",
         id: "vrf_123",
+        policy_id: "pol_authbound_pension_v1",
+        env_mode: "test",
+        status: "pending",
+        created_at: "2026-03-09T11:50:00.000Z",
         client_token: "client_token_secret_value",
         client_action: {
-          kind: "request_blob",
-          data: "eyJ0eXAiOiJvcGVuaWQ0dnAtcmVxdWVzdCJ9",
+          kind: "link",
+          data: "https://app.authbound.test/v/vrf_123",
           expires_at: "2026-03-09T12:00:00.000Z",
         },
         expires_at: "2026-03-09T12:00:00.000Z",

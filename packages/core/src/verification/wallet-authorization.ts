@@ -83,6 +83,18 @@ function getClientActionUrl(
     : undefined;
 }
 
+function getRequestBlobPayload(
+  clientAction: WalletClientAction | undefined
+): string | undefined {
+  const data = getString(clientAction?.data);
+  if (clientAction?.kind !== "request_blob" || !data) {
+    return;
+  }
+
+  const parsed = parseUrl(data);
+  return parsed && !isWalletInvocationUrl(data) ? undefined : data;
+}
+
 function getClientActionKind(
   clientAction: WalletClientAction | undefined
 ): WalletHandoffResolution["kind"] | undefined {
@@ -123,6 +135,7 @@ export function resolveWalletHandoff(
     input.client_action ?? input.clientAction
   );
   const clientActionUrl = getClientActionUrl(clientAction);
+  const requestBlobPayload = getRequestBlobPayload(clientAction);
   const explicitWalletUrl =
     explicitAuthorizationRequestUrl &&
     isWalletInvocationUrl(explicitAuthorizationRequestUrl)
@@ -144,7 +157,9 @@ export function resolveWalletHandoff(
   return {
     ...(kind ? { kind } : {}),
     ...(walletInvocationUrl ? { walletInvocationUrl } : {}),
-    ...(walletInvocationUrl ? { qrPayload: walletInvocationUrl } : {}),
+    ...(requestBlobPayload || walletInvocationUrl
+      ? { qrPayload: requestBlobPayload ?? walletInvocationUrl }
+      : {}),
     ...(deepLink ? { deepLink } : {}),
     ...(hostedVerificationUrl ? { hostedVerificationUrl } : {}),
     ...(expiresAt ? { expiresAt } : {}),
@@ -160,8 +175,8 @@ export function resolveWalletAuthorizationRequest(
   const handoff = resolveWalletHandoff(input);
 
   return {
-    ...(handoff.walletInvocationUrl
-      ? { authorizationRequestUrl: handoff.walletInvocationUrl }
+    ...(handoff.qrPayload
+      ? { authorizationRequestUrl: handoff.qrPayload }
       : {}),
     ...(handoff.deepLink ? { deepLink: handoff.deepLink } : {}),
   };

@@ -35,6 +35,9 @@ describe("Hono Authbound app contract", () => {
           object: "verification",
           id: "vrf_test123",
           status: "pending",
+          policy_id: "pol_authbound_pension_v1",
+          env_mode: "test",
+          created_at: "2026-04-21T10:00:00.000Z",
           client_token: "client_token_123",
           verification_url: "https://app.authbound.test/v/vrf_test123",
           client_action: {
@@ -151,6 +154,9 @@ describe("Hono Authbound app contract", () => {
           object: "verification",
           id: "vrf_test123",
           status: "pending",
+          policy_id: "pol_authbound_pension_v1",
+          env_mode: "test",
+          created_at: "2026-04-21T10:00:00.000Z",
           client_token: "client_token_123",
           client_action: {
             kind: "link",
