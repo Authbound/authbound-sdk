@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { useEffect, useRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { DeepLinkButton } from "../components/deep-link-button";
 import {
   type UseVerificationOptions,
   useVerification,
@@ -58,6 +59,39 @@ function AutoStartVerificationHook({
   }, [startVerification]);
 
   return null;
+}
+
+function AutoStartRequestBlobDeepLink() {
+  const verification = useVerification();
+  const didStartRef = useRef(false);
+
+  useEffect(() => {
+    if (didStartRef.current) {
+      return;
+    }
+    didStartRef.current = true;
+    verification.startVerification();
+  }, [verification]);
+
+  const walletHandoffKind = verification.walletHandoffKind;
+
+  return (
+    <div>
+      <span data-testid="wallet-handoff-kind">
+        {walletHandoffKind ?? "missing"}
+      </span>
+      {verification.authorizationRequestUrl ? (
+        <DeepLinkButton
+          authorizationRequestUrl={verification.authorizationRequestUrl}
+          deepLink={verification.deepLink ?? undefined}
+          showOnDesktop
+          walletHandoffKind={walletHandoffKind ?? undefined}
+        >
+          Open in Wallet
+        </DeepLinkButton>
+      ) : null}
+    </div>
+  );
 }
 
 describe("AuthboundProvider session finalization", () => {
@@ -178,5 +212,52 @@ describe("AuthboundProvider session finalization", () => {
         ([input]) => String(input) === "/api/authbound/session"
       )
     ).toHaveLength(0);
+  });
+
+  it("preserves request_blob handoff kind for custom deep-link UI", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/authbound/verification") {
+        return new Response(
+          JSON.stringify({
+            verificationId: "vrf_request_blob123",
+            authorizationRequestUrl: "eyJ0eXAiOiJvcGVuaWQ0dnAifQ",
+            clientToken: "client_token_123",
+            expiresAt: "2026-04-21T10:10:00.000Z",
+            walletHandoffKind: "request_blob",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (
+        url ===
+        "https://api.authbound.test/v1/verifications/vrf_request_blob123/events/sse"
+      ) {
+        return new Response(createSseStream(""), {
+          status: 200,
+          headers: { "Content-Type": "text/event-stream" },
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <AuthboundProvider
+        gatewayUrl="https://api.authbound.test"
+        policyId={"pol_authbound_pension_v1" as never}
+        publishableKey="pk_test_public123"
+        sessionMode="manual"
+      >
+        <AutoStartRequestBlobDeepLink />
+      </AuthboundProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("wallet-handoff-kind").textContent).toBe(
+        "request_blob"
+      );
+    });
+    expect(screen.queryByRole("button", { name: "Open in Wallet" })).toBeNull();
   });
 });

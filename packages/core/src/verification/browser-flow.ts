@@ -3,6 +3,7 @@ import { AuthboundError, type AuthboundErrorCode } from "../types/errors";
 import type {
   CreateVerificationResponse,
   StatusEvent,
+  WalletHandoffKind,
 } from "../types/verification";
 import { isTerminalStatus } from "../types/verification";
 import type {
@@ -24,6 +25,7 @@ export interface BrowserVerificationFlowState {
   authorizationRequestUrl?: string;
   clientToken?: ClientToken;
   deepLink?: string;
+  walletHandoffKind?: WalletHandoffKind;
   error?: AuthboundError;
   timeRemaining?: number;
   expiresAt?: Date;
@@ -122,6 +124,9 @@ function stateFromResponse(
     verificationId: response.verificationId,
     authorizationRequestUrl: response.authorizationRequestUrl,
     clientToken: response.clientToken,
+    ...(response.walletHandoffKind
+      ? { walletHandoffKind: response.walletHandoffKind }
+      : {}),
     expiresAt: new Date(response.expiresAt),
   };
 

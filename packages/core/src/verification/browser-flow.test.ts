@@ -166,6 +166,7 @@ describe("createBrowserVerificationFlow", () => {
     expect(client.getDeepLink).not.toHaveBeenCalled();
     expect(flow.getState()).toMatchObject({
       authorizationRequestUrl: "https://wallet.example/request.jwt",
+      walletHandoffKind: "request_blob",
     });
     expect(flow.getState().deepLink).toBeUndefined();
   });
