@@ -5,6 +5,7 @@ import {
   buildOpenID4VPDeepLink,
   detectMobilePlatform,
   supportsDeepLinks,
+  type WalletHandoffKind,
   type WalletScheme,
 } from "@authbound/core";
 import * as React from "react";
@@ -20,6 +21,18 @@ export interface DeepLinkButtonProps
    * This is the URL that the wallet app will use to fetch the verification request.
    */
   authorizationRequestUrl: string;
+
+  /**
+   * Prebuilt wallet deep link from Authbound.
+   * Prefer this when the verification response includes one.
+   */
+  deepLink?: string;
+
+  /**
+   * Wallet handoff payload kind returned by Authbound.
+   * Request blobs are QR-only unless Authbound also provides a deep link.
+   */
+  walletHandoffKind?: WalletHandoffKind;
 
   /**
    * Verification ID for tracking (optional, used for analytics).
@@ -70,7 +83,9 @@ export interface DeepLinkButtonProps
  * ```tsx
  * <DeepLinkButton
  *   authorizationRequestUrl={verification.authorizationRequestUrl}
+ *   deepLink={verification.deepLink}
  *   verificationId={verification.verificationId}
+ *   walletHandoffKind={verification.walletHandoffKind}
  * >
  *   Open in Wallet
  * </DeepLinkButton>
@@ -89,6 +104,8 @@ export interface DeepLinkButtonProps
  */
 export function DeepLinkButton({
   authorizationRequestUrl,
+  deepLink: providedDeepLink,
+  walletHandoffKind,
   verificationId,
   scheme = "openid4vp",
   showOnDesktop = false,
@@ -117,6 +134,10 @@ export function DeepLinkButton({
     return null;
   }
 
+  if (walletHandoffKind === "request_blob" && !providedDeepLink) {
+    return null;
+  }
+
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
 
@@ -124,13 +145,11 @@ export function DeepLinkButton({
 
     setIsOpening(true);
 
-    // Build the appropriate deep link
-    let deepLink: string;
-    if (scheme === "openid4vp") {
-      deepLink = buildOpenID4VPDeepLink(authorizationRequestUrl);
-    } else {
-      deepLink = buildDeepLink(authorizationRequestUrl, { scheme });
-    }
+    const deepLink =
+      providedDeepLink ??
+      (scheme === "openid4vp"
+        ? buildOpenID4VPDeepLink(authorizationRequestUrl)
+        : buildDeepLink(authorizationRequestUrl, { scheme }));
 
     // Trigger the callback
     onOpen?.();
