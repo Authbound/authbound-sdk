@@ -77,6 +77,71 @@ describe("createClient", () => {
     });
   });
 
+  it("falls back to polling immediately when realtime SSE is unavailable", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            object: "error",
+            code: "realtime_unavailable",
+            message: "Realtime verification events are temporarily unavailable",
+          }),
+          {
+            status: 503,
+            headers: { "Content-Type": "application/json" },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            object: "verification_status",
+            id: "vrf_test123",
+            status: "verified",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        )
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createClient({
+      publishableKey: "pk_test_public123" as never,
+      gatewayUrl: "https://gateway.authbound.test",
+    });
+    const events: unknown[] = [];
+
+    const cleanup = client.subscribeToStatus(
+      "vrf_test123" as never,
+      "client_token_123" as never,
+      (event) => events.push(event)
+    );
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://gateway.authbound.test/v1/verifications/vrf_test123/status",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Bearer client_token_123",
+            "x-authbound-publishable-key": "pk_test_public123",
+          }),
+        })
+      );
+    });
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        status: "verified",
+        type: "status",
+      })
+    );
+
+    cleanup();
+  });
+
   it("sends provider preference through the configured verification endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(

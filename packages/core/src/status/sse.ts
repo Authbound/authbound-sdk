@@ -207,10 +207,7 @@ export function createStatusSubscription(
       });
 
       if (!response.ok) {
-        throw new AuthboundError(
-          "network_error",
-          `SSE connection failed: ${response.status} ${response.statusText}`
-        );
+        throw await createSseResponseError(response);
       }
 
       if (!response.body) {
@@ -359,20 +356,16 @@ export function createStatusSubscription(
         console.log("[Authbound] SSE connection error:", error);
       }
 
-      if (autoReconnect && reconnectAttempts < maxReconnectAttempts) {
-        scheduleReconnect();
-      } else {
-        const authboundError =
-          error instanceof AuthboundError
-            ? error
-            : new AuthboundError(
-                "network_error",
-                "SSE connection failed after maximum reconnection attempts"
-              );
+      const authboundError = AuthboundError.from(error);
 
-        if (onError) {
-          onError(authboundError);
-        }
+      if (
+        authboundError.retryable &&
+        autoReconnect &&
+        reconnectAttempts < maxReconnectAttempts
+      ) {
+        scheduleReconnect();
+      } else if (onError) {
+        onError(authboundError);
       }
     }
   }
@@ -421,6 +414,52 @@ export function createStatusSubscription(
 
   // Return cleanup function
   return cleanup;
+}
+
+async function createSseResponseError(
+  response: Response
+): Promise<AuthboundError> {
+  const body = await readErrorBody(response);
+  if (response.status === 503 && body?.code === "realtime_unavailable") {
+    return new AuthboundError(
+      "gateway_unavailable",
+      body.message ??
+        "Realtime verification events are temporarily unavailable",
+      {
+        details: { gatewayCode: body.code },
+        retryable: false,
+        statusCode: response.status,
+      }
+    );
+  }
+
+  return AuthboundError.fromResponse(response, body);
+}
+
+async function readErrorBody(response: Response): Promise<
+  | {
+      code?: string;
+      message?: string;
+      error?: string;
+      details?: Record<string, unknown>;
+      [key: string]: unknown;
+    }
+  | undefined
+> {
+  try {
+    const body = (await response.json()) as unknown;
+    return body && typeof body === "object" && !Array.isArray(body)
+      ? (body as {
+          code?: string;
+          message?: string;
+          error?: string;
+          details?: Record<string, unknown>;
+          [key: string]: unknown;
+        })
+      : undefined;
+  } catch {
+    return;
+  }
 }
 
 /**
