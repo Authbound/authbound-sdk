@@ -10,7 +10,6 @@ import type {
   ProviderPreference,
   VerificationUiStatus,
 } from "../types/verification-contract";
-import { resolveWalletHandoff } from "./wallet-authorization";
 
 export interface BrowserVerificationFlowStartOptions {
   policyId?: PolicyId;
@@ -99,10 +98,25 @@ function shouldSynthesizeDeepLink(
     return false;
   }
 
-  return Boolean(
-    resolveWalletHandoff({
-      authorizationRequestUrl: response.authorizationRequestUrl,
-    }).deepLink
+  return !isAuthboundHostedVerificationUrl(response.authorizationRequestUrl);
+}
+
+function isAuthboundHostedVerificationUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+
+  const hostname = url.hostname.toLowerCase();
+  const isAuthboundHost =
+    hostname === "authbound.io" || hostname.endsWith(".authbound.io");
+
+  return (
+    (url.protocol === "https:" || url.protocol === "http:") &&
+    isAuthboundHost &&
+    /^\/v\/[^/]+\/?$/.test(url.pathname)
   );
 }
 

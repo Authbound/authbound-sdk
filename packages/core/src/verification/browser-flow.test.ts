@@ -170,4 +170,52 @@ describe("createBrowserVerificationFlow", () => {
     });
     expect(flow.getState().deepLink).toBeUndefined();
   });
+
+  it("synthesizes deep links for plain HTTPS request URLs", async () => {
+    const { client } = createClientStub();
+    client.startVerification = vi.fn().mockResolvedValue({
+      verificationId: "vrf_test123",
+      authorizationRequestUrl: "https://gateway.example/request.jwt",
+      clientToken: "client_token_123",
+      expiresAt: "2026-05-15T12:01:00.000Z",
+    });
+    const flow = createBrowserVerificationFlow({
+      client,
+      sessionMode: "manual",
+    });
+
+    await flow.start({ policyId: "pol_age_over_18_authbound_v1" as never });
+
+    expect(client.getDeepLink).toHaveBeenCalledWith(
+      "https://gateway.example/request.jwt"
+    );
+    expect(flow.getState()).toMatchObject({
+      authorizationRequestUrl: "https://gateway.example/request.jwt",
+      deepLink: "deeplink:https://gateway.example/request.jwt",
+    });
+  });
+
+  it("does not synthesize deep links for Authbound hosted verification fallback URLs", async () => {
+    const { client } = createClientStub();
+    client.startVerification = vi.fn().mockResolvedValue({
+      verificationId: "vrf_test123",
+      authorizationRequestUrl:
+        "https://ab-demo.authbound.io/v/3639989b-baf7-413b-b769-4189ea705340",
+      clientToken: "client_token_123",
+      expiresAt: "2026-05-15T12:01:00.000Z",
+    });
+    const flow = createBrowserVerificationFlow({
+      client,
+      sessionMode: "manual",
+    });
+
+    await flow.start({ policyId: "pol_age_over_18_authbound_v1" as never });
+
+    expect(client.getDeepLink).not.toHaveBeenCalled();
+    expect(flow.getState()).toMatchObject({
+      authorizationRequestUrl:
+        "https://ab-demo.authbound.io/v/3639989b-baf7-413b-b769-4189ea705340",
+    });
+    expect(flow.getState().deepLink).toBeUndefined();
+  });
 });
