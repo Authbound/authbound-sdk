@@ -158,6 +158,19 @@ export {
   type VerificationStatus as ApiVerificationStatus,
   type VerifySignatureOptions,
 } from "./core/client";
+export {
+  createVerificationHandlerKernel,
+  finalizeSessionHandlerKernel,
+  getStatusHandlerKernel,
+  type HandlerKernelConfig,
+  type HandlerKernelCookieEffects,
+  type HandlerKernelErrorBody,
+  type HandlerKernelRequest,
+  type HandlerKernelResponse,
+  mapHandlerKernelException,
+  processWebhookHandlerKernel,
+  signOutHandlerKernel,
+} from "./core/handler-kernel";
 
 // ============================================================================
 // Webhook Verification

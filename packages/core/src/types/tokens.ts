@@ -1,7 +1,5 @@
 /**
  * JWT token types for Authbound verification.
- *
- * All tokens use EdDSA (Ed25519) for Edge runtime compatibility.
  */
 
 import { z } from "zod";

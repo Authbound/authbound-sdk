@@ -48,7 +48,9 @@ export function toBrowserVerificationResponse(
     clientAction: verification.clientAction,
   });
 
-  if (!handoff.walletInvocationUrl) {
+  const walletHandoffPayload = handoff.qrPayload ?? handoff.walletInvocationUrl;
+
+  if (!walletHandoffPayload) {
     throw new BrowserWalletUrlError();
   }
 
@@ -67,9 +69,12 @@ export function toBrowserVerificationResponse(
 
   return {
     verificationId: verification.id,
-    authorizationRequestUrl: handoff.walletInvocationUrl,
+    authorizationRequestUrl: walletHandoffPayload,
     clientToken: verification.clientToken,
     expiresAt,
     ...(handoff.deepLink ? { deepLink: handoff.deepLink } : {}),
+    ...(handoff.kind === "request_blob"
+      ? { walletHandoffKind: handoff.kind }
+      : {}),
   };
 }

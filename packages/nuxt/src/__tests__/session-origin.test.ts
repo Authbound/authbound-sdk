@@ -21,6 +21,34 @@ const authboundServer = vi.hoisted(() => ({
   }),
   AuthboundClientError: class AuthboundClientError extends Error {},
   createToken: vi.fn(async () => "verified-session-token"),
+  finalizeSessionHandlerKernel: vi.fn(
+    async (input: { config: { trustProxy?: boolean } }) =>
+      input.config.trustProxy
+        ? {
+            status: 200,
+            body: {
+              isVerified: true,
+              status: "verified",
+              verificationId: "vrf_test123",
+            },
+            cookies: {
+              clearPendingVerification: true,
+              setVerification: {
+                assuranceLevel: "SUBSTANTIAL",
+                status: "VERIFIED",
+                userRef: "user_123",
+                verificationId: "vrf_test123",
+              },
+            },
+          }
+        : {
+            status: 403,
+            body: {
+              error: "Cross-origin session finalization is not allowed",
+              code: "CROSS_ORIGIN_FORBIDDEN",
+            },
+          }
+  ),
   getVerificationFromToken: vi.fn(async () => ({
     assuranceLevel: "NONE",
     status: "PENDING",
@@ -143,8 +171,14 @@ describe("Nuxt session origin handling", () => {
       apiKey: `sk_test_${"x".repeat(32)}`,
       apiUrl: "https://api.authbound.io",
     });
-    const client = authboundServer.AuthboundClient.mock.results[0]?.value;
-    expect(client.verifications.getResult).toHaveBeenCalledWith("vrf_test123");
+    expect(authboundServer.finalizeSessionHandlerKernel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({ trustProxy: true }),
+        pendingVerification: expect.objectContaining({
+          verificationId: "vrf_test123",
+        }),
+      })
+    );
     expect(fetch).not.toHaveBeenCalled();
   });
 });

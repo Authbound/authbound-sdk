@@ -22,28 +22,24 @@
  * ```
  */
 
-import {
-  isSameOriginSessionRequest,
-  ProviderPreferenceSchema,
-} from "@authbound/core";
 import { type Request, type Response, Router } from "express";
-import { z } from "zod";
+import { AuthboundClient } from "../core/client";
 import {
-  BrowserVerificationResponseError,
-  BrowserWalletUrlError,
-  toBrowserVerificationResponse,
-} from "../core/browser-verification";
-import { AuthboundClient, AuthboundClientError } from "../core/client";
-import { createSafeErrorResponse, logError } from "../core/error-utils";
-import { toVerifiedSessionFinalization } from "../core/session-finalization";
+  createVerificationHandlerKernel,
+  finalizeSessionHandlerKernel,
+  getStatusHandlerKernel,
+  type HandlerKernelCookieEffects,
+  type HandlerKernelResponse,
+  mapHandlerKernelException,
+  processWebhookHandlerKernel,
+  signOutHandlerKernel,
+} from "../core/handler-kernel";
 import type {
   AuthboundConfig,
   CreateVerificationResponse,
-  VerificationStatusResponse,
   WebhookEvent,
 } from "../core/types";
-import { parseConfig, WebhookEventSchema } from "../core/types";
-import { verifyWebhookSignatureDetailed } from "../core/webhooks";
+import { parseConfig } from "../core/types";
 import {
   clearPendingVerificationCookie,
   clearVerificationCookie,
@@ -72,6 +68,16 @@ export interface HandlersOptions {
   ) => void | Promise<void>;
 
   /**
+   * Custom handler called when a verified webhook event is received.
+   */
+  onVerified?: (event: WebhookEvent) => void | Promise<void>;
+
+  /**
+   * Custom handler called when a failed webhook event is received.
+   */
+  onFailed?: (event: WebhookEvent) => void | Promise<void>;
+
+  /**
    * Custom handler to validate the webhook signature.
    * Return true if valid, false if invalid.
    */
@@ -86,22 +92,6 @@ export interface HandlersOptions {
    */
   getUserRef?: (req: Request) => string | Promise<string>;
 }
-
-// ============================================================================
-// Request Schemas
-// ============================================================================
-
-const CreateVerificationRequestSchema = z.object({
-  policyId: z.string(),
-  customerUserRef: z.string().optional(),
-  metadata: z.record(z.string(), z.string()).optional(),
-  provider: ProviderPreferenceSchema.optional(),
-});
-
-const FinalizeVerificationRequestSchema = z.object({
-  verificationId: z.string(),
-  clientToken: z.string(),
-});
 
 function sessionOriginRequest(req: Request) {
   const host = req.get("host") ?? "localhost";
@@ -139,6 +129,46 @@ function getRawBody(req: Request): string | null {
   return null;
 }
 
+async function applyCookieEffects(
+  res: Response,
+  config: AuthboundConfig,
+  effects: HandlerKernelCookieEffects | undefined
+): Promise<void> {
+  if (!effects) {
+    return;
+  }
+  if (effects.setVerification) {
+    await setVerificationCookie(res, config, effects.setVerification);
+  }
+  if (effects.clearVerification) {
+    clearVerificationCookie(res, config);
+  }
+  if (effects.setPendingVerification) {
+    await setPendingVerificationCookie(
+      res,
+      config,
+      effects.setPendingVerification
+    );
+  }
+  if (effects.clearPendingVerification) {
+    clearPendingVerificationCookie(res, config);
+  }
+}
+
+async function sendKernelResponse(
+  res: Response,
+  config: AuthboundConfig,
+  result: HandlerKernelResponse
+): Promise<void> {
+  try {
+    await applyCookieEffects(res, config, result.cookies);
+    res.status(result.status).json(result.body);
+  } catch (error) {
+    const mapped = mapHandlerKernelException(error, "Cookie handling", config);
+    res.status(mapped.status).json(mapped.body);
+  }
+}
+
 async function handleCreateVerification(
   req: Request,
   res: Response,
@@ -146,73 +176,19 @@ async function handleCreateVerification(
   options: HandlersOptions,
   client: AuthboundClient
 ): Promise<void> {
-  try {
-    const body = CreateVerificationRequestSchema.parse(req.body || {});
-    const userRef =
-      body.customerUserRef ??
-      (options.getUserRef ? await options.getUserRef(req) : undefined);
-
-    const result = await client.verifications.create({
-      policyId: body.policyId,
-      customerUserRef: userRef,
-      metadata: body.metadata,
-      provider: body.provider,
-    });
-
-    const verificationResponse = toBrowserVerificationResponse(result);
-
-    // Call custom handler if provided
-    if (options.onVerificationCreated) {
-      await options.onVerificationCreated(verificationResponse);
-    }
-
-    if (config.debug) {
-      console.log(
-        "[Authbound] Verification created:",
-        verificationResponse.verificationId
-      );
-    }
-
-    await setPendingVerificationCookie(res, config, {
-      userRef: userRef ?? result.id,
-      verificationId: verificationResponse.verificationId,
-    });
-
-    res.status(200).json(verificationResponse);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({
-        error: "Invalid request",
-        code: "INVALID_REQUEST",
-      });
-      return;
-    }
-    if (error instanceof BrowserWalletUrlError) {
-      res.status(502).json({
-        error: error.message,
-        code: "BROWSER_WALLET_URL_MISSING",
-      });
-      return;
-    }
-    if (error instanceof BrowserVerificationResponseError) {
-      res.status(502).json({
-        error: error.message,
-        code: "INVALID_GATEWAY_RESPONSE",
-      });
-      return;
-    }
-    if (error instanceof AuthboundClientError) {
-      logError(error, "Verification creation", config.debug);
-      res.status(error.statusCode ?? 500).json({
-        error: error.message,
-        code: error.code,
-      });
-      return;
-    }
-    logError(error, "Verification creation", config.debug);
-    const safeError = createSafeErrorResponse(error, 500, config.debug);
-    res.status(500).json({ error: safeError.message, code: safeError.code });
-  }
+  const getUserRef = options.getUserRef;
+  await sendKernelResponse(
+    res,
+    config,
+    await createVerificationHandlerKernel({
+      requestBody: req.body ?? null,
+      config,
+      client,
+      idempotencyKey: req.get("idempotency-key") ?? undefined,
+      getUserRef: getUserRef ? () => getUserRef(req) : undefined,
+      onVerificationCreated: options.onVerificationCreated,
+    })
+  );
 }
 
 async function handleWebhook(
@@ -221,107 +197,23 @@ async function handleWebhook(
   config: AuthboundConfig,
   options: HandlersOptions
 ): Promise<void> {
-  try {
-    const rawBody = getRawBody(req);
-
-    if (options.validateWebhookSignature) {
-      if (!rawBody) {
-        res.status(400).json({
-          error: "Raw request body is required for webhook verification",
-          code: "RAW_BODY_REQUIRED",
-        });
-        return;
-      }
-      const isValid = await options.validateWebhookSignature(req, rawBody);
-      if (!isValid) {
-        logError(
-          new Error("Invalid webhook signature"),
-          "Webhook",
-          config.debug
-        );
-        res.status(401).json({
-          error: "Invalid signature",
-          code: "INVALID_SIGNATURE",
-        });
-        return;
-      }
-    } else if (!config.unsafeSkipWebhookSignatureVerification) {
-      if (!config.webhookSecret) {
-        res.status(500).json({
-          error: "Webhook secret is required",
-          code: "WEBHOOK_SECRET_MISSING",
-        });
-        return;
-      }
-      if (!rawBody) {
-        res.status(400).json({
-          error: "Raw request body is required for webhook verification",
-          code: "RAW_BODY_REQUIRED",
-        });
-        return;
-      }
-      const signature = req.get("x-authbound-signature");
-      if (!signature) {
-        res.status(401).json({
-          error: "Missing signature",
-          code: "MISSING_SIGNATURE",
-        });
-        return;
-      }
-      const verification = verifyWebhookSignatureDetailed({
-        payload: rawBody,
-        signature,
-        secret: config.webhookSecret,
-        tolerance: config.webhookTolerance,
-      });
-      if (!verification.valid) {
-        res.status(401).json({
-          error: verification.error ?? "Invalid signature",
-          code: "INVALID_SIGNATURE",
-        });
-        return;
-      }
-    }
-
-    const payload =
-      rawBody && typeof rawBody === "string" ? JSON.parse(rawBody) : req.body;
-    const parsed = WebhookEventSchema.safeParse(payload);
-
-    if (!parsed.success) {
-      logError(
-        new Error(`Invalid webhook event: ${parsed.error.message}`),
-        "Webhook",
-        config.debug
-      );
-      res.status(400).json({
-        error: "Invalid webhook event",
-        code: "INVALID_PAYLOAD",
-      });
-      return;
-    }
-
-    const event = parsed.data;
-
-    // Call custom webhook handler
-    if (options.onWebhook) {
-      await options.onWebhook(event);
-    }
-
-    if (config.debug) {
-      console.log("[Authbound] Webhook processed:", {
-        eventId: event.id,
-        eventType: event.type,
-        verificationId: event.data.object.id,
-        status: event.data.object.status,
-      });
-    }
-
-    res.status(200).json({ received: true });
-  } catch (error) {
-    logError(error, "Webhook", config.debug);
-    const safeError = createSafeErrorResponse(error, 500, config.debug);
-    res.status(500).json({ error: safeError.message, code: safeError.code });
-  }
+  const rawBody = getRawBody(req);
+  await sendKernelResponse(
+    res,
+    config,
+    await processWebhookHandlerKernel({
+      rawBody,
+      parsedBody: req.body,
+      signature: req.get("x-authbound-signature"),
+      config,
+      validateWebhookSignature: options.validateWebhookSignature
+        ? (body) => options.validateWebhookSignature?.(req, body) ?? false
+        : undefined,
+      onWebhook: options.onWebhook,
+      onVerified: options.onVerified,
+      onFailed: options.onFailed,
+    })
+  );
 }
 
 async function handleFinalizeSession(
@@ -331,96 +223,19 @@ async function handleFinalizeSession(
   options: HandlersOptions,
   client: AuthboundClient
 ): Promise<void> {
-  try {
-    const originRequest = sessionOriginRequest(req);
-    if (
-      !isSameOriginSessionRequest(originRequest, {
-        allowedOrigins: config.allowedOrigins,
-        trustProxy: config.trustProxy,
-      })
-    ) {
-      res.status(403).json({
-        error: "Cross-origin session finalization is not allowed",
-        code: "CROSS_ORIGIN_FORBIDDEN",
-      });
-      return;
-    }
-
-    const parsed = FinalizeVerificationRequestSchema.safeParse(req.body || {});
-    if (!parsed.success) {
-      res.status(400).json({
-        error: "Invalid request",
-        code: "INVALID_REQUEST",
-      });
-      return;
-    }
-
-    const { verificationId } = parsed.data;
-    const pendingVerification = await getPendingVerificationFromCookie(
-      req,
-      config
-    );
-    if (
-      !pendingVerification ||
-      pendingVerification.status !== "PENDING" ||
-      pendingVerification.verificationId !== verificationId
-    ) {
-      res.status(403).json({
-        error: "Verification finalization is not bound to this browser session",
-        code: "VERIFICATION_BINDING_REQUIRED",
-      });
-      return;
-    }
-
-    const userRef = options.getUserRef
-      ? await options.getUserRef(req)
-      : pendingVerification.userRef;
-    if (userRef !== pendingVerification.userRef) {
-      res.status(403).json({
-        error: "Verification finalization is not bound to the current user",
-        code: "VERIFICATION_BINDING_REQUIRED",
-      });
-      return;
-    }
-
-    const result = await client.verifications.getResult(verificationId);
-    const verifiedSession = toVerifiedSessionFinalization(result);
-    if (!verifiedSession) {
-      res.status(409).json({
-        error: "Verification is not verified",
-        code: "VERIFICATION_NOT_VERIFIED",
-      });
-      return;
-    }
-
-    await setVerificationCookie(res, config, {
-      userRef,
-      verificationId,
-      status: "VERIFIED",
-      assuranceLevel: "SUBSTANTIAL",
-      age: verifiedSession.age,
-      dateOfBirth: verifiedSession.dateOfBirth,
-    });
-    clearPendingVerificationCookie(res, config);
-
-    res.status(200).json({
-      isVerified: true,
-      verificationId,
-      status: verifiedSession.status,
-    });
-  } catch (error) {
-    if (error instanceof AuthboundClientError) {
-      logError(error, "Session finalization", config.debug);
-      res.status(error.statusCode ?? 500).json({
-        error: error.message,
-        code: error.code,
-      });
-      return;
-    }
-    logError(error, "Session finalization", config.debug);
-    const safeError = createSafeErrorResponse(error, 500, config.debug);
-    res.status(500).json({ error: safeError.message, code: safeError.code });
-  }
+  const getUserRef = options.getUserRef;
+  await sendKernelResponse(
+    res,
+    config,
+    await finalizeSessionHandlerKernel({
+      request: sessionOriginRequest(req),
+      requestBody: req.body ?? null,
+      pendingVerification: await getPendingVerificationFromCookie(req, config),
+      config,
+      client,
+      getUserRef: getUserRef ? () => getUserRef(req) : undefined,
+    })
+  );
 }
 
 async function handleGetStatus(
@@ -428,20 +243,14 @@ async function handleGetStatus(
   res: Response,
   config: AuthboundConfig
 ): Promise<void> {
-  try {
-    const verification = await getVerificationFromCookie(req, config);
-
-    const statusResponse: VerificationStatusResponse = {
-      verification,
-      isVerified: verification?.isVerified ?? false,
-    };
-
-    res.status(200).json(statusResponse);
-  } catch (error) {
-    logError(error, "Status check", config.debug);
-    const safeError = createSafeErrorResponse(error, 500, config.debug);
-    res.status(500).json({ error: safeError.message, code: safeError.code });
-  }
+  await sendKernelResponse(
+    res,
+    config,
+    await getStatusHandlerKernel({
+      config,
+      getVerification: () => getVerificationFromCookie(req, config),
+    })
+  );
 }
 
 async function handleSignOut(
@@ -449,20 +258,7 @@ async function handleSignOut(
   res: Response,
   config: AuthboundConfig
 ): Promise<void> {
-  try {
-    clearVerificationCookie(res, config);
-    clearPendingVerificationCookie(res, config);
-
-    if (config.debug) {
-      console.log("[Authbound] Session cleared");
-    }
-
-    res.status(200).json({ success: true });
-  } catch (error) {
-    logError(error, "Sign out", config.debug);
-    const safeError = createSafeErrorResponse(error, 500, config.debug);
-    res.status(500).json({ error: safeError.message, code: safeError.code });
-  }
+  await sendKernelResponse(res, config, await signOutHandlerKernel({ config }));
 }
 
 // ============================================================================

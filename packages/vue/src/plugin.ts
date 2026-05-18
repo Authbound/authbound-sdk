@@ -16,6 +16,7 @@ import {
   type PublishableKey,
   type VerificationId,
   type VerificationUiStatus,
+  type WalletHandoffKind,
 } from "@authbound/core";
 import {
   type App,
@@ -52,6 +53,8 @@ export interface VerificationState {
   clientToken: string;
   /** Deep link for mobile */
   deepLink?: string;
+  /** Wallet handoff payload kind returned by Authbound */
+  walletHandoffKind?: WalletHandoffKind;
   /** Error (if failed) */
   error?: AuthboundError;
   /** Time remaining in seconds */
@@ -78,6 +81,9 @@ function toVerificationState(
   return {
     ...base,
     ...(flowState.deepLink ? { deepLink: flowState.deepLink } : {}),
+    ...(flowState.walletHandoffKind
+      ? { walletHandoffKind: flowState.walletHandoffKind }
+      : {}),
     ...(flowState.error ? { error: flowState.error } : {}),
     ...(typeof flowState.timeRemaining === "number"
       ? { timeRemaining: flowState.timeRemaining }

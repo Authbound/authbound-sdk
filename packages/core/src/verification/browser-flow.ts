@@ -3,6 +3,7 @@ import { AuthboundError, type AuthboundErrorCode } from "../types/errors";
 import type {
   CreateVerificationResponse,
   StatusEvent,
+  WalletHandoffKind,
 } from "../types/verification";
 import { isTerminalStatus } from "../types/verification";
 import type {
@@ -23,6 +24,7 @@ export interface BrowserVerificationFlowState {
   authorizationRequestUrl?: string;
   clientToken?: ClientToken;
   deepLink?: string;
+  walletHandoffKind?: WalletHandoffKind;
   error?: AuthboundError;
   timeRemaining?: number;
   expiresAt?: Date;
@@ -89,12 +91,41 @@ function isFailureStatus(status: VerificationUiStatus): boolean {
   );
 }
 
+function shouldSynthesizeDeepLink(
+  response: CreateVerificationResponse
+): boolean {
+  if (response.walletHandoffKind === "request_blob") {
+    return false;
+  }
+
+  return !isAuthboundHostedVerificationUrl(response.authorizationRequestUrl);
+}
+
+function isAuthboundHostedVerificationUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+
+  const hostname = url.hostname.toLowerCase();
+  const isAuthboundHost =
+    hostname === "authbound.io" || hostname.endsWith(".authbound.io");
+
+  return (
+    (url.protocol === "https:" || url.protocol === "http:") &&
+    isAuthboundHost &&
+    /^\/v\/[^/]+\/?$/.test(url.pathname)
+  );
+}
+
 function stateFromResponse(
   client: BrowserVerificationFlowClient,
   response: CreateVerificationResponse
 ): BrowserVerificationFlowState {
   let deepLink = response.deepLink;
-  if (!deepLink) {
+  if (!deepLink && shouldSynthesizeDeepLink(response)) {
     try {
       deepLink = client.getDeepLink(response.authorizationRequestUrl);
     } catch (error) {
@@ -107,6 +138,9 @@ function stateFromResponse(
     verificationId: response.verificationId,
     authorizationRequestUrl: response.authorizationRequestUrl,
     clientToken: response.clientToken,
+    ...(response.walletHandoffKind
+      ? { walletHandoffKind: response.walletHandoffKind }
+      : {}),
     expiresAt: new Date(response.expiresAt),
   };
 

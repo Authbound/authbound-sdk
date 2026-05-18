@@ -25,6 +25,7 @@
  */
 
 import {
+  PublicCreateVerificationResponseSchema as CreateVerificationResponseSchema,
   type ProviderPreference,
   ProviderPreferenceSchema,
   PublicVerificationListSchema as VerificationListSchema,
@@ -398,11 +399,19 @@ function mapVerification(
     expiresAt: raw.expires_at ?? undefined,
     terminalAt: raw.terminal_at ?? undefined,
     failureCode: raw.failure_code ?? undefined,
-    clientToken: raw.client_token ?? undefined,
     clientAction: mapClientAction(raw.client_action),
     verificationUrl: raw.verification_url ?? undefined,
     customerUserRef: raw.customer_user_ref ?? undefined,
     metadata: raw.metadata ?? undefined,
+  };
+}
+
+function mapCreateVerification(
+  raw: z.infer<typeof CreateVerificationResponseSchema>
+): Verification {
+  return {
+    ...mapVerification(raw),
+    clientToken: raw.client_token,
   };
 }
 
@@ -881,7 +890,11 @@ class VerificationsApi {
       }
     );
 
-    return parseApiResponse(VerificationSchema, response, mapVerification);
+    return parseApiResponse(
+      CreateVerificationResponseSchema,
+      response,
+      mapCreateVerification
+    );
   }
 
   /**

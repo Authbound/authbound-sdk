@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   isTerminalVerificationProgressStatus,
   ProviderPreferenceSchema,
+  PublicCreateVerificationResponseSchema,
+  PublicVerificationSchema,
   projectVerificationStatusForUi,
   VerificationProgressStatusSchema,
 } from "../verification-contract";
@@ -35,6 +37,86 @@ describe("public verification contract module", () => {
     expect(ProviderPreferenceSchema.safeParse("vcs").success).toBe(true);
     expect(ProviderPreferenceSchema.safeParse("eudi").success).toBe(true);
     expect(ProviderPreferenceSchema.safeParse("reverify").success).toBe(false);
+  });
+
+  it("rejects stale provider and failure-code vocabulary on public verification responses", () => {
+    const response = {
+      object: "verification",
+      id: "3639989b-baf7-413b-b769-4189ea705340",
+      status: "failed",
+      policy_id: "pol_age_over_18_authbound_v1",
+      provider: "eudi",
+      env_mode: "test",
+      created_at: "2026-04-21T10:00:00.000Z",
+      expires_at: "2026-04-21T10:10:00.000Z",
+      failure_code: "wallet_error",
+    };
+
+    expect(PublicVerificationSchema.safeParse(response).success).toBe(true);
+    expect(
+      PublicVerificationSchema.safeParse({
+        ...response,
+        provider: "reverify",
+      }).success
+    ).toBe(false);
+    expect(
+      PublicVerificationSchema.safeParse({
+        ...response,
+        failure_code: "legacy_failure",
+      }).success
+    ).toBe(false);
+  });
+
+  it("requires OpenAPI-required public verification fields", () => {
+    const response = {
+      object: "verification",
+      id: "3639989b-baf7-413b-b769-4189ea705340",
+      status: "created",
+      policy_id: "pol_age_over_18_authbound_v1",
+      env_mode: "test",
+      created_at: "2026-04-21T10:00:00.000Z",
+      expires_at: "2026-04-21T10:10:00.000Z",
+      terminal_at: null,
+      failure_code: null,
+    };
+
+    expect(PublicVerificationSchema.safeParse(response).success).toBe(true);
+
+    for (const key of ["policy_id", "env_mode", "created_at", "expires_at"]) {
+      const missing = { ...response } as Record<string, unknown>;
+      delete missing[key];
+
+      expect(PublicVerificationSchema.safeParse(missing).success).toBe(false);
+    }
+  });
+
+  it("requires client_token on create verification responses only", () => {
+    const response = {
+      object: "verification",
+      id: "3639989b-baf7-413b-b769-4189ea705340",
+      status: "created",
+      policy_id: "pol_age_over_18_authbound_v1",
+      env_mode: "test",
+      created_at: "2026-04-21T10:00:00.000Z",
+      expires_at: "2026-04-21T10:10:00.000Z",
+    };
+
+    expect(PublicVerificationSchema.safeParse(response).success).toBe(true);
+    expect(
+      PublicVerificationSchema.safeParse({
+        ...response,
+        client_token: "client_token_123",
+      }).success
+    ).toBe(false);
+    expect(
+      PublicCreateVerificationResponseSchema.safeParse(response).success
+    ).toBe(false);
+    expect(
+      PublicCreateVerificationResponseSchema.safeParse({
+        ...response,
+        client_token: "client_token_123",
+      }).success
+    ).toBe(true);
   });
 
   it("uses one terminal-state definition for public progress statuses", () => {

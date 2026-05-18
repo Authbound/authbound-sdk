@@ -10,6 +10,7 @@ import {
   buildOpenID4VPDeepLink,
   detectMobilePlatform,
   supportsDeepLinks,
+  type WalletHandoffKind,
   type WalletScheme,
 } from "@authbound/core";
 import { defineComponent, h, onMounted, type PropType, ref } from "vue";
@@ -23,6 +24,16 @@ export interface DeepLinkButtonProps {
    * Authorization request URL from the verification.
    */
   authorizationRequestUrl: string;
+
+  /**
+   * Prebuilt wallet deep link from Authbound.
+   */
+  deepLink?: string;
+
+  /**
+   * Wallet handoff payload kind returned by Authbound.
+   */
+  walletHandoffKind?: WalletHandoffKind;
 
   /**
    * Verification ID for tracking (optional).
@@ -64,6 +75,14 @@ export const DeepLinkButton = defineComponent({
       type: String,
       required: true,
     },
+    deepLink: {
+      type: String,
+      default: undefined,
+    },
+    walletHandoffKind: {
+      type: String as PropType<WalletHandoffKind>,
+      default: undefined,
+    },
     verificationId: {
       type: String,
       default: undefined,
@@ -100,15 +119,13 @@ export const DeepLinkButton = defineComponent({
 
       isOpening.value = true;
 
-      // Build the appropriate deep link
-      let deepLink: string;
-      if (props.scheme === "openid4vp") {
-        deepLink = buildOpenID4VPDeepLink(props.authorizationRequestUrl);
-      } else {
-        deepLink = buildDeepLink(props.authorizationRequestUrl, {
-          scheme: props.scheme as WalletScheme,
-        });
-      }
+      const deepLink =
+        props.deepLink ??
+        (props.scheme === "openid4vp"
+          ? buildOpenID4VPDeepLink(props.authorizationRequestUrl)
+          : buildDeepLink(props.authorizationRequestUrl, {
+              scheme: props.scheme as WalletScheme,
+            }));
 
       // Trigger the callback
       props.onOpen?.();
@@ -130,6 +147,10 @@ export const DeepLinkButton = defineComponent({
 
       // During SSR or before detection, render nothing
       if (isMobile.value === null) {
+        return null;
+      }
+
+      if (props.walletHandoffKind === "request_blob" && !props.deepLink) {
         return null;
       }
 

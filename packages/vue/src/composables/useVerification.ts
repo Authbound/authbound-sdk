@@ -10,6 +10,7 @@ import type {
   VerificationId,
   VerificationSuccess,
   VerificationUiStatus,
+  WalletHandoffKind,
 } from "@authbound/core";
 import { AuthboundError, isTerminalStatus } from "@authbound/core";
 import { type ComputedRef, computed, onMounted, watch } from "vue";
@@ -60,6 +61,8 @@ export interface UseVerificationReturn {
   authorizationRequestUrl: ComputedRef<string | null>;
   /** Deep link for mobile wallets */
   deepLink: ComputedRef<string | null>;
+  /** Wallet handoff payload kind returned by Authbound */
+  walletHandoffKind: ComputedRef<WalletHandoffKind | null>;
   /** Current error (if any) */
   error: ComputedRef<AuthboundError | null>;
   /** Time remaining until verification expires (seconds) */
@@ -149,6 +152,9 @@ export function useVerification(
   );
 
   const deepLink = computed(() => verification.value?.deepLink ?? null);
+  const walletHandoffKind = computed(
+    () => verification.value?.walletHandoffKind ?? null
+  );
 
   const error = computed(() => verification.value?.error ?? null);
   const timeRemaining = computed(
@@ -230,6 +236,7 @@ export function useVerification(
     verificationId,
     authorizationRequestUrl,
     deepLink,
+    walletHandoffKind,
     error,
     timeRemaining,
 

@@ -93,6 +93,9 @@ describe("Express Authbound router contract", () => {
             object: "verification",
             id: "vrf_test123",
             status: "pending",
+            policy_id: "pol_authbound_pension_v1",
+            env_mode: "test",
+            created_at: "2026-04-21T10:00:00.000Z",
             client_token: "client_token_123",
             verification_url: "https://app.authbound.test/v/vrf_test123",
             client_action: {
@@ -258,6 +261,9 @@ describe("Express Authbound router contract", () => {
             object: "verification",
             id: "vrf_test123",
             status: "pending",
+            policy_id: "pol_authbound_pension_v1",
+            env_mode: "test",
+            created_at: "2026-04-21T10:00:00.000Z",
             client_token: "client_token_123",
             client_action: {
               kind: "link",
@@ -411,6 +417,71 @@ describe("Express Authbound router contract", () => {
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({ received: true });
       expect(onWebhook).toHaveBeenCalledTimes(1);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+    }
+  });
+
+  it("accepts parsed JSON webhooks when signature verification is explicitly skipped", async () => {
+    const onWebhook = vi.fn();
+    const app = express();
+    app.use(express.json());
+    app.use(
+      "/api/authbound",
+      createAuthboundRouter(
+        {
+          ...config,
+          webhookSecret: undefined,
+          unsafeSkipWebhookSignatureVerification: true,
+        },
+        { onWebhook }
+      )
+    );
+
+    const payload = {
+      id: "evt_123",
+      object: "event",
+      api_version: "2026-04-01",
+      created: Math.floor(Date.now() / 1000),
+      livemode: false,
+      type: "verification.completed",
+      data: {
+        object: {
+          id: "vrf_test123",
+          object: "verification",
+          status: "verified",
+          customer_user_ref: "user_123",
+        },
+      },
+    };
+
+    const server = await listen(app);
+    const address = server.address();
+    if (!(address && typeof address === "object")) {
+      throw new Error("Expected Express to listen on an ephemeral port");
+    }
+
+    try {
+      const response = await requestJson(
+        `http://127.0.0.1:${address.port}/api/authbound/callback`,
+        {
+          method: "POST",
+          body: payload,
+        }
+      );
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toEqual({ received: true });
+      expect(onWebhook).toHaveBeenCalledTimes(1);
+      expect(onWebhook).toHaveBeenCalledWith(payload);
     } finally {
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {

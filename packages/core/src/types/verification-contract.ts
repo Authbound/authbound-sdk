@@ -4,6 +4,26 @@ import { AuthboundError } from "./errors";
 export const ProviderPreferenceSchema = z.enum(["auto", "vcs", "eudi"]);
 export type ProviderPreference = z.infer<typeof ProviderPreferenceSchema>;
 
+export const SelectedVerificationProviderSchema = z.enum(["vcs", "eudi"]);
+export type SelectedVerificationProvider = z.infer<
+  typeof SelectedVerificationProviderSchema
+>;
+
+export const VerificationFailureCodeSchema = z.enum([
+  "presentation_invalid",
+  "credential_expired",
+  "credential_revoked",
+  "issuer_untrusted",
+  "policy_not_satisfied",
+  "processing_timeout",
+  "provider_error",
+  "user_declined",
+  "wallet_error",
+]);
+export type VerificationFailureCode = z.infer<
+  typeof VerificationFailureCodeSchema
+>;
+
 export const VerificationProgressStatusSchema = z.enum([
   "created",
   "awaiting_user",
@@ -112,53 +132,66 @@ export function isTerminalVerificationUiStatus(
   );
 }
 
-export const VerificationClientActionSchema = z.object({
-  kind: z.enum(["qr", "link", "request_blob"]),
-  data: z.string(),
-  expires_at: z.string().nullish(),
-});
+export const VerificationClientActionSchema = z
+  .object({
+    kind: z.enum(["qr", "link", "request_blob"]),
+    data: z.string(),
+    expires_at: z.string(),
+  })
+  .strict();
 export type VerificationClientActionWire = z.infer<
   typeof VerificationClientActionSchema
 >;
 
-export const PublicVerificationSchema = z.object({
-  object: z.literal("verification"),
-  id: z.string(),
-  status: VerificationProgressStatusSchema,
-  policy_id: z.string().nullish(),
-  policy_hash: z.string().nullish(),
-  provider: z.string().nullish(),
-  env_mode: z.enum(["test", "live"]).nullish(),
-  created_at: z.string().nullish(),
-  expires_at: z.string().nullish(),
-  terminal_at: z.string().nullish(),
-  failure_code: z.string().nullish(),
-  client_token: z.string().nullish(),
-  client_action: VerificationClientActionSchema.nullish(),
-  verification_url: z.string().nullish(),
-  customer_user_ref: z.string().nullish(),
-  metadata: z.record(z.string(), z.unknown()).nullish(),
-});
+export const PublicVerificationSchema = z
+  .object({
+    object: z.literal("verification"),
+    id: z.string(),
+    status: VerificationProgressStatusSchema,
+    policy_id: z.string(),
+    policy_hash: z.string().nullish(),
+    provider: SelectedVerificationProviderSchema.nullish(),
+    env_mode: z.enum(["test", "live"]),
+    created_at: z.string(),
+    expires_at: z.string(),
+    terminal_at: z.string().nullish(),
+    failure_code: VerificationFailureCodeSchema.nullish(),
+    client_action: VerificationClientActionSchema.nullish(),
+    verification_url: z.string().nullish(),
+    customer_user_ref: z.string().nullish(),
+    metadata: z.record(z.string(), z.unknown()).nullish(),
+  })
+  .strict();
+export const PublicCreateVerificationResponseSchema =
+  PublicVerificationSchema.extend({
+    client_token: z.string(),
+  }).strict();
 
-export const PublicVerificationListSchema = z.object({
-  object: z.literal("list"),
-  data: z.array(PublicVerificationSchema),
-  has_more: z.boolean().optional().default(false),
-  next_cursor: z.string().nullable().optional(),
-});
+export const PublicVerificationListSchema = z
+  .object({
+    object: z.literal("list"),
+    data: z.array(PublicVerificationSchema),
+    has_more: z.boolean().optional().default(false),
+    next_cursor: z.string().nullable().optional(),
+  })
+  .strict();
 
-export const PublicVerificationStatusSnapshotSchema = z.object({
-  object: z.literal("verification_status"),
-  id: z.string(),
-  status: VerificationProgressStatusSchema,
-  failure_code: z.string().nullish(),
-  client_action: VerificationClientActionSchema.nullish(),
-});
+export const PublicVerificationStatusSnapshotSchema = z
+  .object({
+    object: z.literal("verification_status"),
+    id: z.string(),
+    status: VerificationProgressStatusSchema,
+    failure_code: VerificationFailureCodeSchema.nullish(),
+    client_action: VerificationClientActionSchema.nullish(),
+  })
+  .strict();
 
-export const SignedVerificationResultSchema = z.object({
-  verification_id: z.string(),
-  status: z.enum(["verified", "failed"]),
-  result_token: z.string(),
-  assertions: z.record(z.string(), z.unknown()).optional(),
-  failure_code: z.string().nullish(),
-});
+export const SignedVerificationResultSchema = z
+  .object({
+    verification_id: z.string(),
+    status: z.enum(["verified", "failed"]),
+    result_token: z.string(),
+    assertions: z.record(z.string(), z.unknown()).optional(),
+    failure_code: VerificationFailureCodeSchema.nullish(),
+  })
+  .strict();

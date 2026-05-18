@@ -10,6 +10,7 @@ import type {
   VerificationId,
   VerificationSuccess,
   VerificationUiStatus,
+  WalletHandoffKind,
 } from "@authbound/core";
 import { AuthboundError } from "@authbound/core";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -55,6 +56,8 @@ export interface UseVerificationReturn {
   authorizationRequestUrl: string | null;
   /** Deep link for mobile */
   deepLink: string | null;
+  /** Wallet handoff payload kind returned by Authbound */
+  walletHandoffKind: WalletHandoffKind | null;
   /** Error if verification failed */
   error: AuthboundError | null;
   /** Seconds remaining until timeout */
@@ -155,7 +158,6 @@ export function useVerification(
   } = options;
 
   const {
-    client,
     verification,
     policyId: contextPolicyId,
     startVerification: contextStart,
@@ -179,16 +181,8 @@ export function useVerification(
   const isFailed = isVerificationFailureStatus(status);
   const verificationId = verification?.verificationId ?? null;
   const authorizationRequestUrl = verification?.authorizationRequestUrl ?? null;
-  let deepLink: string | null = null;
-  try {
-    deepLink =
-      verification?.deepLink ??
-      (authorizationRequestUrl
-        ? client.getDeepLink(authorizationRequestUrl)
-        : null);
-  } catch (err) {
-    client.log("Failed to generate deep link:", err);
-  }
+  const deepLink = verification?.deepLink ?? null;
+  const walletHandoffKind = verification?.walletHandoffKind ?? null;
   const error = verification?.error ?? null;
   const timeRemaining = verification?.timeRemaining ?? null;
 
@@ -276,6 +270,7 @@ export function useVerification(
     verificationId,
     authorizationRequestUrl,
     deepLink: deepLink || null,
+    walletHandoffKind,
     error,
     timeRemaining,
     startVerification,
