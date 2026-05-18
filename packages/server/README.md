@@ -222,17 +222,20 @@ app.use(
 
 ```typescript
 export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig, {
-  onWebhook: async (payload) => {
+  onWebhook: async (event) => {
+    const verification = event.data.object;
+    if (!verification.customer_user_ref) return;
+
     // Update your database
     await db.users.update({
-      where: { id: payload.customer_user_ref },
-      data: { verified: payload.status === "VERIFIED" },
+      where: { id: verification.customer_user_ref },
+      data: { verified: event.type === "verification.completed" },
     });
-    
+
     // Send notifications
-    await sendEmail(payload.customer_user_ref, "Verification complete");
+    await sendEmail(verification.customer_user_ref, "Verification complete");
   },
-  
+
   validateWebhookSignature: async (request, rawBody) => {
     return verifySignature(request.headers.get("x-authbound-signature"), rawBody);
   },
@@ -301,7 +304,9 @@ Creates API route handlers for verification management.
 
 ```typescript
 interface HandlersOptions {
-  onWebhook?: (payload: WebhookPayload) => void | Promise<void>;
+  onWebhook?: (event: WebhookEvent) => void | Promise<void>;
+  onVerified?: (event: WebhookEvent) => void | Promise<void>;
+  onFailed?: (event: WebhookEvent) => void | Promise<void>;
   onVerificationCreated?: (response: CreateVerificationResponse) => void | Promise<void>;
   validateWebhookSignature?: (request, rawBody: string) => boolean | Promise<boolean>;
   getUserRef?: (request) => string | Promise<string>;
@@ -595,9 +600,9 @@ export async function POST(request: NextRequest) {
 - Monitor failed verification attempts
 
 ```typescript
-onWebhook: async (payload) => {
+onWebhook: async (event) => {
   try {
-    await updateDatabase(payload);
+    await updateDatabase(event.data.object);
   } catch (error) {
     console.error("[Authbound] Webhook error:", error);
     // Don't expose internal errors
@@ -680,13 +685,16 @@ export const { GET, POST, DELETE } = createAuthboundHandlers(config, {
     const session = await getServerSession();
     return session?.user?.id;
   },
-  
-  onWebhook: async (payload) => {
+
+  onWebhook: async (event) => {
+    const verification = event.data.object;
+    if (!verification.customer_user_ref) return;
+
     // Update user record
     await db.user.update({
-      where: { id: payload.customer_user_ref },
+      where: { id: verification.customer_user_ref },
       data: {
-        verified: payload.status === "VERIFIED",
+        verified: event.type === "verification.completed",
         verificationDate: new Date(),
       },
     });

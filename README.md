@@ -10,7 +10,7 @@ Authbound publishes AI-friendly docs and an installable Agent Skill for Codex, C
 - Machine-readable docs index: https://docs.authbound.io/llms.txt
 - Agent Skill install: `npx skills add https://docs.authbound.io --skill authbound`
 
-Agents should use the hosted docs as the source of truth, keep `sk_*` keys server-only, use publishable keys only in browser code, verify webhooks server-side, and use idempotency keys for verification and issuance mutations.
+Agents should use the hosted docs as the source of truth, keep `sk_*` keys server-only, treat publishable keys as browser-safe identifiers only, verify webhooks server-side, and use idempotency keys for verification and issuance mutations.
 
 ## Install
 
