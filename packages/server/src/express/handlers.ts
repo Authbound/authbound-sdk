@@ -203,6 +203,7 @@ async function handleWebhook(
     config,
     await processWebhookHandlerKernel({
       rawBody,
+      parsedBody: req.body,
       signature: req.get("x-authbound-signature"),
       config,
       validateWebhookSignature: options.validateWebhookSignature

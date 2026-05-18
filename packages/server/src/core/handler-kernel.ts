@@ -340,6 +340,7 @@ export async function signOutHandlerKernel({
 
 export type ProcessWebhookHandlerKernelOptions = {
   rawBody: string | null;
+  parsedBody?: unknown;
   signature?: string | null;
   config: HandlerKernelConfig;
   validateWebhookSignature?: (rawBody: string) => boolean | Promise<boolean>;
@@ -350,6 +351,7 @@ export type ProcessWebhookHandlerKernelOptions = {
 
 export async function processWebhookHandlerKernel({
   rawBody,
+  parsedBody,
   signature,
   config,
   validateWebhookSignature,
@@ -361,14 +363,17 @@ export async function processWebhookHandlerKernel({
 > {
   try {
     if (rawBody === null) {
-      return errorResponse(
-        "Raw request body is required for webhook verification",
-        400,
-        "RAW_BODY_REQUIRED"
-      );
-    }
-
-    if (validateWebhookSignature) {
+      if (
+        validateWebhookSignature ||
+        !config.unsafeSkipWebhookSignatureVerification
+      ) {
+        return errorResponse(
+          "Raw request body is required for webhook verification",
+          400,
+          "RAW_BODY_REQUIRED"
+        );
+      }
+    } else if (validateWebhookSignature) {
       const isValid = await validateWebhookSignature(rawBody);
       if (!isValid) {
         logError(
@@ -410,10 +415,14 @@ export async function processWebhookHandlerKernel({
     }
 
     let eventBody: unknown;
-    try {
-      eventBody = JSON.parse(rawBody);
-    } catch {
-      return errorResponse("Invalid JSON payload", 400, "INVALID_PAYLOAD");
+    if (rawBody === null) {
+      eventBody = parsedBody;
+    } else {
+      try {
+        eventBody = JSON.parse(rawBody);
+      } catch {
+        return errorResponse("Invalid JSON payload", 400, "INVALID_PAYLOAD");
+      }
     }
 
     const parsed = WebhookEventSchema.safeParse(eventBody);

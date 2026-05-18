@@ -210,4 +210,54 @@ describe("framework handler kernel", () => {
     expect(onVerified).toHaveBeenCalledWith(event);
     expect(onFailed).not.toHaveBeenCalled();
   });
+
+  it("accepts parsed webhook bodies only when signature verification is explicitly skipped", async () => {
+    const event: WebhookEvent = {
+      id: "evt_123",
+      object: "event",
+      api_version: "2026-04-01",
+      created: Math.floor(Date.now() / 1000),
+      livemode: false,
+      type: "verification.completed",
+      data: {
+        object: {
+          id: "vrf_test123",
+          object: "verification",
+          status: "verified",
+        },
+      },
+    };
+    const onWebhook = vi.fn();
+
+    const skippedResult = await processWebhookHandlerKernel({
+      rawBody: null,
+      parsedBody: event,
+      config: {
+        ...config,
+        webhookSecret: undefined,
+        unsafeSkipWebhookSignatureVerification: true,
+      },
+      onWebhook,
+    });
+
+    expect(skippedResult).toEqual({
+      status: 200,
+      body: { received: true },
+    });
+    expect(onWebhook).toHaveBeenCalledWith(event);
+
+    const signedResult = await processWebhookHandlerKernel({
+      rawBody: null,
+      parsedBody: event,
+      config,
+    });
+
+    expect(signedResult).toEqual({
+      status: 400,
+      body: {
+        error: "Raw request body is required for webhook verification",
+        code: "RAW_BODY_REQUIRED",
+      },
+    });
+  });
 });
