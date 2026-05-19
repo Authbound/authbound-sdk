@@ -7,7 +7,8 @@
     "declarationMap": false,
     "sourceMap": false,
     "paths": {
-      "@authbound/server": ["../server/src/index.ts"]
+      "@authbound/server": ["../server/src/index.ts"],
+      "@authbound/vue": ["../vue/src/index.ts"]
     },
     "types": ["node"]
   },

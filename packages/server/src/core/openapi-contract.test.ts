@@ -148,6 +148,7 @@ describe("public issuer SDK/OpenAPI contract", () => {
         "credential_expired",
         "credential_revoked",
         "issuer_untrusted",
+        "missing_requested_assertions",
         "policy_not_satisfied",
         "processing_timeout",
         "provider_error",

@@ -40,7 +40,7 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
     // Default mock: successful pending response
     fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ status: "pending" }),
+      json: () => Promise.resolve({ status: "awaiting_user" }),
     });
     vi.stubGlobal("fetch", fetchMock);
   });
@@ -251,7 +251,7 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
       fetchMock
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ status: "pending" }),
+          json: () => Promise.resolve({ status: "awaiting_user" }),
         })
         .mockResolvedValueOnce({
           ok: true,

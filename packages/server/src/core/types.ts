@@ -67,7 +67,6 @@ export type VerificationEventStatus =
   | "created"
   | "awaiting_user"
   | "awaiting_provider"
-  | "pending"
   | "processing"
   | "verified"
   | "failed"
@@ -78,7 +77,6 @@ export const VerificationEventStatusSchema = z.enum([
   "created",
   "awaiting_user",
   "awaiting_provider",
-  "pending",
   "processing",
   "verified",
   "failed",
@@ -495,7 +493,6 @@ export function mapVerificationEventStatusToVerificationStatus(
     case "created":
     case "awaiting_user":
     case "awaiting_provider":
-    case "pending":
     case "processing":
       return "PENDING";
     default: {

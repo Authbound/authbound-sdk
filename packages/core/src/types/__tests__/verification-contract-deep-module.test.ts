@@ -14,7 +14,6 @@ describe("public verification contract module", () => {
       "created",
       "awaiting_user",
       "awaiting_provider",
-      "pending",
       "processing",
       "verified",
       "failed",
