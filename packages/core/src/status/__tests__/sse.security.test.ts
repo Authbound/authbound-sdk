@@ -163,7 +163,7 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         body: createMockStream([
-          'event: status\ndata: {"status":"pending"}\n\n',
+          'event: status\ndata: {"status":"awaiting_user"}\n\n',
         ]),
       });
       vi.stubGlobal("fetch", fetchMock);
@@ -193,7 +193,7 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
 
     it("processes large data with proper delimiters (buffer clears)", async () => {
       // Large chunks but with proper \n\n delimiters that clear the buffer
-      const chunk1 = 'event: status\ndata: {"status":"pending"}\n\n';
+      const chunk1 = 'event: status\ndata: {"status":"awaiting_user"}\n\n';
       const chunk2 = 'event: status\ndata: {"status":"processing"}\n\n';
 
       vi.stubGlobal(
@@ -226,7 +226,7 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
       // Just under the limit
       const safeSize = MAX_BUFFER_SIZE - 1000;
       const chunk =
-        'data: {"status":"pending","payload":"' +
+        'data: {"status":"awaiting_user","payload":"' +
         "a".repeat(safeSize) +
         '"}\n\n';
 
@@ -262,7 +262,7 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
       const events_data: string[] = [];
       for (let i = 0; i < 20; i++) {
         events_data.push(
-          `event: status\ndata: {"status":"pending","i":${i}}\n\n`
+          `event: status\ndata: {"status":"awaiting_user","i":${i}}\n\n`
         );
       }
 

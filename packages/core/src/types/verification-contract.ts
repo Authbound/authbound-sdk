@@ -14,6 +14,7 @@ export const VerificationFailureCodeSchema = z.enum([
   "credential_expired",
   "credential_revoked",
   "issuer_untrusted",
+  "missing_requested_assertions",
   "policy_not_satisfied",
   "processing_timeout",
   "provider_error",
@@ -28,7 +29,6 @@ export const VerificationProgressStatusSchema = z.enum([
   "created",
   "awaiting_user",
   "awaiting_provider",
-  "pending",
   "processing",
   "verified",
   "failed",
@@ -99,7 +99,6 @@ export function projectVerificationStatusForUi(
     case "created":
     case "awaiting_user":
     case "awaiting_provider":
-    case "pending":
       return "pending";
     case "processing":
       return "processing";

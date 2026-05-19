@@ -14,7 +14,7 @@ const timestamp = "2026-04-21T10:00:00.000Z";
 const verificationReadResponse = {
   object: "verification",
   id: "vrf_123",
-  status: "pending",
+  status: "awaiting_user",
   policy_id: "pol_authbound_pension_v1",
   provider: "vcs",
   env_mode: "test",
@@ -74,7 +74,7 @@ describe("AuthboundClient verifications API", () => {
     expect(result).toMatchObject({
       object: "verification",
       id: "vrf_123",
-      status: "pending",
+      status: "awaiting_user",
       policyId: "pol_authbound_pension_v1",
       envMode: "test",
       customerUserRef: "demo-user",
@@ -176,7 +176,7 @@ describe("AuthboundClient verifications API", () => {
     const client = createClient();
 
     const list = await client.verifications.list({
-      status: "pending",
+      status: "awaiting_user",
       limit: 10,
       startingAfter: "vrf_before",
       endingBefore: "vrf_after",
@@ -204,7 +204,7 @@ describe("AuthboundClient verifications API", () => {
       ])
     ).toEqual([
       [
-        `${apiUrl}/v1/verifications?status=pending&limit=10&starting_after=vrf_before&ending_before=vrf_after`,
+        `${apiUrl}/v1/verifications?status=awaiting_user&limit=10&starting_after=vrf_before&ending_before=vrf_after`,
         "GET",
       ],
       [`${apiUrl}/v1/verifications/vrf_123`, "GET"],
@@ -239,7 +239,7 @@ describe("AuthboundClient verifications API", () => {
     expect(verification).toMatchObject({
       object: "verification",
       id: "vrf_123",
-      status: "pending",
+      status: "awaiting_user",
     });
     expect(verification.policyHash).toBeUndefined();
     expect(verification.terminalAt).toBeUndefined();
@@ -326,7 +326,7 @@ describe("AuthboundClient verifications API", () => {
         jsonResponse({
           object: "verification_status",
           id: "vrf_123",
-          status: "pending",
+          status: "awaiting_user",
         })
       );
     vi.stubGlobal("fetch", fetchMock);

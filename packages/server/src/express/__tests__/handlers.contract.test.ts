@@ -92,7 +92,7 @@ describe("Express Authbound router contract", () => {
           JSON.stringify({
             object: "verification",
             id: "vrf_test123",
-            status: "pending",
+            status: "awaiting_user",
             policy_id: "pol_authbound_pension_v1",
             env_mode: "test",
             created_at: "2026-04-21T10:00:00.000Z",
@@ -260,7 +260,7 @@ describe("Express Authbound router contract", () => {
           JSON.stringify({
             object: "verification",
             id: "vrf_test123",
-            status: "pending",
+            status: "awaiting_user",
             policy_id: "pol_authbound_pension_v1",
             env_mode: "test",
             created_at: "2026-04-21T10:00:00.000Z",
