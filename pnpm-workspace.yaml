@@ -2,6 +2,11 @@ packages:
   - examples/*
   - packages/*
 
+allowBuilds:
+  '@parcel/watcher': set this to true or false
+  esbuild: set this to true or false
+  sharp: set this to true or false
+
 catalog:
   '@testing-library/react': 16.3.0
   '@types/node': 24.10.1
