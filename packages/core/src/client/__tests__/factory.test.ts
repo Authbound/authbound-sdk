@@ -258,4 +258,47 @@ describe("createClient", () => {
       })
     );
   });
+
+  it("sends arbitrary JSON metadata through the configured verification endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          verificationId: "vrf_test123",
+          authorizationRequestUrl: "https://gateway.authbound.test/request",
+          clientToken: "client_token_123",
+          expiresAt: "2026-04-21T10:10:00.000Z",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createClient({
+      publishableKey: "pk_test_public123" as never,
+      policyId: "pol_authbound_pension_v1" as never,
+      verificationEndpoint: "/api/authbound/verification",
+    });
+
+    const metadata = {
+      cart_total: 42,
+      checks: ["age", "identity"],
+      nested: { tier: "gold" },
+    };
+
+    await client.startVerification({ metadata });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/authbound/verification",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          policyId: "pol_authbound_pension_v1",
+          metadata,
+        }),
+      })
+    );
+  });
 });

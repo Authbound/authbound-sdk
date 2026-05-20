@@ -211,7 +211,7 @@ const OpenId4VcIssuanceOfferSchema = z.object({
   txCodeRequired: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
-  metadata: z.record(z.string(), z.string()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   expiresAt: z.string().optional(),
 });
 
@@ -358,7 +358,7 @@ export interface CreateOpenId4VcIssuanceOfferOptions {
   issuanceMode?: "InTime" | "Deferred";
   txCode?: string;
   urlScheme?: "openid-credential-offer://" | "haip://";
-  metadata?: Record<string, string>;
+  metadata?: Record<string, unknown>;
   idempotencyKey?: string;
 }
 

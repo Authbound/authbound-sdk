@@ -191,7 +191,7 @@ export function createVerificationClient(config: ResolvedConfig) {
   async function createVerification(options: {
     policyId: string;
     customerUserRef?: string;
-    metadata?: Record<string, string>;
+    metadata?: Record<string, unknown>;
     provider?: ProviderPreference;
   }): Promise<{
     verificationId: string;

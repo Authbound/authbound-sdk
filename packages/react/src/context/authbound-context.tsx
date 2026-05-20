@@ -112,7 +112,7 @@ export interface AuthboundContextValue {
   startVerification: (options?: {
     policyId?: PolicyId;
     customerUserRef?: string;
-    metadata?: Record<string, string>;
+    metadata?: Record<string, unknown>;
     provider?: ProviderPreference;
   }) => Promise<void>;
 
@@ -311,7 +311,7 @@ export function AuthboundProvider({
     async (options?: {
       policyId?: PolicyId;
       customerUserRef?: string;
-      metadata?: Record<string, string>;
+      metadata?: Record<string, unknown>;
       provider?: ProviderPreference;
     }) => {
       try {

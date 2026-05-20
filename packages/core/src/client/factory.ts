@@ -65,7 +65,7 @@ export interface AuthboundClient {
   startVerification(options?: {
     policyId?: PolicyId;
     customerUserRef?: string;
-    metadata?: Record<string, string>;
+    metadata?: Record<string, unknown>;
     provider?: ProviderPreference;
   }): Promise<CreateVerificationResponse>;
 

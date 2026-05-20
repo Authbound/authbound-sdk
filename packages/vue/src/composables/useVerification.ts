@@ -28,7 +28,7 @@ export interface UseVerificationOptions {
   /** Customer user reference for linking */
   customerUserRef?: string;
   /** Additional metadata */
-  metadata?: Record<string, string>;
+  metadata?: Record<string, unknown>;
   /** Optional provider override */
   provider?: ProviderPreference;
   /** Callback when verified */

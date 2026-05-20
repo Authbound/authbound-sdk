@@ -118,7 +118,7 @@ export const ERROR_METADATA: Record<AuthboundErrorCode, ErrorMetadata> = {
   },
   verification_expired: {
     message: "Verification has expired.",
-    hint: "Verifications expire after 5 minutes. Call startVerification() to create a new verification.",
+    hint: "Verifications expire after 15 minutes by default. Call startVerification() to create a new verification.",
     docsPath: "/errors/verification-expired",
   },
   verification_invalid_state: {

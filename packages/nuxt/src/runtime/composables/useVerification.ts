@@ -33,7 +33,7 @@ export interface UseVerificationOptions {
   /** Customer user reference for linking */
   customerUserRef?: string;
   /** Additional metadata */
-  metadata?: Record<string, string>;
+  metadata?: Record<string, unknown>;
   /** Optional provider override. The Nuxt server route may restrict this. */
   provider?: ProviderPreference;
   /** Redirect on success */
@@ -126,7 +126,7 @@ export function useVerification(options: UseVerificationOptions = {}) {
       startOptions: {
         policyId?: PolicyId;
         customerUserRef?: string;
-        metadata?: Record<string, string>;
+        metadata?: Record<string, unknown>;
         provider?: ProviderPreference;
       } = {}
     ) => {

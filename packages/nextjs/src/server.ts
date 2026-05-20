@@ -25,6 +25,7 @@ import {
   AuthboundClientError,
   BrowserVerificationResponseError,
   BrowserWalletUrlError,
+  type CreateVerificationResponse,
   createToken,
   getVerificationFromToken,
   toBrowserVerificationResponse,
@@ -328,9 +329,7 @@ export {
  * SDK expects camelCase with semantic names:
  *   { verificationId, clientToken, authorizationRequestUrl, expiresAt, deepLink }
  */
-function mapGatewayResponse(
-  raw: Record<string, unknown>
-): Record<string, unknown> {
+function mapGatewayResponse(raw: Record<string, unknown>): CreateVerificationResponse {
   const clientAction = (raw.client_action ?? raw.clientAction) as
     | { kind?: string; data?: string; expires_at?: string }
     | undefined;
@@ -489,7 +488,7 @@ export function createVerificationRoute(
       const rawResponse = await gatewayResponse.json();
 
       // Map gateway response shape to SDK-expected shape
-      let responseData = mapGatewayResponse(rawResponse);
+      let responseData: Record<string, unknown> = { ...mapGatewayResponse(rawResponse) };
 
       // Apply custom transform on top of mapped response
       if (transformResponse) {
@@ -1140,13 +1139,8 @@ export async function createVerification(options: {
   gatewayUrl?: string;
   secret?: string;
   customerUserRef?: string;
-  metadata?: Record<string, string>;
-}): Promise<{
-  verificationId: string;
-  authorizationRequestUrl: string;
-  clientToken: string;
-  expiresAt: string;
-}> {
+  metadata?: Record<string, unknown>;
+}): Promise<CreateVerificationResponse> {
   const {
     policyId,
     gatewayUrl = getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io"),
@@ -1173,12 +1167,7 @@ export async function createVerification(options: {
   }
 
   const raw = await response.json();
-  return mapGatewayResponse(raw) as {
-    verificationId: string;
-    authorizationRequestUrl: string;
-    clientToken: string;
-    expiresAt: string;
-  };
+  return mapGatewayResponse(raw);
 }
 
 // ============================================================================

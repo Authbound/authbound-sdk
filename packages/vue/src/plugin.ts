@@ -112,7 +112,7 @@ export interface AuthboundContext {
   startVerification: (options?: {
     policyId?: PolicyId;
     customerUserRef?: string;
-    metadata?: Record<string, string>;
+    metadata?: Record<string, unknown>;
     provider?: ProviderPreference;
   }) => Promise<void>;
 
@@ -293,7 +293,7 @@ export const AuthboundPlugin = {
     const startVerification = async (verifyOptions?: {
       policyId?: PolicyId;
       customerUserRef?: string;
-      metadata?: Record<string, string>;
+      metadata?: Record<string, unknown>;
       provider?: ProviderPreference;
     }) => {
       try {

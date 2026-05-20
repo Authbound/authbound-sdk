@@ -78,7 +78,7 @@ export interface CreateVerificationOptions {
   /** Optional reference to your user (for webhooks) */
   customerUserRef?: string;
   /** Optional metadata for your records */
-  metadata?: Record<string, string>;
+  metadata?: Record<string, unknown>;
   /** Optional provider override */
   provider?: ProviderPreference;
   /** Override default timeout (seconds) */
@@ -88,7 +88,7 @@ export interface CreateVerificationOptions {
 export const CreateVerificationOptionsSchema = z.object({
   policyId: z.string().refine(isPolicyId, "Invalid policy ID"),
   customerUserRef: z.string().optional(),
-  metadata: z.record(z.string(), z.string()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   provider: ProviderPreferenceSchema.optional(),
   timeoutSeconds: z.number().int().positive().max(600).optional(),
 });

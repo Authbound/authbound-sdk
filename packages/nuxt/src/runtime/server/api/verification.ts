@@ -17,7 +17,7 @@ import { returnNuxtKernelResult } from "./server-kernel";
 type CreateVerificationRequest = {
   policyId?: PolicyId | string;
   customerUserRef?: string;
-  metadata?: Record<string, string>;
+  metadata?: Record<string, unknown>;
   provider?: ProviderPreference;
 };
 

@@ -73,7 +73,7 @@ type CreateVerificationClient = {
     create(options: {
       policyId: string;
       customerUserRef?: string;
-      metadata?: Record<string, string>;
+      metadata?: Record<string, unknown>;
       provider?: "auto" | "vcs" | "eudi";
       idempotencyKey?: string;
     }): Promise<BrowserVerificationSource>;
@@ -89,7 +89,7 @@ type VerificationResultClient = {
 const CreateVerificationRequestSchema = z.object({
   policyId: z.string().min(1),
   customerUserRef: z.string().optional(),
-  metadata: z.record(z.string(), z.string()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   provider: ProviderPreferenceSchema.optional(),
 });
 

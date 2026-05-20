@@ -83,6 +83,44 @@ describe("framework handler kernel", () => {
     expect(onVerificationCreated).toHaveBeenCalledWith(result.body);
   });
 
+  it("accepts arbitrary JSON metadata in framework create requests", async () => {
+    const client = {
+      verifications: {
+        create: vi.fn(async () => ({
+          id: "vrf_test123",
+          clientToken: "client_token_123",
+          verificationUrl: "https://app.authbound.test/v/vrf_test123",
+          clientAction: {
+            kind: "link" as const,
+            data: "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.test%2Frequest%2F123",
+            expiresAt: "2026-04-21T10:10:00.000Z",
+          },
+          expiresAt: "2026-04-21T10:10:00.000Z",
+        })),
+      },
+    };
+
+    const metadata = {
+      cart_total: 42,
+      checks: ["age", "identity"],
+      nested: { tier: "gold" },
+    };
+
+    const result = await createVerificationHandlerKernel({
+      requestBody: {
+        policyId: "pol_authbound_pension_v1",
+        metadata,
+      },
+      config,
+      client,
+    });
+
+    expect(result.status).toBe(200);
+    expect(client.verifications.create).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata })
+    );
+  });
+
   it("maps upstream client errors without leaking generic exceptions", async () => {
     const client = {
       verifications: {

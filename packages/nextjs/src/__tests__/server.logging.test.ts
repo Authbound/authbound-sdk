@@ -1,6 +1,7 @@
 import type { PolicyId } from "@authbound/core";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import {
+  createVerification,
   createSessionRoute,
   createStatusRoute,
   createVerificationRoute,
@@ -15,6 +16,82 @@ describe("Next.js server debug logging", () => {
   afterEach(() => {
     global.fetch = originalFetch;
     vi.restoreAllMocks();
+  });
+
+  it("types createVerification responses with wallet handoff fields", () => {
+    type CreatedVerification = Awaited<ReturnType<typeof createVerification>>;
+
+    expectTypeOf<CreatedVerification>()
+      .toHaveProperty("deepLink")
+      .toEqualTypeOf<string | undefined>();
+    expectTypeOf<CreatedVerification>()
+      .toHaveProperty("walletHandoffKind")
+      .toEqualTypeOf<"qr" | "link" | "request_blob" | undefined>();
+  });
+
+  it("returns deep links from createVerification gateway responses", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        object: "verification",
+        id: "vrf_1234567890abcdef",
+        client_token: "client_token_secret_value",
+        client_action: {
+          kind: "link",
+          data: "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.io%2Fverify%2Fsecret",
+          expires_at: "2026-03-09T12:00:00.000Z",
+        },
+        expires_at: "2026-03-09T12:00:00.000Z",
+      }),
+    }) as typeof fetch;
+
+    await expect(
+      createVerification({
+        gatewayUrl: "https://api.authbound.io",
+        policyId: "pol_age_over_18_authbound_v1" as PolicyId,
+        secret: "sk_test_secret",
+      })
+    ).resolves.toMatchObject({
+      verificationId: "vrf_1234567890abcdef",
+      authorizationRequestUrl:
+        "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.io%2Fverify%2Fsecret",
+      clientToken: "client_token_secret_value",
+      expiresAt: "2026-03-09T12:00:00.000Z",
+      deepLink:
+        "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.io%2Fverify%2Fsecret",
+    });
+  });
+
+  it("returns request-blob handoff kind from createVerification gateway responses", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        object: "verification",
+        id: "vrf_1234567890abcdef",
+        client_token: "client_token_secret_value",
+        client_action: {
+          kind: "request_blob",
+          data: "eyJ0eXAiOiJvYXV0aC1hdXRoei1yZXErand0In0.request.jwt",
+          expires_at: "2026-03-09T12:00:00.000Z",
+        },
+        expires_at: "2026-03-09T12:00:00.000Z",
+      }),
+    }) as typeof fetch;
+
+    await expect(
+      createVerification({
+        gatewayUrl: "https://api.authbound.io",
+        policyId: "pol_age_over_18_authbound_v1" as PolicyId,
+        secret: "sk_test_secret",
+      })
+    ).resolves.toMatchObject({
+      verificationId: "vrf_1234567890abcdef",
+      authorizationRequestUrl:
+        "eyJ0eXAiOiJvYXV0aC1hdXRoei1yZXErand0In0.request.jwt",
+      clientToken: "client_token_secret_value",
+      expiresAt: "2026-03-09T12:00:00.000Z",
+      walletHandoffKind: "request_blob",
+    });
   });
 
   async function createPendingVerificationCookie(): Promise<string> {
