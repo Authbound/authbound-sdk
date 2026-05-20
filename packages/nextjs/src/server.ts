@@ -329,7 +329,9 @@ export {
  * SDK expects camelCase with semantic names:
  *   { verificationId, clientToken, authorizationRequestUrl, expiresAt, deepLink }
  */
-function mapGatewayResponse(raw: Record<string, unknown>): CreateVerificationResponse {
+function mapGatewayResponse(
+  raw: Record<string, unknown>
+): CreateVerificationResponse {
   const clientAction = (raw.client_action ?? raw.clientAction) as
     | { kind?: string; data?: string; expires_at?: string }
     | undefined;
@@ -488,7 +490,9 @@ export function createVerificationRoute(
       const rawResponse = await gatewayResponse.json();
 
       // Map gateway response shape to SDK-expected shape
-      let responseData: Record<string, unknown> = { ...mapGatewayResponse(rawResponse) };
+      let responseData: Record<string, unknown> = {
+        ...mapGatewayResponse(rawResponse),
+      };
 
       // Apply custom transform on top of mapped response
       if (transformResponse) {

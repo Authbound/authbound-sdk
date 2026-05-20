@@ -589,11 +589,12 @@ export class AuthboundClient {
       const response = await fetch(url, fetchOptions);
 
       if (!response.ok) {
-        let errorBody: unknown;
+        const errorText = await response.text();
+        let errorBody: unknown = errorText;
         try {
-          errorBody = await response.json();
+          errorBody = errorText ? JSON.parse(errorText) : "";
         } catch {
-          errorBody = await response.text();
+          errorBody = errorText;
         }
 
         if (this.debug) {
@@ -1217,11 +1218,12 @@ export async function getVerificationStatus(options: {
     }
   );
 
-  let body: unknown;
+  const responseText = await response.text();
+  let body: unknown = responseText;
   try {
-    body = await response.json();
+    body = responseText ? JSON.parse(responseText) : "";
   } catch {
-    body = await response.text();
+    body = responseText;
   }
 
   if (!response.ok) {
@@ -1239,7 +1241,7 @@ export async function getVerificationStatus(options: {
         : `API request failed: ${response.status} ${response.statusText}`,
       typeof publicError?.code === "string" ? publicError.code : "API_ERROR",
       response.status,
-      body
+      summarizeForDebug(body)
     );
   }
 

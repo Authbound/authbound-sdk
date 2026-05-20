@@ -1,9 +1,9 @@
 import type { PolicyId } from "@authbound/core";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import {
-  createVerification,
   createSessionRoute,
   createStatusRoute,
+  createVerification,
   createVerificationRoute,
   createWebhookRoute,
 } from "../server";

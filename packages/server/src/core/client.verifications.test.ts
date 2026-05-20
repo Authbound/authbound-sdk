@@ -109,6 +109,31 @@ describe("AuthboundClient verifications API", () => {
     });
   });
 
+  it("preserves non-JSON API error responses without double-reading the body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response("verification service unavailable", {
+            status: 503,
+            statusText: "Service Unavailable",
+            headers: { "Content-Type": "text/plain" },
+          })
+      )
+    );
+
+    await expect(
+      createClient().verifications.create({
+        policyId: "pol_authbound_pension_v1",
+      })
+    ).rejects.toMatchObject({
+      message: "API request failed: 503 Service Unavailable",
+      code: "API_ERROR",
+      statusCode: 503,
+      details: { bodyType: "string" },
+    });
+  });
+
   it("rejects create responses without the required client token", async () => {
     vi.stubGlobal(
       "fetch",
@@ -384,6 +409,34 @@ describe("AuthboundClient verifications API", () => {
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
       `${apiUrl}/v1/verifications/vrf_123/status`
     );
+  });
+
+  it("preserves non-JSON errors from the standalone status helper", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response("verification status unavailable", {
+            status: 503,
+            statusText: "Service Unavailable",
+            headers: { "Content-Type": "text/plain" },
+          })
+      )
+    );
+
+    await expect(
+      getVerificationStatus({
+        apiUrl,
+        verificationId: "vrf_123",
+        clientToken: "client_token_123",
+        publishableKey,
+      })
+    ).rejects.toMatchObject({
+      message: "API request failed: 503 Service Unavailable",
+      code: "API_ERROR",
+      statusCode: 503,
+      details: { bodyType: "string" },
+    });
   });
 
   it("preserves public API error codes", async () => {
