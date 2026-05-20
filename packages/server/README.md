@@ -769,7 +769,7 @@ See the [Next.js example app](../../examples/next-example) for a complete implem
 
 - **Next.js:** 14.0.0+ (15+ recommended)
 - **Node.js:** 18.0.0+
-- **Edge Runtime:** Supported (uses `jose` for edge compatibility)
+- **Edge Runtime:** Only the `/edge` JWT/session utilities are edge-compatible today. The API client and webhook signature helpers require Node.js because they use `node:crypto`.
 
 ## Contributing
 

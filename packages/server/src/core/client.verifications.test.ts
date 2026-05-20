@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   AuthboundClient,
+  AuthboundClientError,
   createVerification,
   getVerificationStatus,
 } from "./client";
@@ -139,6 +140,42 @@ describe("AuthboundClient verifications API", () => {
     ).rejects.toMatchObject({
       code: "INVALID_RESPONSE",
     });
+  });
+
+  it("logs only redacted response metadata when debug logging is enabled", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...verificationResponse,
+          client_token: "client_token_secret",
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          verification_id: "vrf_123",
+          status: "verified",
+          result_token: "result_token_secret",
+          assertions: { age_over_18: true },
+        })
+      );
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new AuthboundClient({ apiKey, apiUrl, debug: true });
+    await client.verifications.create({
+      policyId: "pol_authbound_pension_v1",
+    });
+    await client.verifications.getResult("vrf_123");
+
+    const logged = JSON.stringify(logSpy.mock.calls);
+    expect(logged).toContain("hasClientToken");
+    expect(logged).toContain("hasResultToken");
+    expect(logged).not.toContain("client_token_secret");
+    expect(logged).not.toContain("result_token_secret");
+    expect(logged).not.toContain("age_over_18");
+
+    logSpy.mockRestore();
   });
 
   it("lists, gets, cancels, and fetches signed results with secret-key endpoints", async () => {
@@ -373,5 +410,53 @@ describe("AuthboundClient verifications API", () => {
       code: "invalid_policy",
       statusCode: 400,
     });
+  });
+
+  it("redacts sensitive fields from API error details", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          {
+            object: "error",
+            code: "bad_request",
+            message: "Bad request",
+            client_token: "client_token_secret",
+            result_token: "result_token_secret",
+            assertions: { age_over_18: true },
+            secret: "whsec_secret",
+          },
+          400
+        )
+      )
+    );
+
+    let thrown: unknown;
+    try {
+      await createClient().verifications.create({
+        policyId: "pol_authbound_pension_v1",
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(AuthboundClientError);
+    expect(thrown).toMatchObject({
+      code: "bad_request",
+      details: {
+        code: "bad_request",
+        hasClientToken: true,
+        hasResultToken: true,
+        hasWebhookSecret: true,
+        object: "error",
+      },
+      message: "Bad request",
+      statusCode: 400,
+    });
+    const serialized = JSON.stringify((thrown as AuthboundClientError).details);
+    expect(serialized).not.toContain("client_token_secret");
+    expect(serialized).not.toContain("result_token_secret");
+    expect(serialized).not.toContain("age_over_18");
+    expect(serialized).not.toContain("whsec_secret");
   });
 });

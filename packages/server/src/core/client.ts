@@ -71,6 +71,59 @@ export interface AuthboundClientConfig {
 const DEFAULT_API_URL = "https://api.authbound.io";
 const DEFAULT_TIMEOUT = 30_000; // 30 seconds
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasStringProperty(
+  value: Record<string, unknown>,
+  key: string
+): boolean {
+  return typeof value[key] === "string" && value[key].length > 0;
+}
+
+function summarizeForDebug(value: unknown): Record<string, unknown> {
+  if (!isRecord(value)) {
+    return { bodyType: typeof value };
+  }
+
+  const summary: Record<string, unknown> = {};
+  for (const key of ["object", "id", "status", "type", "code", "param"]) {
+    if (typeof value[key] === "string") {
+      summary[key] = value[key];
+    }
+  }
+
+  if (typeof value.message === "string") {
+    summary.message = value.message;
+  }
+  if (typeof value.livemode === "boolean") {
+    summary.livemode = value.livemode;
+  }
+  if (typeof value.env_mode === "string") {
+    summary.envMode = value.env_mode;
+  }
+  if (Array.isArray(value.data)) {
+    summary.dataCount = value.data.length;
+  }
+  if (typeof value.has_more === "boolean") {
+    summary.hasMore = value.has_more;
+  }
+
+  summary.hasClientToken =
+    hasStringProperty(value, "client_token") ||
+    hasStringProperty(value, "clientToken");
+  summary.hasResultToken =
+    hasStringProperty(value, "result_token") ||
+    hasStringProperty(value, "resultToken");
+  summary.hasWebhookSecret =
+    hasStringProperty(value, "secret") ||
+    hasStringProperty(value, "webhook_secret") ||
+    hasStringProperty(value, "webhookSecret");
+
+  return summary;
+}
+
 /**
  * Validate API key format.
  * API keys must start with "sk_test_" or "sk_live_".
@@ -546,7 +599,7 @@ export class AuthboundClient {
         if (this.debug) {
           console.error(
             `[AuthboundClient] Error ${response.status}:`,
-            errorBody
+            summarizeForDebug(errorBody)
           );
         }
 
@@ -566,14 +619,14 @@ export class AuthboundClient {
             ? publicError.code
             : "API_ERROR",
           response.status,
-          errorBody
+          summarizeForDebug(errorBody)
         );
       }
 
       const data = await response.json();
 
       if (this.debug) {
-        console.log(`[AuthboundClient] Response:`, data);
+        console.log(`[AuthboundClient] Response:`, summarizeForDebug(data));
       }
 
       return data as T;
@@ -1063,7 +1116,6 @@ class WebhooksApi {
    * ```
    */
   verifySignature(options: VerifySignatureOptions): boolean {
-    // Import here to support edge runtimes
     const crypto = require("node:crypto") as typeof import("node:crypto");
 
     const { payload, signature, secret, tolerance = 300 } = options;
