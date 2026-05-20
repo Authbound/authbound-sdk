@@ -8,7 +8,7 @@ export default defineConfig([
     dts: true,
     clean: true,
     outDir: "dist",
-    external: ["next", "next/server", "@authbound/core"],
+    external: ["next", "next/server.js", "@authbound/core"],
   },
   // Next.js specific entry point
   {
@@ -16,7 +16,7 @@ export default defineConfig([
     format: ["esm", "cjs"],
     dts: true,
     outDir: "dist/next",
-    external: ["next", "next/server", "@authbound/core", "jose"],
+    external: ["next", "next/server.js", "@authbound/core", "jose"],
   },
   // Express.js specific entry point
   {
@@ -40,6 +40,6 @@ export default defineConfig([
     format: ["esm"],
     dts: true,
     outDir: "dist",
-    external: ["next", "next/server", "@authbound/core"],
+    external: ["next", "next/server.js", "@authbound/core"],
   },
 ]);

@@ -7,7 +7,7 @@
 
 ## Overview
 
-`@authbound/server` provides a complete server-side solution for protecting Next.js routes with identity and age verification. It includes:
+`@authbound/server` provides server-side primitives for verification, issuance, webhooks, and framework adapters. It includes:
 
 - **Middleware-based route protection** - Automatically redirect unverified users
 - **Encrypted verification context cookies** - Stateless, secure route access state
@@ -199,7 +199,9 @@ Verification context is stored in encrypted JWT cookies:
 
 Use webhooks to reconcile backend state. Browser sessions are finalized by the
 same-origin `POST /api/authbound/session` route after the browser observes a
-verified status.
+verified status. That route validates the pending same-origin browser binding,
+fetches the signed verification result with your secret key, and only then sets
+the SDK session cookie.
 
 Set `allowedOrigins` to your public app origin when the route runs behind a
 proxy or container URL. If you want the SDK to derive the public origin from
@@ -779,6 +781,5 @@ MIT © [Authbound](https://authbound.com)
 
 ## Support
 
-- [Documentation](https://docs.authbound.com)
+- [Documentation](https://docs.authbound.io)
 - [GitHub Issues](https://github.com/authbound/sdk/issues)
-- [Discord Community](https://discord.gg/authbound)

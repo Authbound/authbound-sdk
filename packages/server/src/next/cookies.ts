@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server.js";
 import { createToken, getVerificationFromToken } from "../core/jwt";
 import type {
   AuthboundConfig,

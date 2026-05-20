@@ -61,8 +61,10 @@ export default function VerifyPage() {
 ```
 
 The browser creates a verification, subscribes to status, then calls
-`POST /api/authbound/session` after `verified`. Webhooks are for backend
-reconciliation and require `AUTHBOUND_WEBHOOK_SECRET` by default.
+`POST /api/authbound/session` after `verified`. The session route validates the
+pending same-origin binding, fetches the signed result with your secret key, and
+sets the SDK cookie. Webhooks are for backend reconciliation and require
+`AUTHBOUND_WEBHOOK_SECRET` by default.
 
 Set `allowedOrigins` to your public app origin when the route runs behind a
 proxy or container URL. If you want the SDK to derive the public origin from

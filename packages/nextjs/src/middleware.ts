@@ -20,7 +20,7 @@
 
 import type { PolicyId } from "@authbound/core";
 import { type AuthboundClaims, verifyToken } from "@authbound/server";
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server.js";
 
 // ============================================================================
 // Types

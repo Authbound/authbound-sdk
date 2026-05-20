@@ -23,10 +23,11 @@
  * export const config = { matcher: ['/((?!_next|static).*)'] };
  *
  * // 2. app/api/authbound/verification/route.ts
+ * import { asPolicyId } from '@authbound/core';
  * import { createVerificationRoute } from '@authbound/nextjs';
  *
  * export const POST = createVerificationRoute({
- *   policyId: 'pol_authbound_pension_v1',
+ *   policyId: asPolicyId('pol_authbound_pension_v1'),
  * });
  *
  * // 3. app/verify/page.tsx

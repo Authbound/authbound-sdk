@@ -137,6 +137,6 @@ The SDK provides a catch-all API route handler that manages:
 
 ## Learn More
 
-- [Authbound Documentation](https://docs.authbound.com)
+- [Authbound Documentation](https://docs.authbound.io)
 - [Next.js Middleware](https://nextjs.org/docs/app/building-your-application/routing/middleware)
 - [@authbound/server API Reference](../../packages/server/README.md)

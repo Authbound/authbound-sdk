@@ -6,10 +6,11 @@
  * @example
  * ```ts
  * // app/api/authbound/verification/route.ts
+ * import { asPolicyId } from '@authbound/core';
  * import { createVerificationRoute } from '@authbound/nextjs/server';
  *
  * export const POST = createVerificationRoute({
- *   policyId: 'pol_authbound_pension_v1',
+ *   policyId: asPolicyId('pol_authbound_pension_v1'),
  * });
  * ```
  */
@@ -30,7 +31,7 @@ import {
   toVerifiedSessionFinalization,
   verifyWebhookSignatureDetailed,
 } from "@authbound/server";
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server.js";
 
 // ============================================================================
 // Types
@@ -383,10 +384,11 @@ function mapGatewayResponse(
  * @example
  * ```ts
  * // app/api/authbound/verification/route.ts
+ * import { asPolicyId } from '@authbound/core';
  * import { createVerificationRoute } from '@authbound/nextjs/server';
  *
  * export const POST = createVerificationRoute({
- *   policyId: 'pol_authbound_pension_v1',
+ *   policyId: asPolicyId('pol_authbound_pension_v1'),
  * });
  * ```
  *
@@ -394,7 +396,7 @@ function mapGatewayResponse(
  * ```ts
  * // With custom metadata
  * export const POST = createVerificationRoute({
- *   policyId: 'pol_kyc_basic_authbound_v1',
+ *   policyId: asPolicyId('pol_kyc_basic_authbound_v1'),
  *   transformRequest: async (request, body) => {
  *     const user = await getCurrentUser();
  *     return {
@@ -1120,12 +1122,13 @@ export function createSessionRoute(
  * @example
  * ```ts
  * // In a server action
+ * import { asPolicyId } from '@authbound/core';
  * import { createVerification } from '@authbound/nextjs/server';
  *
  * export async function startVerification() {
  *   'use server';
  *   const verification = await createVerification({
- *     policyId: 'pol_authbound_pension_v1',
+ *     policyId: asPolicyId('pol_authbound_pension_v1'),
  *     metadata: { userId: user.id },
  *   });
  *   return verification;
