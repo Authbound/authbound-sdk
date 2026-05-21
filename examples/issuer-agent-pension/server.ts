@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
+import type { AuthboundClient as AuthboundClientInstance } from "@authbound/server";
 import express, {
   type ErrorRequestHandler,
   type Request,
@@ -8,7 +9,6 @@ import express, {
 } from "express";
 import QRCode from "qrcode";
 import {
-  type AuthboundClientLike,
   createPensionCredentialOffer,
   createPensionVerificationRequest,
   getPensionVerificationResult,
@@ -30,7 +30,9 @@ interface VerificationSession {
 }
 
 type VerificationSessionStore = Map<string, VerificationSession>;
-type CreateClient = () => AuthboundClientLike | Promise<AuthboundClientLike>;
+type CreateClient = () =>
+  | AuthboundClientInstance
+  | Promise<AuthboundClientInstance>;
 
 export interface CreateAppOptions {
   createClient?: CreateClient;
@@ -119,7 +121,7 @@ async function selectedCredential(slug: string | null) {
   return loadCredential(findCredentialOption(slug));
 }
 
-async function createDefaultClient(): Promise<AuthboundClientLike> {
+async function createDefaultClient(): Promise<AuthboundClientInstance> {
   const apiKey = process.env.AUTHBOUND_SECRET_KEY;
   if (!apiKey) {
     throw new Error("AUTHBOUND_SECRET_KEY is required");
@@ -132,13 +134,13 @@ async function createDefaultClient(): Promise<AuthboundClientLike> {
       apiKey: string;
       apiUrl?: string;
       debug?: boolean;
-    }) => AuthboundClientLike;
+    }) => AuthboundClientInstance;
   };
   return new AuthboundClient({
     apiKey,
     apiUrl: process.env.AUTHBOUND_API_URL,
     debug: process.env.AUTHBOUND_DEBUG === "true",
-  }) as AuthboundClientLike;
+  });
 }
 
 function getPublishableKey() {

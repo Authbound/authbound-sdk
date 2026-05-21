@@ -1,44 +1,8 @@
 import type {
-  ApiVerificationStatus,
+  AuthboundClient,
   CreateCredentialDefinitionOptions,
-  CreateOpenId4VcIssuanceOfferOptions,
-  CreateVerificationOptions,
-  CredentialDefinition,
-  GetVerificationStatusOptions,
-  OpenId4VcIssuanceOffer,
-  SignedVerificationResult,
-  Verification,
 } from "@authbound/server";
 import type { PensionCredentialFixture } from "./utils.ts";
-
-export interface AuthboundClientLike {
-  issuer: {
-    credentialDefinitions: {
-      get(credentialDefinitionId: string): Promise<CredentialDefinition>;
-      create(
-        options: CreateCredentialDefinitionOptions
-      ): Promise<CredentialDefinition>;
-    };
-  };
-  openId4Vc: {
-    issuance: {
-      createOffer(
-        options: CreateOpenId4VcIssuanceOfferOptions
-      ): Promise<OpenId4VcIssuanceOffer>;
-    };
-  };
-  verifications: {
-    create(options: CreateVerificationOptions): Promise<Verification>;
-    getStatus(
-      verificationId: string,
-      options: Pick<
-        GetVerificationStatusOptions,
-        "clientToken" | "publishableKey"
-      >
-    ): Promise<ApiVerificationStatus>;
-    getResult(verificationId: string): Promise<SignedVerificationResult>;
-  };
-}
 
 function pensionCredentialDefinitionPayload(
   credentialDefinitionId: string
@@ -98,7 +62,7 @@ function isCredentialDefinitionNotFound(error: unknown): boolean {
 }
 
 export async function createPensionCredentialDefinition(
-  authboundClient: AuthboundClientLike,
+  authboundClient: AuthboundClient,
   credentialDefinitionId: string
 ) {
   try {
@@ -142,7 +106,7 @@ export function pensionCredentialClaims(
 }
 
 export async function createPensionCredentialOffer(
-  authboundClient: AuthboundClientLike,
+  authboundClient: AuthboundClient,
   options: {
     credentialDefinitionId: string;
     credential: PensionCredentialFixture;
@@ -161,7 +125,7 @@ export async function createPensionCredentialOffer(
 }
 
 export async function createPensionVerificationRequest(
-  authboundClient: AuthboundClientLike,
+  authboundClient: AuthboundClient,
   options: {
     policyId: string;
   }
@@ -173,7 +137,7 @@ export async function createPensionVerificationRequest(
 }
 
 export async function getPensionVerificationStatus(
-  authboundClient: AuthboundClientLike,
+  authboundClient: AuthboundClient,
   options: {
     verificationId: string;
     clientToken: string;
@@ -187,7 +151,7 @@ export async function getPensionVerificationStatus(
 }
 
 export async function getPensionVerificationResult(
-  authboundClient: AuthboundClientLike,
+  authboundClient: AuthboundClient,
   options: {
     verificationId: string;
   }

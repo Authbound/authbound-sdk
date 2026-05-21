@@ -4,12 +4,12 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, it } from "node:test";
 import type {
   ApiVerificationStatus,
+  AuthboundClient,
   CredentialDefinition,
   OpenId4VcIssuanceOffer,
   SignedVerificationResult,
   Verification,
 } from "@authbound/server";
-import type { AuthboundClientLike } from "./pension-flow.ts";
 import { createApp, listCredentials } from "./server.ts";
 import { parsePensionCredential } from "./utils.ts";
 
@@ -105,9 +105,11 @@ function signedResult(verificationId: string): SignedVerificationResult {
 }
 
 function createMockClient(options: {
-  verifications?: Partial<AuthboundClientLike["verifications"]>;
-}): AuthboundClientLike {
-  return {
+  verifications?: Partial<
+    Pick<AuthboundClient["verifications"], "create" | "getStatus" | "getResult">
+  >;
+}): AuthboundClient {
+  const mockClient = {
     issuer: {
       credentialDefinitions: {
         get: async (credentialDefinitionId) =>
@@ -128,6 +130,7 @@ function createMockClient(options: {
       ...options.verifications,
     },
   };
+  return mockClient as unknown as AuthboundClient;
 }
 
 describe("issuer-agent-pension example", () => {
