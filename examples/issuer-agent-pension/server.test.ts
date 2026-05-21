@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, it } from "node:test";
-import type { PensionExampleClient } from "./pension-flow.ts";
+import type { AuthboundClientLike } from "./pension-flow.ts";
 import { createApp, listCredentials } from "./server.ts";
 import { parsePensionCredential } from "./utils.ts";
 
@@ -40,8 +40,8 @@ async function withAppServer<T>(
 }
 
 function createMockClient(options: {
-  verifications?: Partial<PensionExampleClient["verifications"]>;
-}): PensionExampleClient {
+  verifications?: Partial<AuthboundClientLike["verifications"]>;
+}): AuthboundClientLike {
   return {
     issuer: {
       credentialDefinitions: {

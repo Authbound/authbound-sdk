@@ -8,11 +8,11 @@ import express, {
 } from "express";
 import QRCode from "qrcode";
 import {
+  type AuthboundClientLike,
   createPensionCredentialOffer,
   createPensionVerificationRequest,
   getPensionVerificationResult,
   getPensionVerificationStatus,
-  type PensionExampleClient,
 } from "./pension-flow.ts";
 import { escapeHtml, parsePensionCredential, scriptJson } from "./utils.ts";
 
@@ -30,7 +30,7 @@ interface VerificationSession {
 }
 
 type VerificationSessionStore = Map<string, VerificationSession>;
-type CreateClient = () => PensionExampleClient | Promise<PensionExampleClient>;
+type CreateClient = () => AuthboundClientLike | Promise<AuthboundClientLike>;
 
 export interface CreateAppOptions {
   createClient?: CreateClient;
@@ -119,7 +119,7 @@ async function selectedCredential(slug: string | null) {
   return loadCredential(findCredentialOption(slug));
 }
 
-async function createDefaultClient(): Promise<PensionExampleClient> {
+async function createDefaultClient(): Promise<AuthboundClientLike> {
   const apiKey = process.env.AUTHBOUND_SECRET_KEY;
   if (!apiKey) {
     throw new Error("AUTHBOUND_SECRET_KEY is required");
@@ -132,13 +132,13 @@ async function createDefaultClient(): Promise<PensionExampleClient> {
       apiKey: string;
       apiUrl?: string;
       debug?: boolean;
-    }) => PensionExampleClient;
+    }) => AuthboundClientLike;
   };
   return new AuthboundClient({
     apiKey,
     apiUrl: process.env.AUTHBOUND_API_URL,
     debug: process.env.AUTHBOUND_DEBUG === "true",
-  }) as PensionExampleClient;
+  }) as AuthboundClientLike;
 }
 
 function getPublishableKey() {
@@ -152,8 +152,8 @@ function getPublishableKey() {
 
 async function createOffer(slug: string | null, createClient: CreateClient) {
   const selected = await selectedCredential(slug);
-  const authbound = await createClient();
-  const offer = await createPensionCredentialOffer(authbound, {
+  const authboundClient = await createClient();
+  const offer = await createPensionCredentialOffer(authboundClient, {
     credentialDefinitionId: pensionCredentialDefinitionId,
     credential: selected.credential,
   });
@@ -198,8 +198,8 @@ async function createVerification(
   sessions: VerificationSessionStore,
   createClient: CreateClient
 ) {
-  const authbound = await createClient();
-  const verification = await createPensionVerificationRequest(authbound, {
+  const authboundClient = await createClient();
+  const verification = await createPensionVerificationRequest(authboundClient, {
     policyId: pensionVerificationPolicyId,
   });
   const handoff =
@@ -237,8 +237,8 @@ async function getVerificationStatus(
     sessions,
     requestedVerificationId
   );
-  const authbound = await createClient();
-  const status = await getPensionVerificationStatus(authbound, {
+  const authboundClient = await createClient();
+  const status = await getPensionVerificationStatus(authboundClient, {
     verificationId,
     clientToken: session.clientToken,
     publishableKey: getPublishableKey(),

@@ -60,7 +60,7 @@ interface SignedVerificationResult {
   assertions?: Record<string, unknown>;
 }
 
-export interface PensionExampleClient {
+export interface AuthboundClientLike {
   issuer: {
     credentialDefinitions: {
       get(credentialDefinitionId: string): Promise<CredentialDefinition>;
@@ -147,11 +147,11 @@ function isCredentialDefinitionNotFound(error: unknown): boolean {
 }
 
 export async function createPensionCredentialDefinition(
-  authbound: PensionExampleClient,
+  authboundClient: AuthboundClientLike,
   credentialDefinitionId: string
 ) {
   try {
-    return await authbound.issuer.credentialDefinitions.get(
+    return await authboundClient.issuer.credentialDefinitions.get(
       credentialDefinitionId
     );
   } catch (error) {
@@ -160,7 +160,7 @@ export async function createPensionCredentialDefinition(
     }
   }
 
-  return authbound.issuer.credentialDefinitions.create(
+  return authboundClient.issuer.credentialDefinitions.create(
     pensionCredentialDefinitionPayload(credentialDefinitionId)
   );
 }
@@ -191,18 +191,18 @@ export function pensionCredentialClaims(
 }
 
 export async function createPensionCredentialOffer(
-  authbound: PensionExampleClient,
+  authboundClient: AuthboundClientLike,
   options: {
     credentialDefinitionId: string;
     credential: PensionCredentialFixture;
   }
 ) {
   const definition = await createPensionCredentialDefinition(
-    authbound,
+    authboundClient,
     options.credentialDefinitionId
   );
 
-  return authbound.openId4Vc.issuance.createOffer({
+  return authboundClient.openId4Vc.issuance.createOffer({
     credentialDefinitionId: definition.credentialDefinitionId,
     claims: pensionCredentialClaims(options.credential),
     issuanceMode: "InTime",
@@ -210,36 +210,36 @@ export async function createPensionCredentialOffer(
 }
 
 export async function createPensionVerificationRequest(
-  authbound: PensionExampleClient,
+  authboundClient: AuthboundClientLike,
   options: {
     policyId: string;
   }
 ) {
-  return authbound.verifications.create({
+  return authboundClient.verifications.create({
     policyId: options.policyId,
     provider: "eudi",
   });
 }
 
 export async function getPensionVerificationStatus(
-  authbound: PensionExampleClient,
+  authboundClient: AuthboundClientLike,
   options: {
     verificationId: string;
     clientToken: string;
     publishableKey: string;
   }
 ) {
-  return authbound.verifications.getStatus(options.verificationId, {
+  return authboundClient.verifications.getStatus(options.verificationId, {
     clientToken: options.clientToken,
     publishableKey: options.publishableKey,
   });
 }
 
 export async function getPensionVerificationResult(
-  authbound: PensionExampleClient,
+  authboundClient: AuthboundClientLike,
   options: {
     verificationId: string;
   }
 ) {
-  return authbound.verifications.getResult(options.verificationId);
+  return authboundClient.verifications.getResult(options.verificationId);
 }
