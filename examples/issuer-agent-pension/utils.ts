@@ -29,10 +29,6 @@ export function escapeHtml(value: unknown) {
     .replaceAll("'", "&#039;");
 }
 
-export function scriptJson(value: unknown) {
-  return JSON.stringify(value).replaceAll("<", "\\u003c");
-}
-
 export function parsePensionCredential(
   value: unknown
 ): PensionCredentialFixture {

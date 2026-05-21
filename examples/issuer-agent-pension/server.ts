@@ -102,7 +102,7 @@ function findCredentialOption(slug: string | null) {
     (credential) => credential.slug === slug
   );
   if (!option) {
-    throw new DemoRequestError(`Unknown pension credential: ${slug}`, 404);
+    throw new DemoRequestError(`Unknown pension credential: ${slug}`, 400);
   }
   return option;
 }
@@ -384,7 +384,10 @@ export function createApp(options: CreateAppOptions = {}) {
       asyncRoute(async (request, response) => {
         const body = request.body as Record<string, unknown> | undefined;
         const slug = typeof body?.slug === "string" ? body.slug : null;
-        response.json(await createOffer(slug, createClient));
+        if (!slug) {
+          throw new DemoRequestError("Missing pension credential slug", 400);
+        }
+        response.status(201).json(await createOffer(slug, createClient));
       })
     )
     .all(methodNotAllowed("POST", "/offer"));
@@ -393,7 +396,7 @@ export function createApp(options: CreateAppOptions = {}) {
     .route("/verify")
     .post(
       asyncRoute(async (_request, response) => {
-        response.json(
+        response.status(201).json(
           await createVerification(verificationSessions, createClient)
         );
       })

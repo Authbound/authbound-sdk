@@ -227,6 +227,53 @@ describe("issuer-agent-pension example", () => {
     });
   });
 
+  it("requires an explicit credential slug when creating offers", async () => {
+    const app = createApp({ createClient: () => createMockClient({}) });
+
+    await withAppServer(app, async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/offer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+
+      assert.equal(response.status, 400);
+    });
+  });
+
+  it("returns created status codes for offer and verification creation", async () => {
+    process.env.AUTHBOUND_PUBLISHABLE_KEY = "pk_test_123";
+    const create = mockFunction(async () =>
+      verification({
+        id: "vrf_created",
+        status: "created",
+        clientToken: "client_token_123",
+        expiresAt: "2999-01-01T00:00:00.000Z",
+        clientAction: {
+          kind: "qr",
+          data: "openid4vp://authorize?request_uri=https%3A%2F%2Fexample.test",
+        },
+      })
+    );
+    const app = createApp({
+      createClient: () => createMockClient({ verifications: { create } }),
+    });
+
+    await withAppServer(app, async (baseUrl) => {
+      const offerResponse = await fetch(`${baseUrl}/offer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: "kael" }),
+      });
+      const verificationResponse = await fetch(`${baseUrl}/verify`, {
+        method: "POST",
+      });
+
+      assert.equal(offerResponse.status, 201);
+      assert.equal(verificationResponse.status, 201);
+    });
+  });
+
   it("rejects impossible calendar dates in JSON fixtures", () => {
     assert.throws(
       () =>
