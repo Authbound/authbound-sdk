@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import type { AuthboundClient as AuthboundClientInstance } from "@authbound/server";
 import express, {
   type ErrorRequestHandler,
@@ -14,7 +14,8 @@ import {
   getPensionVerificationResult,
   getPensionVerificationStatus,
 } from "./pension-flow.ts";
-import { escapeHtml, parsePensionCredential, scriptJson } from "./utils.ts";
+import { renderDemoPage } from "./demo-page.ts";
+import { parsePensionCredential } from "./utils.ts";
 
 interface PensionCredentialOption {
   slug: string;
@@ -281,166 +282,12 @@ async function getVerificationResult(
 
 async function renderHome() {
   const credentials = await listCredentials();
-  const options = credentials
-    .map(
-      ({ slug, title }) =>
-        `<option value="${escapeHtml(slug)}">${escapeHtml(title)}</option>`
-    )
-    .join("");
-
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Pension credential example</title>
-    <style>
-      * { box-sizing: border-box; }
-      body { font-family: system-ui, sans-serif; margin: 0; background: #f6f8fb; color: #101828; }
-      main { width: min(960px, 100%); margin: 0 auto; padding: 32px; display: grid; gap: 24px; }
-      section { min-width: 0; background: white; border: 1px solid #d0d5dd; border-radius: 8px; padding: 24px; }
-      label, button { font: inherit; }
-      select, button { width: 100%; padding: 10px 12px; margin-top: 8px; }
-      button { border: 0; border-radius: 6px; background: #003580; color: white; font-weight: 700; cursor: pointer; }
-      button:disabled { opacity: 0.5; cursor: not-allowed; }
-      .qr { margin-top: 16px; }
-      .qr svg { max-width: 288px; height: auto; }
-      pre { max-width: 100%; overflow: auto; overflow-wrap: anywhere; padding: 12px; background: #101828; color: white; border-radius: 6px; }
-      a { color: #003580; overflow-wrap: anywhere; word-break: break-word; }
-      #issue-link, #verify-link { max-width: 100%; overflow-wrap: anywhere; }
-      .status { min-height: 24px; color: #475467; }
-      @media (max-width: 640px) {
-        main { padding: 16px; }
-        section { padding: 18px; }
-      }
-    </style>
-  </head>
-  <body>
-    <main>
-      <header>
-        <h1>Pension credential</h1>
-        <p>Issue and verify KAEL, TKEL, and KUKI pension credential fixtures.</p>
-      </header>
-      <section>
-        <h2>Issue credential</h2>
-        <label>
-          Credential
-          <select id="credential">${options}</select>
-        </label>
-        <button id="issue" type="button">Create wallet offer</button>
-        <p class="status" id="issue-status"></p>
-        <div class="qr" id="issue-qr"></div>
-        <p id="issue-link"></p>
-      </section>
-      <section>
-        <h2>Verify credential</h2>
-        <button id="verify" type="button">Create verification request</button>
-        <p class="status" id="verify-status"></p>
-        <div class="qr" id="verify-qr"></div>
-        <p id="verify-link"></p>
-        <pre id="result" hidden></pre>
-      </section>
-    </main>
-    <script>
-      const credentials = ${scriptJson(credentials)};
-      const credentialSelect = document.querySelector("#credential");
-      const issueButton = document.querySelector("#issue");
-      const verifyButton = document.querySelector("#verify");
-      const issueStatus = document.querySelector("#issue-status");
-      const verifyStatus = document.querySelector("#verify-status");
-      const issueQr = document.querySelector("#issue-qr");
-      const verifyQr = document.querySelector("#verify-qr");
-      const issueLink = document.querySelector("#issue-link");
-      const verifyLink = document.querySelector("#verify-link");
-      const result = document.querySelector("#result");
-      let verificationPoll;
-
-      function setLink(container, href, label) {
-        container.textContent = "";
-        const anchor = document.createElement("a");
-        anchor.href = href;
-        anchor.target = "_blank";
-        anchor.rel = "noopener";
-        anchor.textContent = label;
-        container.append(anchor);
-      }
-
-      issueButton.addEventListener("click", async () => {
-        issueButton.disabled = true;
-        issueStatus.textContent = "Creating offer...";
-        issueQr.textContent = "";
-        issueLink.textContent = "";
-        try {
-          const response = await fetch("/offer", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ slug: credentialSelect.value }),
-          });
-          const body = await response.json();
-          if (!response.ok) throw new Error(body.error ?? "Offer creation failed");
-          issueQr.innerHTML = body.qrSvg;
-          setLink(issueLink, body.offer.offerUri, body.offer.offerUri);
-          issueStatus.textContent = "Offer ready";
-        } catch (error) {
-          issueStatus.textContent = error instanceof Error ? error.message : "Offer creation failed";
-        } finally {
-          issueButton.disabled = false;
-        }
-      });
-
-      verifyButton.addEventListener("click", async () => {
-        clearInterval(verificationPoll);
-        verifyButton.disabled = true;
-        verifyStatus.textContent = "Creating verification...";
-        verifyQr.textContent = "";
-        verifyLink.textContent = "";
-        result.hidden = true;
-        result.textContent = "";
-        try {
-          const response = await fetch("/verify", { method: "POST" });
-          const body = await response.json();
-          if (!response.ok) throw new Error(body.error ?? "Verification creation failed");
-          const handoff = body.verification.clientAction?.data ?? body.verification.verificationUrl ?? "";
-          verifyQr.innerHTML = body.qrSvg ?? "";
-          if (handoff) setLink(verifyLink, handoff, handoff);
-          verifyStatus.textContent = "Verification ready";
-          pollVerification(body.verification.id);
-        } catch (error) {
-          verifyStatus.textContent = error instanceof Error ? error.message : "Verification creation failed";
-        } finally {
-          verifyButton.disabled = false;
-        }
-      });
-
-      async function pollVerification(id) {
-        const terminal = new Set(["verified", "failed", "expired", "canceled", "timeout"]);
-        async function refresh() {
-          try {
-            const response = await fetch("/status?id=" + encodeURIComponent(id));
-            const body = await response.json();
-            if (!response.ok) throw new Error(body.error ?? "Status check failed");
-            verifyStatus.textContent = body.status;
-            if (body.status === "verified") await loadVerificationResult(id);
-            if (terminal.has(body.status)) clearInterval(verificationPoll);
-          } catch (error) {
-            clearInterval(verificationPoll);
-            verifyStatus.textContent = error instanceof Error ? error.message : "Status check failed";
-          }
-        }
-        await refresh();
-        verificationPoll = setInterval(refresh, 3000);
-      }
-
-      async function loadVerificationResult(id) {
-        const response = await fetch("/result?id=" + encodeURIComponent(id));
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.error ?? "Result fetch failed");
-        result.hidden = false;
-        result.textContent = JSON.stringify(body, null, 2);
-      }
-    </script>
-  </body>
-</html>`;
+  return renderDemoPage(
+    credentials.map(({ slug, title }) => ({
+      slug,
+      title,
+    }))
+  );
 }
 
 function errorBody(error: unknown) {
@@ -518,6 +365,7 @@ export function createApp(options: CreateAppOptions = {}) {
   const createClient = options.createClient ?? createDefaultClient;
 
   app.use(express.json({ limit: "64kb" }));
+  app.use(express.static(fileURLToPath(new URL("./public", import.meta.url))));
 
   app.get("/health", (_request, response) => {
     response.json({ ok: true });

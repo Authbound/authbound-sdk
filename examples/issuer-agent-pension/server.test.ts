@@ -210,7 +210,7 @@ describe("issuer-agent-pension example", () => {
     });
   });
 
-  it("renders handoff links with overflow-safe layout styles", async () => {
+  it("renders the first-commit demo UI shell", async () => {
     const app = createApp({ createClient: () => createMockClient({}) });
 
     await withAppServer(app, async (baseUrl) => {
@@ -218,9 +218,12 @@ describe("issuer-agent-pension example", () => {
       const html = await response.text();
 
       assert.equal(response.ok, true);
+      assert.match(html, /Eläkeläistodiste — Kela demo/);
+      assert.match(html, /class="topbar"/);
+      assert.match(html, /class="tabs"/);
+      assert.match(html, /class="wallet-link"/);
       assert.match(html, /\* \{ box-sizing: border-box; \}/);
-      assert.match(html, /overflow-wrap: anywhere/);
-      assert.match(html, /#issue-link, #verify-link/);
+      assert.match(html, /word-break: break-all/);
     });
   });
 
