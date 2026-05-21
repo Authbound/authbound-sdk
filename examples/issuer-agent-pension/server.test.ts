@@ -10,6 +10,7 @@ import type {
   SignedVerificationResult,
   Verification,
 } from "@authbound/server";
+import { pensionCredentialClaims } from "./pension-flow.ts";
 import { createApp, listCredentials } from "./server.ts";
 import { parsePensionCredential } from "./utils.ts";
 
@@ -188,6 +189,24 @@ describe("issuer-agent-pension example", () => {
         },
       ]
     );
+  });
+
+  it("omits JSON-LD language metadata from Authbound issuance claims", async () => {
+    const [credential] = await listCredentials();
+
+    assert.deepEqual(pensionCredentialClaims(credential.credential), {
+      Person: {
+        given_name: "Totti",
+        family_name: "Aalto",
+        birth_date: "1993-03-03",
+        personal_administrative_number: "030393-995E",
+      },
+      Pension: {
+        typeCode: "KAEL",
+        typeName: "Kansaneläke",
+        startDate: "2024-02-01",
+      },
+    });
   });
 
   it("rejects impossible calendar dates in JSON fixtures", () => {
