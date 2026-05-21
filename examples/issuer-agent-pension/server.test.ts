@@ -224,6 +224,8 @@ describe("issuer-agent-pension example", () => {
       assert.match(html, /class="wallet-link"/);
       assert.match(html, /\* \{ box-sizing: border-box; \}/);
       assert.match(html, /word-break: break-all/);
+      assert.match(html, /<option value="kael" selected>Totti Aalto \(KAEL\)<\/option>/);
+      assert.doesNotMatch(html, /id="issue-button" disabled/);
     });
   });
 

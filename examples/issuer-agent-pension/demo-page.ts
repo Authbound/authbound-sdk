@@ -8,10 +8,15 @@ export interface PensionDemoOption {
 export function renderDemoPage(credentials: PensionDemoOption[]): string {
   const credentialOptions = credentials
     .map(
-      (option) =>
-        `<option value="${escapeHtml(option.slug)}">${escapeHtml(option.title)}</option>`
+      (option, index) =>
+        `<option value="${escapeHtml(option.slug)}"${index === 0 ? " selected" : ""}>${escapeHtml(option.title)}</option>`
     )
     .join("\n");
+  const defaultCredential = credentials[0];
+  const issueInstructions = defaultCredential
+    ? `Valmis myöntämään: ${escapeHtml(defaultCredential.title)}.`
+    : "Valitse henkilöllisyys, sitten luo wallet-offer.";
+  const issueButtonDisabled = defaultCredential ? "" : " disabled";
 
   return `<!DOCTYPE html>
 <html lang="fi">
@@ -380,7 +385,6 @@ export function renderDemoPage(credentials: PensionDemoOption[]): string {
     <div class="identity-picker">
       <label for="credential-slug">Demo-henkilöllisyys</label>
       <select id="credential-slug" name="slug">
-        <option value="">Valitse henkilöllisyys…</option>
         ${credentialOptions}
       </select>
     </div>
@@ -398,8 +402,8 @@ export function renderDemoPage(credentials: PensionDemoOption[]): string {
     </div>
 
     <section class="card" id="panel-issue">
-      <p class="hint" id="issue-instructions">Valitse henkilöllisyys, sitten luo wallet-offer.</p>
-      <button type="button" class="btn btn-primary" id="issue-button" disabled>Luo wallet-offer</button>
+      <p class="hint" id="issue-instructions">${issueInstructions}</p>
+      <button type="button" class="btn btn-primary" id="issue-button"${issueButtonDisabled}>Luo wallet-offer</button>
       <div class="qr-stage" id="issue-qr-stage" hidden>
         <div class="qr-frame"><canvas id="qrcode" width="256" height="256" aria-label="Issuance QR code"></canvas></div>
         <p class="wallet-link" id="issue-offer"></p>
