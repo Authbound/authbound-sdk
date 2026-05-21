@@ -52,8 +52,10 @@ function pensionCredentialDefinitionPayload(
   };
 }
 
-// Create or reuse the credential definition that declares which pension claims
-// Authbound can put into wallet offers for this example.
+// The credential definition declares which pension claims Authbound may put in
+// wallet offers. The get-or-create wrapper is demo setup convenience; real
+// services usually create definitions during onboarding/deployment and issue
+// credentials against the stored definition ID.
 function isCredentialDefinitionNotFound(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -130,7 +132,8 @@ export async function createPensionCredentialOffer(
   });
 }
 
-// The verifier asks an EUDI wallet for a credential matching the pension policy.
+// The verifier asks an EUDI wallet for a credential matching a policy already
+// configured in Authbound.
 export async function createPensionVerificationRequest(
   authboundClient: AuthboundClient,
   options: {
@@ -143,8 +146,8 @@ export async function createPensionVerificationRequest(
   });
 }
 
-// Status polling uses the short-lived client token plus the publishable key.
-// The secret API key should not be needed in a browser polling path.
+// The SDK sends status polling without the secret key. Authbound authorizes the
+// request with the short-lived client token and the publishable key instead.
 export async function getPensionVerificationStatus(
   authboundClient: AuthboundClient,
   options: {

@@ -93,11 +93,7 @@ export const PENSION_CREDENTIALS: PensionCredentialOption[] = [
   },
 ];
 
-function findCredentialOption(slug: string | null) {
-  if (!slug) {
-    return PENSION_CREDENTIALS[0];
-  }
-
+function findCredentialOption(slug: string) {
   const option = PENSION_CREDENTIALS.find(
     (credential) => credential.slug === slug
   );
@@ -119,7 +115,7 @@ export async function listCredentials() {
   return Promise.all(PENSION_CREDENTIALS.map(loadCredential));
 }
 
-async function selectedCredential(slug: string | null) {
+async function selectedCredential(slug: string) {
   return loadCredential(findCredentialOption(slug));
 }
 
@@ -154,7 +150,7 @@ function getPublishableKey() {
   return publishableKey;
 }
 
-async function createOffer(slug: string | null, createClient: CreateClient) {
+async function createOffer(slug: string, createClient: CreateClient) {
   const selected = await selectedCredential(slug);
   const authboundClient = await createClient();
   const offer = await createPensionCredentialOffer(authboundClient, {
