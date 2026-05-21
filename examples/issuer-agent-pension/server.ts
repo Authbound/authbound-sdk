@@ -58,6 +58,7 @@ const terminalVerificationStatuses = new Set([
   "timeout",
 ]);
 
+// Slugs are only UI choices. The actual credential values live in JSON files.
 export const PENSION_CREDENTIALS: PensionCredentialOption[] = [
   {
     slug: "kael",
@@ -210,6 +211,9 @@ async function createVerification(
   if (!clientToken) {
     throw new Error("Verification response did not include a client token");
   }
+
+  // Keep the client token server-side so the browser receives only public
+  // verification data and the QR/link handoff payload.
   sessions.set(verification.id, {
     clientToken,
     expiresAt: sessionExpiresAt(verification.expiresAt),
@@ -240,6 +244,7 @@ async function getVerificationStatus(
     requestedVerificationId
   );
   const authboundClient = await createClient();
+  // Status polling is the only route that uses the stored client token.
   const status = await getPensionVerificationStatus(authboundClient, {
     verificationId,
     clientToken: session.clientToken,
@@ -264,6 +269,9 @@ async function getVerificationResult(
   if (session.status !== "verified") {
     throw new DemoRequestError("Verification result is not ready", 409);
   }
+
+  // Result retrieval uses the secret-key client, so keep it gated by the
+  // in-memory session and the verified status observed through polling.
   const result = await getPensionVerificationResult(await createClient(), {
     verificationId,
   });

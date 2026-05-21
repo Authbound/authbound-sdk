@@ -52,6 +52,8 @@ function pensionCredentialDefinitionPayload(
   };
 }
 
+// Create or reuse the credential definition that declares which pension claims
+// Authbound can put into wallet offers for this example.
 function isCredentialDefinitionNotFound(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -65,6 +67,7 @@ export async function createPensionCredentialDefinition(
   authboundClient: AuthboundClient,
   credentialDefinitionId: string
 ) {
+  // Reusing the same definition ID keeps the example safe to run repeatedly.
   try {
     return await authboundClient.issuer.credentialDefinitions.get(
       credentialDefinitionId
@@ -80,6 +83,8 @@ export async function createPensionCredentialDefinition(
   );
 }
 
+// The offer payload is just the credential claims. Fixture metadata such as
+// JSON-LD context and fixture ID stays local to the example.
 export function pensionCredentialClaims(
   record: PensionCredentialFixture
 ): Record<string, unknown> {
@@ -117,6 +122,7 @@ export async function createPensionCredentialOffer(
     options.credentialDefinitionId
   );
 
+  // InTime issuance supplies the credential data when the wallet offer is made.
   return authboundClient.openId4Vc.issuance.createOffer({
     credentialDefinitionId: definition.credentialDefinitionId,
     claims: pensionCredentialClaims(options.credential),
@@ -124,6 +130,7 @@ export async function createPensionCredentialOffer(
   });
 }
 
+// The verifier asks an EUDI wallet for a credential matching the pension policy.
 export async function createPensionVerificationRequest(
   authboundClient: AuthboundClient,
   options: {
@@ -136,6 +143,8 @@ export async function createPensionVerificationRequest(
   });
 }
 
+// Status polling uses the short-lived client token plus the publishable key.
+// The secret API key should not be needed in a browser polling path.
 export async function getPensionVerificationStatus(
   authboundClient: AuthboundClient,
   options: {
@@ -150,6 +159,8 @@ export async function getPensionVerificationStatus(
   });
 }
 
+// Fetching the signed result is a server-side secret-key operation. The demo
+// route only calls this after status polling has observed a verified session.
 export async function getPensionVerificationResult(
   authboundClient: AuthboundClient,
   options: {
