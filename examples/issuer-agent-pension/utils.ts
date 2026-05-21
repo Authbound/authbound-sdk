@@ -1,156 +1,74 @@
-export interface PensionCredentialFixture {
-  "@context": string[];
-  id: string;
-  type: string[];
-  credentialSubject: {
-    Person: {
-      given_name: string;
-      family_name: string;
-      birth_date: string;
-      personal_administrative_number: string;
+import { AuthboundClientError } from '@authbound/server';
+
+export function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+export function toErrorPayload(error: unknown): {
+  error: string;
+  message: string;
+  details?: unknown;
+} {
+  if (error instanceof AuthboundClientError) {
+    return {
+      error: error.code,
+      message: error.message,
+      details: error.details,
     };
-    Pension: {
-      "@language"?: string;
-      typeCode: string;
-      typeName: string;
-      startDate: string;
-      endDate?: string;
-      provisional?: boolean;
-    };
-  };
-}
-
-export function escapeHtml(value: unknown) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-export function scriptJson(value: unknown) {
-  return JSON.stringify(value).replaceAll("<", "\\u003c");
-}
-
-export function parsePensionCredential(
-  value: unknown
-): PensionCredentialFixture {
-  if (!isPlainObject(value)) {
-    throw new Error("Credential fixture must be a JSON object");
   }
 
-  const credentialSubject = getObject(value, "credentialSubject");
-  const Person = getObject(credentialSubject, "Person");
-  const Pension = getObject(credentialSubject, "Pension");
-  const language = getOptionalString(Pension, "@language");
-  const endDate = getOptionalIsoDate(Pension, "endDate");
-  const provisional = getOptionalBoolean(Pension, "provisional");
+  if (error instanceof Error) {
+    return {
+      error: 'example_error',
+      message: error.message,
+    };
+  }
 
   return {
-    "@context": getStringArray(value, "@context"),
-    id: getString(value, "id"),
-    type: getStringArray(value, "type"),
-    credentialSubject: {
-      Person: {
-        given_name: getString(Person, "given_name"),
-        family_name: getString(Person, "family_name"),
-        birth_date: getIsoDate(Person, "birth_date"),
-        personal_administrative_number: getString(
-          Person,
-          "personal_administrative_number"
-        ),
-      },
-      Pension: {
-        ...(language ? { "@language": language } : {}),
-        typeCode: getString(Pension, "typeCode"),
-        typeName: getString(Pension, "typeName"),
-        startDate: getIsoDate(Pension, "startDate"),
-        ...(endDate ? { endDate } : {}),
-        ...(provisional !== undefined ? { provisional } : {}),
-      },
-    },
+    error: 'example_error',
+    message: 'Unexpected error',
   };
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+const VERIFICATION_SESSION_TTL_MS = 30 * 60 * 1000;
+
+type VerificationSessionRecord = {
+  clientToken: string;
+  createdAt: number;
+};
+
+const verificationSessions = new Map<string, VerificationSessionRecord>();
+
+export function storeVerificationSession(verificationId: string, clientToken: string): void {
+  verificationSessions.set(verificationId, {
+    clientToken,
+    createdAt: Date.now(),
+  });
+  pruneVerificationSessions();
 }
 
-function getObject(
-  source: Record<string, unknown>,
-  key: string
-): Record<string, unknown> {
-  const value = source[key];
-  if (!isPlainObject(value)) {
-    throw new Error(`Credential fixture is missing object field: ${key}`);
+export function getVerificationClientToken(verificationId: string): string | undefined {
+  const record = verificationSessions.get(verificationId);
+  if (!record) {
+    return undefined;
   }
-  return value;
+  if (Date.now() - record.createdAt > VERIFICATION_SESSION_TTL_MS) {
+    verificationSessions.delete(verificationId);
+    return undefined;
+  }
+  return record.clientToken;
 }
 
-function getString(source: Record<string, unknown>, key: string) {
-  const value = source[key];
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`Credential fixture is missing string field: ${key}`);
+function pruneVerificationSessions(): void {
+  const now = Date.now();
+  for (const [id, record] of verificationSessions) {
+    if (now - record.createdAt > VERIFICATION_SESSION_TTL_MS) {
+      verificationSessions.delete(id);
+    }
   }
-  return value;
-}
-
-function getOptionalString(source: Record<string, unknown>, key: string) {
-  const value = source[key];
-  if (value === undefined) {
-    return;
-  }
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`Credential fixture has invalid string field: ${key}`);
-  }
-  return value;
-}
-
-function getOptionalBoolean(source: Record<string, unknown>, key: string) {
-  const value = source[key];
-  if (value === undefined) {
-    return;
-  }
-  if (typeof value !== "boolean") {
-    throw new Error(`Credential fixture has invalid boolean field: ${key}`);
-  }
-  return value;
-}
-
-function getStringArray(source: Record<string, unknown>, key: string) {
-  const value = source[key];
-  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
-    throw new Error(`Credential fixture is missing string array field: ${key}`);
-  }
-  return value as string[];
-}
-
-function getIsoDate(source: Record<string, unknown>, key: string) {
-  const value = getString(source, key);
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) {
-    throw new Error(`Credential fixture has invalid date field: ${key}`);
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day
-  ) {
-    throw new Error(`Credential fixture has impossible date field: ${key}`);
-  }
-
-  return value;
-}
-
-function getOptionalIsoDate(source: Record<string, unknown>, key: string) {
-  if (source[key] === undefined) {
-    return;
-  }
-  return getIsoDate(source, key);
 }
