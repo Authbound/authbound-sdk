@@ -1,175 +1,245 @@
-import {
-  AuthboundClient,
-  AuthboundClientError,
-  type CreateCredentialDefinitionOptions,
-  type CreateOpenId4VcIssuanceOfferOptions,
-  type CreateVerificationOptions,
-  type CredentialDefinition,
-  type OpenId4VcIssuanceOffer,
-  type SignedVerificationResult,
-  type Verification,
-} from '@authbound/server';
+import type { PensionCredentialFixture } from "./utils.ts";
 
-import type { PensionClaims } from './credential-catalog.ts';
+interface CreateCredentialDefinitionOptions {
+  credentialDefinitionId: string;
+  vct: string;
+  format: string;
+  title: string;
+  aliases?: string[];
+  claims?: Array<{
+    path: string[];
+    mandatory?: boolean;
+    displayName?: string;
+  }>;
+}
 
-export const PENSION_CREDENTIAL_DEFINITION_ID = 'pension-credential';
-export const PENSION_VCT = 'urn:vc:authbound:pension:1.0';
-export const PENSION_VERIFICATION_POLICY_ID = 'pol_authbound_pension_v1';
+interface CredentialDefinition {
+  credentialDefinitionId: string;
+}
 
-export type PensionIssuanceSession = OpenId4VcIssuanceOffer & {
-  credentialSessionId: string;
-  credentialOfferUri: string;
-};
+interface CreateOpenId4VcIssuanceOfferOptions {
+  credentialDefinitionId: string;
+  claims: Record<string, unknown>;
+  issuanceMode: "InTime" | "Deferred";
+}
 
-export type PensionVerificationSession = Verification & {
+interface OpenId4VcIssuanceOffer {
+  id: string;
+  offerUri: string;
+  [key: string]: unknown;
+}
+
+interface CreateVerificationOptions {
+  policyId: string;
+  provider: "eudi" | "vcs";
+}
+
+interface Verification {
+  id: string;
+  status: string;
+  expiresAt?: string;
+  clientToken?: string;
+  clientAction?: {
+    kind?: string;
+    data?: string;
+    expiresAt?: string;
+  };
+  verificationUrl?: string;
+  [key: string]: unknown;
+}
+
+interface VerificationStatus {
+  status: string;
+  [key: string]: unknown;
+}
+
+interface SignedVerificationResult {
   verificationId: string;
-  authorizationRequestUrl?: string;
-};
-
-export function createAuthboundClient(): AuthboundClient {
-  const apiKey = process.env.AUTHBOUND_SECRET_KEY;
-  if (!apiKey) {
-    throw new Error('AUTHBOUND_SECRET_KEY is required');
-  }
-
-  return new AuthboundClient({
-    apiKey,
-    apiUrl: process.env.AUTHBOUND_API_URL,
-    debug: process.env.AUTHBOUND_DEBUG === 'true',
-  });
+  status: string;
+  resultToken: string;
+  assertions?: Record<string, unknown>;
 }
 
-export function requirePublishableKey(): string {
-  const publishableKey =
-    process.env.AUTHBOUND_PUBLISHABLE_KEY ??
-    process.env.NEXT_PUBLIC_AUTHBOUND_PK ??
-    process.env.AUTHBOUND_PK;
-  if (!publishableKey) {
-    throw new Error(
-      'AUTHBOUND_PUBLISHABLE_KEY (or NEXT_PUBLIC_AUTHBOUND_PK) is required for verification status polling'
-    );
-  }
-  return publishableKey;
+export interface PensionExampleClient {
+  issuer: {
+    credentialDefinitions: {
+      get(credentialDefinitionId: string): Promise<CredentialDefinition>;
+      create(
+        options: CreateCredentialDefinitionOptions
+      ): Promise<CredentialDefinition>;
+    };
+  };
+  openId4Vc: {
+    issuance: {
+      createOffer(
+        options: CreateOpenId4VcIssuanceOfferOptions
+      ): Promise<OpenId4VcIssuanceOffer>;
+    };
+  };
+  verifications: {
+    create(options: CreateVerificationOptions): Promise<Verification>;
+    getStatus(
+      verificationId: string,
+      options: {
+        clientToken: string;
+        publishableKey: string;
+      }
+    ): Promise<VerificationStatus>;
+    getResult(verificationId: string): Promise<SignedVerificationResult>;
+  };
 }
 
-function pensionCredentialDefinition(
-  credentialDefinitionId = PENSION_CREDENTIAL_DEFINITION_ID
+function pensionCredentialDefinitionPayload(
+  credentialDefinitionId: string
 ): CreateCredentialDefinitionOptions {
   return {
     credentialDefinitionId,
-    vct: PENSION_VCT,
-    format: 'dc+sd-jwt',
-    title: 'Pension Credential',
-    aliases: ['pension', 'elakela'],
+    vct: "urn:vc:authbound:pension:1.0",
+    format: "dc+sd-jwt",
+    title: "Pension Credential",
+    aliases: ["pension"],
     claims: [
-      { path: ['Person', 'given_name'], mandatory: true, displayName: 'Given Name' },
-      { path: ['Person', 'family_name'], mandatory: true, displayName: 'Family Name' },
-      { path: ['Person', 'birth_date'], mandatory: true, displayName: 'Birth Date' },
       {
-        path: ['Person', 'personal_administrative_number'],
+        path: ["Person", "given_name"],
         mandatory: true,
-        displayName: 'Person Identifier',
+        displayName: "Given Name",
       },
-      { path: ['Pension', 'typeCode'], mandatory: true, displayName: 'Type Code' },
-      { path: ['Pension', 'typeName'], mandatory: true, displayName: 'Pension Type' },
-      { path: ['Pension', 'startDate'], mandatory: true, displayName: 'Start Date' },
-      { path: ['Pension', 'endDate'], displayName: 'End Date' },
-      { path: ['Pension', 'provisional'], displayName: 'Provisional' },
+      {
+        path: ["Person", "family_name"],
+        mandatory: true,
+        displayName: "Family Name",
+      },
+      {
+        path: ["Person", "birth_date"],
+        mandatory: true,
+        displayName: "Birth Date",
+      },
+      {
+        path: ["Person", "personal_administrative_number"],
+        mandatory: true,
+        displayName: "Person Identifier",
+      },
+      {
+        path: ["Pension", "typeCode"],
+        mandatory: true,
+        displayName: "Type Code",
+      },
+      { path: ["Pension", "typeName"], mandatory: true, displayName: "Type" },
+      { path: ["Pension", "@language"], displayName: "Language" },
+      {
+        path: ["Pension", "startDate"],
+        mandatory: true,
+        displayName: "Start Date",
+      },
+      { path: ["Pension", "endDate"], displayName: "End Date" },
+      { path: ["Pension", "provisional"], displayName: "Provisional" },
     ],
-    rendering: {
-      backgroundColor: '#003580',
-      textColor: '#ffffff',
-    },
-    metadata: {
-      demo: 'elakela',
-      source: 'issuer-agent-pension',
-    },
   };
 }
 
 function isCredentialDefinitionNotFound(error: unknown): boolean {
-  return error instanceof AuthboundClientError && error.code === 'credential_definition_not_found';
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "credential_definition_not_found"
+  );
 }
 
 export async function createPensionCredentialDefinition(
-  client: AuthboundClient
-): Promise<CredentialDefinition> {
+  authbound: PensionExampleClient,
+  credentialDefinitionId: string
+) {
   try {
-    return await client.issuer.credentialDefinitions.get(PENSION_CREDENTIAL_DEFINITION_ID);
+    return await authbound.issuer.credentialDefinitions.get(
+      credentialDefinitionId
+    );
   } catch (error) {
     if (!isCredentialDefinitionNotFound(error)) {
       throw error;
     }
   }
 
-  return client.issuer.credentialDefinitions.create(pensionCredentialDefinition());
+  return authbound.issuer.credentialDefinitions.create(
+    pensionCredentialDefinitionPayload(credentialDefinitionId)
+  );
 }
 
-function toIssuanceSession(offer: OpenId4VcIssuanceOffer): PensionIssuanceSession {
+export function pensionCredentialClaims(
+  record: PensionCredentialFixture
+): Record<string, unknown> {
+  const { Person, Pension } = record.credentialSubject;
+
   return {
-    ...offer,
-    credentialSessionId: offer.id,
-    credentialOfferUri: offer.offerUri,
+    Person: {
+      given_name: Person.given_name,
+      family_name: Person.family_name,
+      birth_date: Person.birth_date,
+      personal_administrative_number: Person.personal_administrative_number,
+    },
+    Pension: {
+      ...(Pension["@language"] ? { "@language": Pension["@language"] } : {}),
+      typeCode: Pension.typeCode,
+      typeName: Pension.typeName,
+      startDate: Pension.startDate,
+      ...(Pension.endDate ? { endDate: Pension.endDate } : {}),
+      ...(Pension.provisional !== undefined
+        ? { provisional: Pension.provisional }
+        : {}),
+    },
   };
 }
 
 export async function createPensionCredentialOffer(
-  client: AuthboundClient,
-  claims: PensionClaims
-): Promise<PensionIssuanceSession> {
-  const definition = await createPensionCredentialDefinition(client);
-  const request: CreateOpenId4VcIssuanceOfferOptions = {
+  authbound: PensionExampleClient,
+  options: {
+    credentialDefinitionId: string;
+    credential: PensionCredentialFixture;
+  }
+) {
+  const definition = await createPensionCredentialDefinition(
+    authbound,
+    options.credentialDefinitionId
+  );
+
+  return authbound.openId4Vc.issuance.createOffer({
     credentialDefinitionId: definition.credentialDefinitionId,
-    claims,
-    issuanceMode: 'InTime',
-    metadata: {
-      credentialDefinitionId: definition.credentialDefinitionId,
-      demo: 'elakela',
-    },
-  };
-
-  const offer = await client.openId4Vc.issuance.createOffer(request);
-  return toIssuanceSession(offer);
-}
-
-function toVerificationSession(verification: Verification): PensionVerificationSession {
-  return {
-    ...verification,
-    verificationId: verification.id,
-    authorizationRequestUrl: verification.clientAction?.data,
-  };
+    claims: pensionCredentialClaims(options.credential),
+    issuanceMode: "InTime",
+  });
 }
 
 export async function createPensionVerificationRequest(
-  client: AuthboundClient
-): Promise<PensionVerificationSession> {
-  const options: CreateVerificationOptions = {
-    policyId: PENSION_VERIFICATION_POLICY_ID,
-    provider: 'eudi',
-    metadata: {
-      demo: 'elakela',
-      flow: 'verify',
-    },
-  };
-
-  const verification = await client.verifications.create(options);
-  return toVerificationSession(verification);
+  authbound: PensionExampleClient,
+  options: {
+    policyId: string;
+  }
+) {
+  return authbound.verifications.create({
+    policyId: options.policyId,
+    provider: "eudi",
+  });
 }
 
 export async function getPensionVerificationStatus(
-  client: AuthboundClient,
-  verificationId: string,
-  clientToken: string
+  authbound: PensionExampleClient,
+  options: {
+    verificationId: string;
+    clientToken: string;
+    publishableKey: string;
+  }
 ) {
-  return client.verifications.getStatus(verificationId, {
-    clientToken,
-    publishableKey: requirePublishableKey(),
+  return authbound.verifications.getStatus(options.verificationId, {
+    clientToken: options.clientToken,
+    publishableKey: options.publishableKey,
   });
 }
 
 export async function getPensionVerificationResult(
-  client: AuthboundClient,
-  verificationId: string
-): Promise<SignedVerificationResult> {
-  return client.verifications.getResult(verificationId);
+  authbound: PensionExampleClient,
+  options: {
+    verificationId: string;
+  }
+) {
+  return authbound.verifications.getResult(options.verificationId);
 }

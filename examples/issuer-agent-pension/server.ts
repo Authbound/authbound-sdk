@@ -1,161 +1,592 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-import express from 'express';
-import QRCode from 'qrcode';
-
+import { readFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
+import express, {
+  type ErrorRequestHandler,
+  type Request,
+  type RequestHandler,
+  type Response,
+} from "express";
+import QRCode from "qrcode";
 import {
-  getPensionClaimsBySlug,
-  isPensionCredentialSlug,
-  listPensionCredentialOptions,
-} from './credential-catalog.ts';
-import { renderDemoPage } from './demo-page.ts';
-import {
-  createAuthboundClient,
   createPensionCredentialOffer,
   createPensionVerificationRequest,
   getPensionVerificationResult,
   getPensionVerificationStatus,
-} from './pension-flow.ts';
-import {
-  getVerificationClientToken,
-  storeVerificationSession,
-  toErrorPayload,
-} from './utils.ts';
+  type PensionExampleClient,
+} from "./pension-flow.ts";
+import { escapeHtml, parsePensionCredential, scriptJson } from "./utils.ts";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = Number(process.env.PORT ?? 3333);
-const app = express();
+interface PensionCredentialOption {
+  slug: string;
+  title: string;
+  description: string;
+  fileName: string;
+}
 
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+interface VerificationSession {
+  clientToken: string;
+  expiresAt: number;
+  status: string;
+}
 
-app.get('/', (_request, response) => {
-  response.type('html').send(renderDemoPage());
-});
+type VerificationSessionStore = Map<string, VerificationSession>;
+type CreateClient = () => PensionExampleClient | Promise<PensionExampleClient>;
 
-app.get('/credentials', (_request, response) => {
-  response.json(listPensionCredentialOptions());
-});
+export interface CreateAppOptions {
+  createClient?: CreateClient;
+  verificationSessions?: VerificationSessionStore;
+}
 
-app.post('/offer', async (request, response) => {
-  try {
-    const slug = typeof request.body?.slug === 'string' ? request.body.slug : '';
-    if (!isPensionCredentialSlug(slug)) {
-      response.status(400).json({
-        error: 'unknown_slug',
-        message: 'Unknown pension credential slug',
-        slugs: listPensionCredentialOptions().map((entry) => entry.slug),
-      });
-      return;
-    }
+class DemoRequestError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode = 400
+  ) {
+    super(message);
+  }
+}
 
-    const client = createAuthboundClient();
-    const claims = getPensionClaimsBySlug(slug);
-    const offer = await createPensionCredentialOffer(client, claims);
-    const qrSvg = await QRCode.toString(offer.credentialOfferUri, {
-      type: 'svg',
+const pensionCredentialDefinitionId = "pension-credential";
+const pensionVerificationPolicyId = "pol_authbound_pension_v1";
+const verificationSessionTtlMs = 15 * 60 * 1000;
+const terminalVerificationStatuses = new Set([
+  "failed",
+  "expired",
+  "canceled",
+  "timeout",
+]);
+
+export const PENSION_CREDENTIALS: PensionCredentialOption[] = [
+  {
+    slug: "kael",
+    title: "Totti Aalto (KAEL)",
+    description: "Kansaneläke credential.",
+    fileName: "pensioncredential.json",
+  },
+  {
+    slug: "tkel-provisional",
+    title: "Edwin Kelimtes (väliaikainen TKEL)",
+    description: "Provisional disability pension credential.",
+    fileName: "pensioncredential-provisional.json",
+  },
+  {
+    slug: "tkel-disability",
+    title: "Joni Kai Hiltunen (TKEL)",
+    description: "Permanent disability pension credential.",
+    fileName: "pensioncredential-disability.json",
+  },
+  {
+    slug: "kuki",
+    title: "Jonne Aapeli Setälä (KUKI)",
+    description: "Active rehabilitation subsidy credential.",
+    fileName: "pensioncredential-rehabilitation.json",
+  },
+  {
+    slug: "kuki-expired",
+    title: "Annina von Forsellestes (päättynyt KUKI)",
+    description: "Ended rehabilitation subsidy credential.",
+    fileName: "pensioncredential-rehabilitation-expired.json",
+  },
+];
+
+function findCredentialOption(slug: string | null) {
+  if (!slug) {
+    return PENSION_CREDENTIALS[0];
+  }
+
+  const option = PENSION_CREDENTIALS.find(
+    (credential) => credential.slug === slug
+  );
+  if (!option) {
+    throw new DemoRequestError(`Unknown pension credential: ${slug}`, 404);
+  }
+  return option;
+}
+
+export async function loadCredential(option: PensionCredentialOption) {
+  const file = new URL(`./credentials/${option.fileName}`, import.meta.url);
+  const credential = parsePensionCredential(
+    JSON.parse(await readFile(file, "utf8"))
+  );
+  return { ...option, credential };
+}
+
+export async function listCredentials() {
+  return Promise.all(PENSION_CREDENTIALS.map(loadCredential));
+}
+
+async function selectedCredential(slug: string | null) {
+  return loadCredential(findCredentialOption(slug));
+}
+
+async function createDefaultClient(): Promise<PensionExampleClient> {
+  const apiKey = process.env.AUTHBOUND_SECRET_KEY;
+  if (!apiKey) {
+    throw new Error("AUTHBOUND_SECRET_KEY is required");
+  }
+
+  const { AuthboundClient } = (await import(
+    "@authbound/server"
+  )) as unknown as {
+    AuthboundClient: new (options: {
+      apiKey: string;
+      apiUrl?: string;
+      debug?: boolean;
+    }) => PensionExampleClient;
+  };
+  return new AuthboundClient({
+    apiKey,
+    apiUrl: process.env.AUTHBOUND_API_URL,
+    debug: process.env.AUTHBOUND_DEBUG === "true",
+  }) as PensionExampleClient;
+}
+
+function getPublishableKey() {
+  const publishableKey = process.env.AUTHBOUND_PUBLISHABLE_KEY;
+  if (!publishableKey) {
+    throw new Error("AUTHBOUND_PUBLISHABLE_KEY is required");
+  }
+
+  return publishableKey;
+}
+
+async function createOffer(slug: string | null, createClient: CreateClient) {
+  const selected = await selectedCredential(slug);
+  const authbound = await createClient();
+  const offer = await createPensionCredentialOffer(authbound, {
+    credentialDefinitionId: pensionCredentialDefinitionId,
+    credential: selected.credential,
+  });
+
+  return {
+    credential: selected,
+    offer,
+    qrSvg: await QRCode.toString(offer.offerUri, {
+      type: "svg",
       margin: 1,
-      width: 256,
-    });
+      width: 288,
+      color: { dark: "#111827", light: "#ffffff" },
+    }),
+  };
+}
 
-    response.status(201).json({
-      slug,
-      typeCode: claims.Pension.typeCode,
-      id: offer.id,
-      status: offer.status,
-      offerUri: offer.credentialOfferUri,
-      offerQrUri: offer.offerQrUri,
-      qrSvg,
-    });
-  } catch (error) {
-    console.error(error);
-    response.status(500).json(toErrorPayload(error));
+function sessionExpiresAt(expiresAt: string | undefined) {
+  const timestamp = expiresAt ? Date.parse(expiresAt) : Number.NaN;
+  return Number.isFinite(timestamp)
+    ? timestamp
+    : Date.now() + verificationSessionTtlMs;
+}
+
+function findVerificationSession(
+  sessions: VerificationSessionStore,
+  verificationId: string | null
+) {
+  if (!verificationId) {
+    throw new DemoRequestError("Missing verification id", 400);
   }
-});
 
-app.post('/verify', async (_request, response) => {
-  try {
-    const client = createAuthboundClient();
-    const verification = await createPensionVerificationRequest(client);
+  const session = sessions.get(verificationId);
+  if (!session || session.expiresAt <= Date.now()) {
+    sessions.delete(verificationId);
+    throw new DemoRequestError("Unknown verification id", 404);
+  }
 
-    if (!verification.clientToken) {
-      response.status(502).json({
-        error: 'missing_client_token',
-        message: 'Verification was created without a client token',
+  return { verificationId, session };
+}
+
+async function createVerification(
+  sessions: VerificationSessionStore,
+  createClient: CreateClient
+) {
+  const authbound = await createClient();
+  const verification = await createPensionVerificationRequest(authbound, {
+    policyId: pensionVerificationPolicyId,
+  });
+  const handoff =
+    verification.clientAction?.data ?? verification.verificationUrl ?? "";
+  const clientToken = verification.clientToken;
+  if (!clientToken) {
+    throw new Error("Verification response did not include a client token");
+  }
+  sessions.set(verification.id, {
+    clientToken,
+    expiresAt: sessionExpiresAt(verification.expiresAt),
+    status: verification.status,
+  });
+  const { clientToken: _clientToken, ...publicVerification } = verification;
+
+  return {
+    verification: publicVerification,
+    qrSvg: handoff
+      ? await QRCode.toString(handoff, {
+          type: "svg",
+          margin: 1,
+          width: 288,
+          color: { dark: "#111827", light: "#ffffff" },
+        })
+      : null,
+  };
+}
+
+async function getVerificationStatus(
+  sessions: VerificationSessionStore,
+  requestedVerificationId: string | null,
+  createClient: CreateClient
+) {
+  const { verificationId, session } = findVerificationSession(
+    sessions,
+    requestedVerificationId
+  );
+  const authbound = await createClient();
+  const status = await getPensionVerificationStatus(authbound, {
+    verificationId,
+    clientToken: session.clientToken,
+    publishableKey: getPublishableKey(),
+  });
+  session.status = status.status;
+  if (terminalVerificationStatuses.has(status.status)) {
+    sessions.delete(verificationId);
+  }
+  return status;
+}
+
+async function getVerificationResult(
+  sessions: VerificationSessionStore,
+  requestedVerificationId: string | null,
+  createClient: CreateClient
+) {
+  const { verificationId, session } = findVerificationSession(
+    sessions,
+    requestedVerificationId
+  );
+  if (session.status !== "verified") {
+    throw new DemoRequestError("Verification result is not ready", 409);
+  }
+  const result = await getPensionVerificationResult(await createClient(), {
+    verificationId,
+  });
+  sessions.delete(verificationId);
+  return result;
+}
+
+async function renderHome() {
+  const credentials = await listCredentials();
+  const options = credentials
+    .map(
+      ({ slug, title }) =>
+        `<option value="${escapeHtml(slug)}">${escapeHtml(title)}</option>`
+    )
+    .join("");
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pension credential example</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 0; background: #f6f8fb; color: #101828; }
+      main { width: min(960px, 100%); margin: 0 auto; padding: 32px; display: grid; gap: 24px; }
+      section { background: white; border: 1px solid #d0d5dd; border-radius: 8px; padding: 24px; }
+      label, button { font: inherit; }
+      select, button { width: 100%; padding: 10px 12px; margin-top: 8px; }
+      button { border: 0; border-radius: 6px; background: #003580; color: white; font-weight: 700; cursor: pointer; }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .qr { margin-top: 16px; }
+      .qr svg { max-width: 288px; height: auto; }
+      pre { overflow: auto; padding: 12px; background: #101828; color: white; border-radius: 6px; }
+      a { color: #003580; word-break: break-all; }
+      .status { min-height: 24px; color: #475467; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Pension credential</h1>
+        <p>Issue and verify KAEL, TKEL, and KUKI pension credential fixtures.</p>
+      </header>
+      <section>
+        <h2>Issue credential</h2>
+        <label>
+          Credential
+          <select id="credential">${options}</select>
+        </label>
+        <button id="issue" type="button">Create wallet offer</button>
+        <p class="status" id="issue-status"></p>
+        <div class="qr" id="issue-qr"></div>
+        <p id="issue-link"></p>
+      </section>
+      <section>
+        <h2>Verify credential</h2>
+        <button id="verify" type="button">Create verification request</button>
+        <p class="status" id="verify-status"></p>
+        <div class="qr" id="verify-qr"></div>
+        <p id="verify-link"></p>
+        <pre id="result" hidden></pre>
+      </section>
+    </main>
+    <script>
+      const credentials = ${scriptJson(credentials)};
+      const credentialSelect = document.querySelector("#credential");
+      const issueButton = document.querySelector("#issue");
+      const verifyButton = document.querySelector("#verify");
+      const issueStatus = document.querySelector("#issue-status");
+      const verifyStatus = document.querySelector("#verify-status");
+      const issueQr = document.querySelector("#issue-qr");
+      const verifyQr = document.querySelector("#verify-qr");
+      const issueLink = document.querySelector("#issue-link");
+      const verifyLink = document.querySelector("#verify-link");
+      const result = document.querySelector("#result");
+      let verificationPoll;
+
+      function setLink(container, href, label) {
+        container.textContent = "";
+        const anchor = document.createElement("a");
+        anchor.href = href;
+        anchor.target = "_blank";
+        anchor.rel = "noopener";
+        anchor.textContent = label;
+        container.append(anchor);
+      }
+
+      issueButton.addEventListener("click", async () => {
+        issueButton.disabled = true;
+        issueStatus.textContent = "Creating offer...";
+        issueQr.textContent = "";
+        issueLink.textContent = "";
+        try {
+          const response = await fetch("/offer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug: credentialSelect.value }),
+          });
+          const body = await response.json();
+          if (!response.ok) throw new Error(body.error ?? "Offer creation failed");
+          issueQr.innerHTML = body.qrSvg;
+          setLink(issueLink, body.offer.offerUri, body.offer.offerUri);
+          issueStatus.textContent = "Offer ready";
+        } catch (error) {
+          issueStatus.textContent = error instanceof Error ? error.message : "Offer creation failed";
+        } finally {
+          issueButton.disabled = false;
+        }
       });
-      return;
-    }
 
-    storeVerificationSession(verification.verificationId, verification.clientToken);
-
-    let qrSvg: string | undefined;
-    const authorizationRequestUrl = verification.authorizationRequestUrl;
-    if (authorizationRequestUrl) {
-      qrSvg = await QRCode.toString(authorizationRequestUrl, {
-        type: 'svg',
-        margin: 1,
-        width: 256,
+      verifyButton.addEventListener("click", async () => {
+        clearInterval(verificationPoll);
+        verifyButton.disabled = true;
+        verifyStatus.textContent = "Creating verification...";
+        verifyQr.textContent = "";
+        verifyLink.textContent = "";
+        result.hidden = true;
+        result.textContent = "";
+        try {
+          const response = await fetch("/verify", { method: "POST" });
+          const body = await response.json();
+          if (!response.ok) throw new Error(body.error ?? "Verification creation failed");
+          const handoff = body.verification.clientAction?.data ?? body.verification.verificationUrl ?? "";
+          verifyQr.innerHTML = body.qrSvg ?? "";
+          if (handoff) setLink(verifyLink, handoff, handoff);
+          verifyStatus.textContent = "Verification ready";
+          pollVerification(body.verification.id);
+        } catch (error) {
+          verifyStatus.textContent = error instanceof Error ? error.message : "Verification creation failed";
+        } finally {
+          verifyButton.disabled = false;
+        }
       });
-    }
 
-    response.status(201).json({
-      verificationId: verification.verificationId,
-      status: verification.status,
-      authorizationRequestUrl,
-      qrSvg,
-    });
-  } catch (error) {
-    console.error(error);
-    response.status(500).json(toErrorPayload(error));
+      async function pollVerification(id) {
+        const terminal = new Set(["verified", "failed", "expired", "canceled", "timeout"]);
+        async function refresh() {
+          try {
+            const response = await fetch("/status?id=" + encodeURIComponent(id));
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.error ?? "Status check failed");
+            verifyStatus.textContent = body.status;
+            if (body.status === "verified") await loadVerificationResult(id);
+            if (terminal.has(body.status)) clearInterval(verificationPoll);
+          } catch (error) {
+            clearInterval(verificationPoll);
+            verifyStatus.textContent = error instanceof Error ? error.message : "Status check failed";
+          }
+        }
+        await refresh();
+        verificationPoll = setInterval(refresh, 3000);
+      }
+
+      async function loadVerificationResult(id) {
+        const response = await fetch("/result?id=" + encodeURIComponent(id));
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error ?? "Result fetch failed");
+        result.hidden = false;
+        result.textContent = JSON.stringify(body, null, 2);
+      }
+    </script>
+  </body>
+</html>`;
+}
+
+function errorBody(error: unknown) {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    return {
+      error: error instanceof Error ? error.message : "Unexpected error",
+      code: (error as { code?: unknown }).code,
+    };
   }
-});
 
-app.get('/status', async (request, response) => {
-  try {
-    const verificationId =
-      typeof request.query.id === 'string' ? request.query.id : undefined;
-    if (!verificationId) {
-      response.status(400).json({ error: 'missing_id', message: 'Query id is required' });
-      return;
-    }
+  return { error: error instanceof Error ? error.message : "Unexpected error" };
+}
 
-    const clientToken = getVerificationClientToken(verificationId);
-    if (!clientToken) {
-      response.status(404).json({
-        error: 'session_not_found',
-        message: 'Verification session expired or unknown. Start verification again.',
+function asyncRoute(
+  handler: (request: Request, response: Response) => Promise<void>
+): RequestHandler {
+  return (request, response, next) => {
+    handler(request, response).catch(next);
+  };
+}
+
+function methodNotAllowed(
+  allowedMethod: string,
+  routePath: string
+): RequestHandler {
+  return (_request, response) => {
+    response
+      .status(405)
+      .set("Allow", allowedMethod)
+      .json({
+        error: `Method not allowed. Use ${allowedMethod} ${routePath}.`,
       });
-      return;
-    }
+  };
+}
 
-    const client = createAuthboundClient();
-    const status = await getPensionVerificationStatus(client, verificationId, clientToken);
-    response.json(status);
-  } catch (error) {
-    console.error(error);
-    response.status(500).json(toErrorPayload(error));
+function queryString(value: unknown) {
+  return typeof value === "string" ? value : null;
+}
+
+function errorField(error: unknown, key: string) {
+  if (typeof error !== "object" || error === null || !(key in error)) {
+    return;
   }
-});
+  return (error as Record<string, unknown>)[key];
+}
 
-app.get('/result', async (request, response) => {
-  try {
-    const verificationId =
-      typeof request.query.id === 'string' ? request.query.id : undefined;
-    if (!verificationId) {
-      response.status(400).json({ error: 'missing_id', message: 'Query id is required' });
-      return;
-    }
-
-    const client = createAuthboundClient();
-    const result = await getPensionVerificationResult(client, verificationId);
-    response.json(result);
-  } catch (error) {
-    console.error(error);
-    response.status(500).json(toErrorPayload(error));
+const errorHandler: ErrorRequestHandler = (
+  error,
+  _request,
+  response,
+  _next
+) => {
+  if (errorField(error, "type") === "entity.too.large") {
+    response.status(413).json({ error: "Request body is too large" });
+    return;
   }
-});
 
-app.listen(PORT, () => {
-  console.log(`Pension issuer example running at http://127.0.0.1:${PORT}`);
-});
+  if (errorField(error, "type") === "entity.parse.failed") {
+    response.status(400).json({ error: "Request body must be valid JSON" });
+    return;
+  }
+
+  if (error instanceof DemoRequestError) {
+    response.status(error.statusCode).json(errorBody(error));
+    return;
+  }
+
+  console.error(error);
+  response.status(500).json(errorBody(error));
+};
+
+export function createApp(options: CreateAppOptions = {}) {
+  const app = express();
+  const verificationSessions = options.verificationSessions ?? new Map();
+  const createClient = options.createClient ?? createDefaultClient;
+
+  app.use(express.json({ limit: "64kb" }));
+
+  app.get("/health", (_request, response) => {
+    response.json({ ok: true });
+  });
+
+  app.get(
+    "/credentials",
+    asyncRoute(async (_request, response) => {
+      response.json(await listCredentials());
+    })
+  );
+
+  app
+    .route("/offer")
+    .post(
+      asyncRoute(async (request, response) => {
+        const body = request.body as Record<string, unknown> | undefined;
+        const slug = typeof body?.slug === "string" ? body.slug : null;
+        response.json(await createOffer(slug, createClient));
+      })
+    )
+    .all(methodNotAllowed("POST", "/offer"));
+
+  app
+    .route("/verify")
+    .post(
+      asyncRoute(async (_request, response) => {
+        response.json(
+          await createVerification(verificationSessions, createClient)
+        );
+      })
+    )
+    .all(methodNotAllowed("POST", "/verify"));
+
+  app
+    .route("/status")
+    .get(
+      asyncRoute(async (request, response) => {
+        response.json(
+          await getVerificationStatus(
+            verificationSessions,
+            queryString(request.query.id),
+            createClient
+          )
+        );
+      })
+    )
+    .all(methodNotAllowed("GET", "/status"));
+
+  app
+    .route("/result")
+    .get(
+      asyncRoute(async (request, response) => {
+        response.json(
+          await getVerificationResult(
+            verificationSessions,
+            queryString(request.query.id),
+            createClient
+          )
+        );
+      })
+    )
+    .all(methodNotAllowed("GET", "/result"));
+
+  app.get(
+    "/",
+    asyncRoute(async (_request, response) => {
+      response.type("html").send(await renderHome());
+    })
+  );
+
+  app.use(errorHandler);
+
+  return app;
+}
+
+const isMain = process.argv[1]
+  ? import.meta.url === pathToFileURL(process.argv[1]).href
+  : false;
+
+if (isMain) {
+  const port = Number(process.env.PORT ?? 3333);
+  const host = process.env.HOST ?? "0.0.0.0";
+  const app = createApp();
+  app.listen(port, host, () => {
+    console.log(`Issuer demo listening on http://${host}:${port}`);
+  });
+}
