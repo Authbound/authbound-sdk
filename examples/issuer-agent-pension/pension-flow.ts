@@ -1,64 +1,15 @@
+import type {
+  ApiVerificationStatus,
+  CreateCredentialDefinitionOptions,
+  CreateOpenId4VcIssuanceOfferOptions,
+  CreateVerificationOptions,
+  CredentialDefinition,
+  GetVerificationStatusOptions,
+  OpenId4VcIssuanceOffer,
+  SignedVerificationResult,
+  Verification,
+} from "@authbound/server";
 import type { PensionCredentialFixture } from "./utils.ts";
-
-interface CreateCredentialDefinitionOptions {
-  credentialDefinitionId: string;
-  vct: string;
-  format: string;
-  title: string;
-  aliases?: string[];
-  claims?: Array<{
-    path: string[];
-    mandatory?: boolean;
-    displayName?: string;
-  }>;
-}
-
-interface CredentialDefinition {
-  credentialDefinitionId: string;
-}
-
-interface CreateOpenId4VcIssuanceOfferOptions {
-  credentialDefinitionId: string;
-  claims: Record<string, unknown>;
-  issuanceMode: "InTime" | "Deferred";
-}
-
-interface OpenId4VcIssuanceOffer {
-  id: string;
-  offerUri: string;
-  [key: string]: unknown;
-}
-
-interface CreateVerificationOptions {
-  policyId: string;
-  provider: "eudi" | "vcs";
-}
-
-interface Verification {
-  id: string;
-  status: string;
-  expiresAt?: string;
-  clientToken?: string;
-  clientAction?: {
-    kind?: string;
-    data?: string;
-    expiresAt?: string;
-  };
-  verificationUrl?: string;
-  [key: string]: unknown;
-}
-
-interface VerificationStatus {
-  status: string;
-  [key: string]: unknown;
-}
-
-interface SignedVerificationResult {
-  verificationId: string;
-  status: string;
-  resultToken: string;
-  assertions?: Record<string, unknown>;
-}
 
 export interface AuthboundClientLike {
   issuer: {
@@ -80,11 +31,11 @@ export interface AuthboundClientLike {
     create(options: CreateVerificationOptions): Promise<Verification>;
     getStatus(
       verificationId: string,
-      options: {
-        clientToken: string;
-        publishableKey: string;
-      }
-    ): Promise<VerificationStatus>;
+      options: Pick<
+        GetVerificationStatusOptions,
+        "clientToken" | "publishableKey"
+      >
+    ): Promise<ApiVerificationStatus>;
     getResult(verificationId: string): Promise<SignedVerificationResult>;
   };
 }

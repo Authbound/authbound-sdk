@@ -2,6 +2,13 @@ import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, it } from "node:test";
+import type {
+  ApiVerificationStatus,
+  CredentialDefinition,
+  OpenId4VcIssuanceOffer,
+  SignedVerificationResult,
+  Verification,
+} from "@authbound/server";
 import type { AuthboundClientLike } from "./pension-flow.ts";
 import { createApp, listCredentials } from "./server.ts";
 import { parsePensionCredential } from "./utils.ts";
@@ -39,39 +46,85 @@ async function withAppServer<T>(
   }
 }
 
+function credentialDefinition(
+  credentialDefinitionId: string
+): CredentialDefinition {
+  return {
+    object: "issuer.credential_definition",
+    id: `cd_${credentialDefinitionId}`,
+    credentialDefinitionId,
+    format: "dc+sd-jwt",
+    title: "Pension Credential",
+    claims: [],
+  };
+}
+
+function issuanceOffer(): OpenId4VcIssuanceOffer {
+  return {
+    object: "openid4vc_issuance",
+    id: "offer_test",
+    status: "offer_created",
+    credentialDefinitionId: "pension-credential",
+    credentials: [],
+    offerUri: "openid-credential-offer://example.test",
+    offerQrUri: "https://example.test/offer/qr",
+    credentialIssuer: "https://issuer.example.test",
+    issuanceMode: "InTime",
+    txCodeRequired: false,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+function verification(overrides: Partial<Verification> = {}): Verification {
+  return {
+    object: "verification",
+    id: "vrf_test",
+    status: "created",
+    ...overrides,
+  };
+}
+
+function verificationStatus(
+  overrides: Partial<ApiVerificationStatus> = {}
+): ApiVerificationStatus {
+  return {
+    object: "verification_status",
+    id: "vrf_test",
+    status: "created",
+    ...overrides,
+  };
+}
+
+function signedResult(verificationId: string): SignedVerificationResult {
+  return {
+    verificationId,
+    status: "verified",
+    resultToken: "result_token",
+  };
+}
+
 function createMockClient(options: {
   verifications?: Partial<AuthboundClientLike["verifications"]>;
 }): AuthboundClientLike {
   return {
     issuer: {
       credentialDefinitions: {
-        get: async (credentialDefinitionId) => ({ credentialDefinitionId }),
-        create: async ({ credentialDefinitionId }) => ({
-          credentialDefinitionId,
-        }),
+        get: async (credentialDefinitionId) =>
+          credentialDefinition(credentialDefinitionId),
+        create: async ({ credentialDefinitionId }) =>
+          credentialDefinition(credentialDefinitionId),
       },
     },
     openId4Vc: {
       issuance: {
-        createOffer: async () => ({
-          id: "offer_test",
-          offerUri: "openid-credential-offer://example.test",
-        }),
+        createOffer: async () => issuanceOffer(),
       },
     },
     verifications: {
-      create: async () => ({
-        id: "vrf_test",
-        status: "pending",
-      }),
-      getStatus: async () => ({
-        status: "pending",
-      }),
-      getResult: async (verificationId) => ({
-        verificationId,
-        status: "verified",
-        resultToken: "result_token",
-      }),
+      create: async () => verification(),
+      getStatus: async () => verificationStatus(),
+      getResult: async (verificationId) => signedResult(verificationId),
       ...options.verifications,
     },
   };
@@ -160,11 +213,9 @@ describe("issuer-agent-pension example", () => {
   });
 
   it("does not fetch signed results for unknown verification ids", async () => {
-    const getResult = mockFunction(async (_verificationId: string) => ({
-      verificationId: "vrf_leaked",
-      status: "verified",
-      resultToken: "result_token",
-    }));
+    const getResult = mockFunction(async (_verificationId: string) =>
+      signedResult("vrf_leaked")
+    );
     const app = createApp({
       createClient: () => createMockClient({ verifications: { getResult } }),
     });
@@ -179,26 +230,24 @@ describe("issuer-agent-pension example", () => {
 
   it("does not fetch signed results before verification is verified", async () => {
     process.env.AUTHBOUND_PUBLISHABLE_KEY = "pk_test_123";
-    const create = mockFunction(async () => ({
-      id: "vrf_pending",
-      status: "pending",
-      clientToken: "client_token_123",
-      expiresAt: "2999-01-01T00:00:00.000Z",
-      clientAction: {
-        kind: "qr",
-        data: "openid4vp://authorize?request_uri=https%3A%2F%2Fexample.test",
-      },
-    }));
-    const getStatus = mockFunction(async () => ({
-      object: "verification_status",
-      id: "vrf_pending",
-      status: "verified",
-    }));
-    const getResult = mockFunction(async (verificationId: string) => ({
-      verificationId,
-      status: "verified",
-      resultToken: "result_token",
-    }));
+    const create = mockFunction(async () =>
+      verification({
+        id: "vrf_pending",
+        status: "created",
+        clientToken: "client_token_123",
+        expiresAt: "2999-01-01T00:00:00.000Z",
+        clientAction: {
+          kind: "qr",
+          data: "openid4vp://authorize?request_uri=https%3A%2F%2Fexample.test",
+        },
+      })
+    );
+    const getStatus = mockFunction(async () =>
+      verificationStatus({ id: "vrf_pending", status: "verified" })
+    );
+    const getResult = mockFunction(async (verificationId: string) =>
+      signedResult(verificationId)
+    );
 
     const app = createApp({
       createClient: () =>
@@ -232,21 +281,21 @@ describe("issuer-agent-pension example", () => {
 
   it("expires verification sessions from Authbound's expiresAt value", async () => {
     process.env.AUTHBOUND_PUBLISHABLE_KEY = "pk_test_123";
-    const create = mockFunction(async () => ({
-      id: "vrf_expired",
-      status: "pending",
-      clientToken: "client_token_123",
-      expiresAt: "2000-01-01T00:00:00.000Z",
-      clientAction: {
-        kind: "qr",
-        data: "openid4vp://authorize?request_uri=https%3A%2F%2Fexample.test",
-      },
-    }));
-    const getStatus = mockFunction(async () => ({
-      object: "verification_status",
-      id: "vrf_expired",
-      status: "pending",
-    }));
+    const create = mockFunction(async () =>
+      verification({
+        id: "vrf_expired",
+        status: "created",
+        clientToken: "client_token_123",
+        expiresAt: "2000-01-01T00:00:00.000Z",
+        clientAction: {
+          kind: "qr",
+          data: "openid4vp://authorize?request_uri=https%3A%2F%2Fexample.test",
+        },
+      })
+    );
+    const getStatus = mockFunction(async () =>
+      verificationStatus({ id: "vrf_expired", status: "created" })
+    );
 
     const app = createApp({
       createClient: () =>
