@@ -210,6 +210,20 @@ describe("issuer-agent-pension example", () => {
     });
   });
 
+  it("renders handoff links with overflow-safe layout styles", async () => {
+    const app = createApp({ createClient: () => createMockClient({}) });
+
+    await withAppServer(app, async (baseUrl) => {
+      const response = await fetch(baseUrl);
+      const html = await response.text();
+
+      assert.equal(response.ok, true);
+      assert.match(html, /\* \{ box-sizing: border-box; \}/);
+      assert.match(html, /overflow-wrap: anywhere/);
+      assert.match(html, /#issue-link, #verify-link/);
+    });
+  });
+
   it("rejects impossible calendar dates in JSON fixtures", () => {
     assert.throws(
       () =>

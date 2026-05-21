@@ -295,18 +295,24 @@ async function renderHome() {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Pension credential example</title>
     <style>
+      * { box-sizing: border-box; }
       body { font-family: system-ui, sans-serif; margin: 0; background: #f6f8fb; color: #101828; }
       main { width: min(960px, 100%); margin: 0 auto; padding: 32px; display: grid; gap: 24px; }
-      section { background: white; border: 1px solid #d0d5dd; border-radius: 8px; padding: 24px; }
+      section { min-width: 0; background: white; border: 1px solid #d0d5dd; border-radius: 8px; padding: 24px; }
       label, button { font: inherit; }
       select, button { width: 100%; padding: 10px 12px; margin-top: 8px; }
       button { border: 0; border-radius: 6px; background: #003580; color: white; font-weight: 700; cursor: pointer; }
       button:disabled { opacity: 0.5; cursor: not-allowed; }
       .qr { margin-top: 16px; }
       .qr svg { max-width: 288px; height: auto; }
-      pre { overflow: auto; padding: 12px; background: #101828; color: white; border-radius: 6px; }
-      a { color: #003580; word-break: break-all; }
+      pre { max-width: 100%; overflow: auto; overflow-wrap: anywhere; padding: 12px; background: #101828; color: white; border-radius: 6px; }
+      a { color: #003580; overflow-wrap: anywhere; word-break: break-word; }
+      #issue-link, #verify-link { max-width: 100%; overflow-wrap: anywhere; }
       .status { min-height: 24px; color: #475467; }
+      @media (max-width: 640px) {
+        main { padding: 16px; }
+        section { padding: 18px; }
+      }
     </style>
   </head>
   <body>
