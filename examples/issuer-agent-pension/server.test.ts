@@ -191,7 +191,7 @@ describe("issuer-agent-pension example", () => {
     );
   });
 
-  it("omits JSON-LD language metadata from Authbound issuance claims", async () => {
+  it("keeps fixture language in Authbound issuance claims", async () => {
     const [credential] = await listCredentials();
 
     assert.deepEqual(pensionCredentialClaims(credential.credential), {
@@ -202,6 +202,7 @@ describe("issuer-agent-pension example", () => {
         personal_administrative_number: "030393-995E",
       },
       Pension: {
+        "@language": "fi_FI",
         typeCode: "KAEL",
         typeName: "Kansaneläke",
         startDate: "2024-02-01",

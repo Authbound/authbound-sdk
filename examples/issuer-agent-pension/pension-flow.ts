@@ -40,6 +40,7 @@ function pensionCredentialDefinitionPayload(
         displayName: "Type Code",
       },
       { path: ["Pension", "typeName"], mandatory: true, displayName: "Type" },
+      { path: ["Pension", "@language"], displayName: "Language" },
       {
         path: ["Pension", "startDate"],
         mandatory: true,
@@ -83,7 +84,7 @@ export async function createPensionCredentialDefinition(
 }
 
 // The offer payload is just the credential claims. Fixture metadata such as
-// JSON-LD context, language tags, and fixture ID stays local to the example.
+// JSON-LD context and fixture ID stays local to the example.
 export function pensionCredentialClaims(
   record: PensionCredentialFixture
 ): Record<string, unknown> {
@@ -97,6 +98,7 @@ export function pensionCredentialClaims(
       personal_administrative_number: Person.personal_administrative_number,
     },
     Pension: {
+      ...(Pension["@language"] ? { "@language": Pension["@language"] } : {}),
       typeCode: Pension.typeCode,
       typeName: Pension.typeName,
       startDate: Pension.startDate,
