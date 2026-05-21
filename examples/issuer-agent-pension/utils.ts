@@ -29,10 +29,6 @@ export function escapeHtml(value: unknown) {
     .replaceAll("'", "&#039;");
 }
 
-export function scriptJson(value: unknown) {
-  return JSON.stringify(value).replaceAll("<", "\\u003c");
-}
-
 export function parsePensionCredential(
   value: unknown
 ): PensionCredentialFixture {
@@ -44,7 +40,7 @@ export function parsePensionCredential(
   const Person = getObject(credentialSubject, "Person");
   const Pension = getObject(credentialSubject, "Pension");
   const language = getOptionalString(Pension, "@language");
-  const endDate = getOptionalIsoDate(Pension, "endDate");
+  const endDate = getOptionalDateString(Pension, "endDate");
   const provisional = getOptionalBoolean(Pension, "provisional");
 
   return {
@@ -55,7 +51,7 @@ export function parsePensionCredential(
       Person: {
         given_name: getString(Person, "given_name"),
         family_name: getString(Person, "family_name"),
-        birth_date: getIsoDate(Person, "birth_date"),
+        birth_date: getDateString(Person, "birth_date"),
         personal_administrative_number: getString(
           Person,
           "personal_administrative_number"
@@ -65,7 +61,7 @@ export function parsePensionCredential(
         ...(language ? { "@language": language } : {}),
         typeCode: getString(Pension, "typeCode"),
         typeName: getString(Pension, "typeName"),
-        startDate: getIsoDate(Pension, "startDate"),
+        startDate: getDateString(Pension, "startDate"),
         ...(endDate ? { endDate } : {}),
         ...(provisional !== undefined ? { provisional } : {}),
       },
@@ -126,31 +122,35 @@ function getStringArray(source: Record<string, unknown>, key: string) {
   return value as string[];
 }
 
-function getIsoDate(source: Record<string, unknown>, key: string) {
+function getDateString(source: Record<string, unknown>, key: string) {
   const value = getString(source, key);
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) {
+  if (!isIsoCalendarDate(value)) {
     throw new Error(`Credential fixture has invalid date field: ${key}`);
   }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day
-  ) {
-    throw new Error(`Credential fixture has impossible date field: ${key}`);
-  }
-
   return value;
 }
 
-function getOptionalIsoDate(source: Record<string, unknown>, key: string) {
+function getOptionalDateString(source: Record<string, unknown>, key: string) {
   if (source[key] === undefined) {
     return;
   }
-  return getIsoDate(source, key);
+  return getDateString(source, key);
+}
+
+function isIsoCalendarDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    return false;
+  }
+
+  const [, yearText, monthText, dayText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
 }

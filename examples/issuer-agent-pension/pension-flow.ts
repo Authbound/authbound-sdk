@@ -1,7 +1,6 @@
-import {
-  type AuthboundClient,
-  AuthboundClientError,
-  type CreateCredentialDefinitionOptions,
+import type {
+  AuthboundClient,
+  CreateCredentialDefinitionOptions,
 } from "@authbound/server";
 import type { PensionCredentialFixture } from "./utils.ts";
 
@@ -41,6 +40,7 @@ function pensionCredentialDefinitionPayload(
         displayName: "Type Code",
       },
       { path: ["Pension", "typeName"], mandatory: true, displayName: "Type" },
+      { path: ["Pension", "@language"], displayName: "Language" },
       {
         path: ["Pension", "startDate"],
         mandatory: true,
@@ -52,31 +52,41 @@ function pensionCredentialDefinitionPayload(
   };
 }
 
-// 1. Create the credential definition that declares the claim paths this credential can contain.
+// The credential definition declares which pension claims Authbound may put in
+// wallet offers. The get-or-create wrapper is demo setup convenience; real
+// services usually create definitions during onboarding/deployment and issue
+// credentials against the stored definition ID.
+function isCredentialDefinitionNotFound(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "credential_definition_not_found"
+  );
+}
+
 export async function createPensionCredentialDefinition(
-  authbound: AuthboundClient,
+  authboundClient: AuthboundClient,
   credentialDefinitionId: string
 ) {
-  // Reusing the same ID keeps the example safe to run more than once.
+  // Reusing the same definition ID keeps the example safe to run repeatedly.
   try {
-    return await authbound.issuer.credentialDefinitions.get(
+    return await authboundClient.issuer.credentialDefinitions.get(
       credentialDefinitionId
     );
   } catch (error) {
-    if (
-      !(error instanceof AuthboundClientError) ||
-      error.code !== "credential_definition_not_found"
-    ) {
+    if (!isCredentialDefinitionNotFound(error)) {
       throw error;
     }
   }
 
-  return authbound.issuer.credentialDefinitions.create(
+  return authboundClient.issuer.credentialDefinitions.create(
     pensionCredentialDefinitionPayload(credentialDefinitionId)
   );
 }
 
-// 2. The offer claims must match the paths registered in the definition.
+// The offer payload is just the credential claims. Fixture metadata such as
+// JSON-LD context and fixture ID stays local to the example.
 export function pensionCredentialClaims(
   record: PensionCredentialFixture
 ): Record<string, unknown> {
@@ -90,6 +100,7 @@ export function pensionCredentialClaims(
       personal_administrative_number: Person.personal_administrative_number,
     },
     Pension: {
+      ...(Pension["@language"] ? { "@language": Pension["@language"] } : {}),
       typeCode: Pension.typeCode,
       typeName: Pension.typeName,
       startDate: Pension.startDate,
@@ -102,61 +113,62 @@ export function pensionCredentialClaims(
 }
 
 export async function createPensionCredentialOffer(
-  authbound: AuthboundClient,
+  authboundClient: AuthboundClient,
   options: {
     credentialDefinitionId: string;
     credential: PensionCredentialFixture;
   }
 ) {
-  // InTime issuance supplies the credential data when the wallet offer is made.
   const definition = await createPensionCredentialDefinition(
-    authbound,
+    authboundClient,
     options.credentialDefinitionId
   );
 
-  return authbound.openId4Vc.issuance.createOffer({
+  // InTime issuance supplies the credential data when the wallet offer is made.
+  return authboundClient.openId4Vc.issuance.createOffer({
     credentialDefinitionId: definition.credentialDefinitionId,
     claims: pensionCredentialClaims(options.credential),
     issuanceMode: "InTime",
   });
 }
 
-// 3. The verifier asks an EUDI wallet for a credential matching the pension policy.
+// The verifier asks an EUDI wallet for a credential matching a policy already
+// configured in Authbound.
 export async function createPensionVerificationRequest(
-  authbound: AuthboundClient,
+  authboundClient: AuthboundClient,
   options: {
     policyId: string;
   }
 ) {
-  return authbound.verifications.create({
+  return authboundClient.verifications.create({
     policyId: options.policyId,
     provider: "eudi",
   });
 }
 
+// The SDK sends status polling without the secret key. Authbound authorizes the
+// request with the short-lived client token and the publishable key instead.
 export async function getPensionVerificationStatus(
-  authbound: AuthboundClient,
+  authboundClient: AuthboundClient,
   options: {
     verificationId: string;
     clientToken: string;
     publishableKey: string;
   }
 ) {
-  // clientToken is returned only when the verification is created.
-  // Pair it with the publishable key for status polling, never the secret key.
-  return authbound.verifications.getStatus(options.verificationId, {
+  return authboundClient.verifications.getStatus(options.verificationId, {
     clientToken: options.clientToken,
     publishableKey: options.publishableKey,
   });
 }
 
+// Fetching the signed result is a server-side secret-key operation. The demo
+// route only calls this after status polling has observed a verified session.
 export async function getPensionVerificationResult(
-  authbound: AuthboundClient,
+  authboundClient: AuthboundClient,
   options: {
     verificationId: string;
   }
 ) {
-  // Fetch the signed result with the server secret key.
-  // This demo calls it only after status polling reports verified.
-  return authbound.verifications.getResult(options.verificationId);
+  return authboundClient.verifications.getResult(options.verificationId);
 }
