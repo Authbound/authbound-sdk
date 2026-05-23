@@ -38,6 +38,7 @@ import {
 } from "../types/verification";
 import {
   type ProviderPreference,
+  PublicVerificationStatusSnapshotSchema,
   projectVerificationStatusForUi,
 } from "../types/verification-contract";
 import type { AuthboundClientConfig, ResolvedConfig } from "./config";
@@ -47,6 +48,35 @@ import {
   createSessionClient,
   createVerificationClient,
 } from "./http";
+
+const RESERVED_VERIFICATION_METADATA_KEYS = [
+  "client_token",
+  "result_token",
+  "assertions",
+  "result",
+  "verification_url",
+  "client_action",
+  "clientAction",
+  "gateway",
+  "nonce",
+] as const;
+
+function assertSafeVerificationMetadata(
+  metadata: Record<string, unknown> | undefined
+): void {
+  if (!metadata) {
+    return;
+  }
+
+  for (const reservedKey of RESERVED_VERIFICATION_METADATA_KEYS) {
+    if (Object.hasOwn(metadata, reservedKey)) {
+      throw new AuthboundError(
+        "policy_invalid",
+        `metadata must not include reserved key "${reservedKey}"`
+      );
+    }
+  }
+}
 
 // ============================================================================
 // Client Interface
@@ -164,6 +194,8 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
           "Policy ID is required. Provide it in createClient() or startVerification()."
         );
       }
+
+      assertSafeVerificationMetadata(options.metadata);
 
       log("Starting verification with policy:", policyId);
 
@@ -289,23 +321,30 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
     },
 
     async pollStatus(verificationId, clientToken) {
-      const response = await httpClient.get<{
-        status: string;
-        error?: { code: string; message: string };
-        timeRemaining?: number;
-      }>(`/v1/verifications/${verificationId}/status`, {
-        token: clientToken,
-        headers: {
-          "x-authbound-publishable-key": resolvedConfig.publishableKey,
-        },
-      });
+      const response = await httpClient.get<unknown>(
+        `/v1/verifications/${verificationId}/status`,
+        {
+          token: clientToken,
+          headers: {
+            "x-authbound-publishable-key": resolvedConfig.publishableKey,
+          },
+        }
+      );
+      const parsed = PublicVerificationStatusSnapshotSchema.safeParse(
+        response.data
+      );
+      if (!parsed.success) {
+        throw new AuthboundError(
+          "internal_error",
+          "Invalid verification status response",
+          {
+            details: { issues: parsed.error.issues },
+          }
+        );
+      }
 
       return {
-        status: projectVerificationStatusForUi(response.data.status),
-        ...(response.data.error ? { error: response.data.error } : {}),
-        ...(typeof response.data.timeRemaining === "number"
-          ? { timeRemaining: response.data.timeRemaining }
-          : {}),
+        status: projectVerificationStatusForUi(parsed.data.status),
       };
     },
 

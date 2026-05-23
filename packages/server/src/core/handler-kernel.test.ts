@@ -249,6 +249,92 @@ describe("framework handler kernel", () => {
     expect(onFailed).not.toHaveBeenCalled();
   });
 
+  it("rejects signed webhooks whose event type contradicts the verification status", async () => {
+    const event: WebhookEvent = {
+      id: "evt_123",
+      object: "event",
+      api_version: "2026-04-01",
+      created: Math.floor(Date.now() / 1000),
+      livemode: false,
+      type: "verification.completed",
+      data: {
+        object: {
+          id: "vrf_test123",
+          object: "verification",
+          status: "failed",
+          failure_code: "policy_not_satisfied",
+        },
+      },
+    };
+    const rawBody = JSON.stringify(event);
+    const { signature } = generateWebhookSignature({
+      payload: rawBody,
+      secret: config.webhookSecret ?? "",
+    });
+    const onWebhook = vi.fn();
+    const onVerified = vi.fn();
+    const onFailed = vi.fn();
+
+    const result = await processWebhookHandlerKernel({
+      rawBody,
+      signature,
+      config,
+      onWebhook,
+      onVerified,
+      onFailed,
+    });
+
+    expect(result).toEqual({
+      status: 400,
+      body: {
+        error: "Invalid webhook event",
+        code: "INVALID_PAYLOAD",
+      },
+    });
+    expect(onWebhook).not.toHaveBeenCalled();
+    expect(onVerified).not.toHaveBeenCalled();
+    expect(onFailed).not.toHaveBeenCalled();
+  });
+
+  it("rejects signed failed webhooks without a public failure code", async () => {
+    const event: WebhookEvent = {
+      id: "evt_123",
+      object: "event",
+      api_version: "2026-04-01",
+      created: Math.floor(Date.now() / 1000),
+      livemode: false,
+      type: "verification.failed",
+      data: {
+        object: {
+          id: "vrf_test123",
+          object: "verification",
+          status: "failed",
+        },
+      },
+    };
+    const rawBody = JSON.stringify(event);
+    const { signature } = generateWebhookSignature({
+      payload: rawBody,
+      secret: config.webhookSecret ?? "",
+    });
+
+    const result = await processWebhookHandlerKernel({
+      rawBody,
+      signature,
+      config,
+      onWebhook: vi.fn(),
+      onFailed: vi.fn(),
+    });
+
+    expect(result).toEqual({
+      status: 400,
+      body: {
+        error: "Invalid webhook event",
+        code: "INVALID_PAYLOAD",
+      },
+    });
+  });
+
   it("accepts parsed webhook bodies only when signature verification is explicitly skipped", async () => {
     const event: WebhookEvent = {
       id: "evt_123",

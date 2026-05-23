@@ -131,6 +131,87 @@ export function isTerminalVerificationUiStatus(
   );
 }
 
+function isTerminalVerificationProgressStatusValue(
+  status: VerificationProgressStatus
+): boolean {
+  return isTerminalVerificationProgressStatus(status);
+}
+
+function validateFailureCodeSemantics(
+  value: {
+    status: VerificationProgressStatus;
+    failure_code?: VerificationFailureCode | null;
+  },
+  context: z.RefinementCtx
+): void {
+  if (value.status === "failed" && !value.failure_code) {
+    context.addIssue({
+      code: "custom",
+      message: "failed verifications must include failure_code",
+      path: ["failure_code"],
+    });
+    return;
+  }
+
+  if (value.status !== "failed" && value.failure_code) {
+    context.addIssue({
+      code: "custom",
+      message: "failure_code is only valid for failed verifications",
+      path: ["failure_code"],
+    });
+  }
+}
+
+function validateNoTerminalClientAction(
+  value: {
+    status: VerificationProgressStatus;
+    client_action?: VerificationClientActionWire | null;
+  },
+  context: z.RefinementCtx
+): void {
+  if (
+    isTerminalVerificationProgressStatusValue(value.status) &&
+    value.client_action
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "terminal verifications must not include client_action",
+      path: ["client_action"],
+    });
+  }
+}
+
+const UNSAFE_PUBLIC_METADATA_KEYS = [
+  "client_token",
+  "result_token",
+  "assertions",
+  "result",
+  "verification_url",
+  "client_action",
+  "clientAction",
+  "gateway",
+  "nonce",
+] as const;
+
+function validatePublicMetadata(
+  value: { metadata?: Record<string, unknown> | null },
+  context: z.RefinementCtx
+): void {
+  if (!value.metadata) {
+    return;
+  }
+
+  for (const unsafeKey of UNSAFE_PUBLIC_METADATA_KEYS) {
+    if (Object.hasOwn(value.metadata, unsafeKey)) {
+      context.addIssue({
+        code: "custom",
+        message: `metadata must not include ${unsafeKey}`,
+        path: ["metadata", unsafeKey],
+      });
+    }
+  }
+}
+
 export const VerificationClientActionSchema = z
   .object({
     kind: z.enum(["qr", "link", "request_blob"]),
@@ -160,9 +241,14 @@ export const PublicVerificationSchema = z
     customer_user_ref: z.string().nullish(),
     metadata: z.record(z.string(), z.unknown()).nullish(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    validateFailureCodeSemantics(value, context);
+    validateNoTerminalClientAction(value, context);
+    validatePublicMetadata(value, context);
+  });
 export const PublicCreateVerificationResponseSchema =
-  PublicVerificationSchema.extend({
+  PublicVerificationSchema.safeExtend({
     client_token: z.string(),
   }).strict();
 
@@ -183,7 +269,11 @@ export const PublicVerificationStatusSnapshotSchema = z
     failure_code: VerificationFailureCodeSchema.nullish(),
     client_action: VerificationClientActionSchema.nullish(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    validateFailureCodeSemantics(value, context);
+    validateNoTerminalClientAction(value, context);
+  });
 
 export const SignedVerificationResultSchema = z
   .object({
@@ -193,4 +283,30 @@ export const SignedVerificationResultSchema = z
     assertions: z.record(z.string(), z.unknown()).optional(),
     failure_code: VerificationFailureCodeSchema.nullish(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (value.status === "failed" && !value.failure_code) {
+      context.addIssue({
+        code: "custom",
+        message: "failed verification results must include failure_code",
+        path: ["failure_code"],
+      });
+      return;
+    }
+
+    if (value.status === "failed" && value.assertions !== undefined) {
+      context.addIssue({
+        code: "custom",
+        message: "failed verification results must not include assertions",
+        path: ["assertions"],
+      });
+    }
+
+    if (value.status === "verified" && value.failure_code) {
+      context.addIssue({
+        code: "custom",
+        message: "verified verification results must not include failure_code",
+        path: ["failure_code"],
+      });
+    }
+  });

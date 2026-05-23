@@ -167,6 +167,126 @@ describe("AuthboundClient verifications API", () => {
     });
   });
 
+  it("rejects read responses that smuggle private material through metadata", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          ...verificationReadResponse,
+          metadata: {
+            demo: "pension",
+            result_token: "result.jwt",
+          },
+        })
+      )
+    );
+
+    await expect(
+      createClient().verifications.get("vrf_123")
+    ).rejects.toMatchObject({
+      code: "INVALID_RESPONSE",
+    });
+  });
+
+  it("rejects terminal read responses that leak wallet handoff", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          ...verificationReadResponse,
+          status: "verified",
+          terminal_at: "2026-04-21T10:01:00.000Z",
+          client_action: verificationReadResponse.client_action,
+        })
+      )
+    );
+
+    await expect(
+      createClient().verifications.get("vrf_123")
+    ).rejects.toMatchObject({
+      code: "INVALID_RESPONSE",
+    });
+  });
+
+  it("rejects public status snapshots that leak terminal wallet handoff", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          object: "verification_status",
+          id: "vrf_123",
+          status: "canceled",
+          client_action: verificationReadResponse.client_action,
+        })
+      )
+    );
+
+    await expect(
+      createClient().verifications.getStatus("vrf_123", {
+        clientToken: "client_token_123",
+        publishableKey,
+      })
+    ).rejects.toMatchObject({
+      code: "INVALID_RESPONSE",
+    });
+  });
+
+  it("rejects malformed public failure_code drift from the API", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...verificationReadResponse,
+          status: "failed",
+          terminal_at: "2026-04-21T10:01:00.000Z",
+          client_action: null,
+          failure_code: null,
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          verification_id: "vrf_123",
+          status: "verified",
+          result_token: "result.jwt",
+          assertions: { age_over_18: true },
+          failure_code: "policy_not_satisfied",
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      createClient().verifications.get("vrf_123")
+    ).rejects.toMatchObject({
+      code: "INVALID_RESPONSE",
+    });
+    await expect(
+      createClient().verifications.getResult("vrf_123")
+    ).rejects.toMatchObject({
+      code: "INVALID_RESPONSE",
+    });
+  });
+
+  it("rejects failed signed results that include positive assertions", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          verification_id: "vrf_123",
+          status: "failed",
+          result_token: "result.jwt",
+          assertions: { age_over_18: true },
+          failure_code: "policy_not_satisfied",
+        })
+      )
+    );
+
+    await expect(
+      createClient().verifications.getResult("vrf_123")
+    ).rejects.toMatchObject({
+      code: "INVALID_RESPONSE",
+    });
+  });
+
   it("logs only redacted response metadata when debug logging is enabled", async () => {
     const fetchMock = vi
       .fn()
@@ -385,65 +505,63 @@ describe("AuthboundClient verifications API", () => {
   it.each([
     ["clientToken", { clientToken: "", publishableKey }],
     ["publishableKey", { clientToken: "client_token_123", publishableKey: "" }],
-  ])(
-    "rejects empty browser credential %s before status network requests",
-    async (_field, options) => {
-      const fetchMock = vi.fn(async () =>
-        jsonResponse({
-          object: "verification_status",
-          id: "vrf_123",
-          status: "awaiting_user",
-        })
-      );
-      vi.stubGlobal("fetch", fetchMock);
+  ])("rejects empty browser credential %s before status network requests", async (_field, options) => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        object: "verification_status",
+        id: "vrf_123",
+        status: "awaiting_user",
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
 
-      await expect(
-        createClient().verifications.getStatus("vrf_123", options)
-      ).rejects.toMatchObject({
-        code: "VALIDATION_ERROR",
-        statusCode: 400,
-      });
-      expect(fetchMock).not.toHaveBeenCalled();
+    await expect(
+      createClient().verifications.getStatus("vrf_123", options)
+    ).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      statusCode: 400,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
 
-      await expect(
-        getVerificationStatus({
-          apiUrl,
-          verificationId: "vrf_123",
-          ...options,
-        })
-      ).rejects.toMatchObject({
-        code: "VALIDATION_ERROR",
-        statusCode: 400,
-      });
-      expect(fetchMock).not.toHaveBeenCalled();
-    }
-  );
+    await expect(
+      getVerificationStatus({
+        apiUrl,
+        verificationId: "vrf_123",
+        ...options,
+      })
+    ).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      statusCode: 400,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 
-  it.each(["not a url", "file:///tmp/callback", "null"])(
-    "rejects invalid browser origin %s before status network requests",
-    async (origin) => {
-      const fetchMock = vi.fn(async () =>
-        jsonResponse({
-          object: "verification_status",
-          id: "vrf_123",
-          status: "awaiting_user",
-        })
-      );
-      vi.stubGlobal("fetch", fetchMock);
+  it.each([
+    "not a url",
+    "file:///tmp/callback",
+    "null",
+  ])("rejects invalid browser origin %s before status network requests", async (origin) => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        object: "verification_status",
+        id: "vrf_123",
+        status: "awaiting_user",
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
 
-      await expect(
-        createClient().verifications.getStatus("vrf_123", {
-          clientToken: "client_token_123",
-          publishableKey,
-          origin,
-        })
-      ).rejects.toMatchObject({
-        code: "VALIDATION_ERROR",
-        statusCode: 400,
-      });
-      expect(fetchMock).not.toHaveBeenCalled();
-    }
-  );
+    await expect(
+      createClient().verifications.getStatus("vrf_123", {
+        clientToken: "client_token_123",
+        publishableKey,
+        origin,
+      })
+    ).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      statusCode: 400,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 
   it("rejects status responses with an empty wallet handoff payload", async () => {
     vi.stubGlobal(
@@ -490,7 +608,9 @@ describe("AuthboundClient verifications API", () => {
       )
     );
 
-    await expect(createClient().verifications.get("vrf_123")).rejects.toMatchObject({
+    await expect(
+      createClient().verifications.get("vrf_123")
+    ).rejects.toMatchObject({
       message: "Invalid response from API",
       code: "INVALID_RESPONSE",
     });

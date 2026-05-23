@@ -146,17 +146,71 @@ export type WebhookEvent = {
   };
 };
 
-export const WebhookEventSchema = z.object({
-  id: z.string(),
-  object: z.literal("event"),
-  api_version: z.string(),
-  created: z.number(),
-  livemode: z.boolean(),
-  type: WebhookEventTypeSchema,
-  data: z.object({
-    object: VerificationEventObjectSchema,
-  }),
-});
+export const WebhookEventSchema = z
+  .object({
+    id: z.string(),
+    object: z.literal("event"),
+    api_version: z.string(),
+    created: z.number(),
+    livemode: z.boolean(),
+    type: WebhookEventTypeSchema,
+    data: z.object({
+      object: VerificationEventObjectSchema,
+    }),
+  })
+  .superRefine((event, context) => {
+    const { status, failure_code: failureCode } = event.data.object;
+
+    if (event.type === "verification.completed" && status !== "verified") {
+      context.addIssue({
+        code: "custom",
+        message: "verification.completed events must carry verified status",
+        path: ["data", "object", "status"],
+      });
+    }
+
+    if (event.type === "verification.failed" && status !== "failed") {
+      context.addIssue({
+        code: "custom",
+        message: "verification.failed events must carry failed status",
+        path: ["data", "object", "status"],
+      });
+    }
+
+    if (event.type === "verification.canceled" && status !== "canceled") {
+      context.addIssue({
+        code: "custom",
+        message: "verification.canceled events must carry canceled status",
+        path: ["data", "object", "status"],
+      });
+    }
+
+    if (event.type === "verification.expired" && status !== "expired") {
+      context.addIssue({
+        code: "custom",
+        message: "verification.expired events must carry expired status",
+        path: ["data", "object", "status"],
+      });
+    }
+
+    if (status === "failed" && !failureCode) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "failed webhook verification objects must include failure_code",
+        path: ["data", "object", "failure_code"],
+      });
+    }
+
+    if (status !== "failed" && failureCode) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "failure_code is only valid for failed webhook verification objects",
+        path: ["data", "object", "failure_code"],
+      });
+    }
+  });
 
 export const AuthboundClaimsSchema = z.object({
   sub: z.string(),

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { AuthboundError } from "../../types/errors";
 import { createClient } from "../factory";
 
 describe("createClient", () => {
@@ -11,11 +12,9 @@ describe("createClient", () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
+          object: "verification_status",
+          id: "vrf_test123",
           status: "processing",
-          result: {
-            verified: true,
-            attributes: { birth_date: "1990-05-15" },
-          },
         }),
         {
           status: 200,
@@ -74,6 +73,84 @@ describe("createClient", () => {
       client.pollStatus("vrf_test123" as never, "client_token_123" as never)
     ).resolves.toEqual({
       status: "pending",
+    });
+  });
+
+  it("rejects browser polling responses that contain secret-bearing drift", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            object: "verification_status",
+            id: "vrf_test123",
+            status: "verified",
+            result_token: "result.jwt",
+            assertions: { age_over_18: true },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        )
+      )
+    );
+
+    const client = createClient({
+      publishableKey: "pk_test_public123" as never,
+      gatewayUrl: "https://gateway.authbound.test",
+    });
+
+    await expect(
+      client.pollStatus("vrf_test123" as never, "client_token_123" as never)
+    ).rejects.toMatchObject({
+      code: "internal_error",
+      message: "Invalid verification status response",
+    });
+  });
+
+  it("rejects terminal browser polling responses that still expose wallet handoff", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            object: "verification_status",
+            id: "vrf_test123",
+            status: "expired",
+            client_action: {
+              kind: "link",
+              data: "openid4vp://authorize",
+              expires_at: "2026-04-21T10:10:00.000Z",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        )
+      )
+    );
+
+    const client = createClient({
+      publishableKey: "pk_test_public123" as never,
+      gatewayUrl: "https://gateway.authbound.test",
+    });
+
+    let thrown: unknown;
+    try {
+      await client.pollStatus(
+        "vrf_test123" as never,
+        "client_token_123" as never
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(AuthboundError);
+    expect(thrown).toMatchObject({
+      code: "internal_error",
+      message: "Invalid verification status response",
     });
   });
 
@@ -300,5 +377,30 @@ describe("createClient", () => {
         }),
       })
     );
+  });
+
+  it("rejects reserved verification metadata before creating browser sessions", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createClient({
+      publishableKey: "pk_test_public123" as never,
+      policyId: "pol_authbound_pension_v1" as never,
+      verificationEndpoint: "/api/authbound/verification",
+    });
+
+    await expect(
+      client.startVerification({
+        metadata: {
+          purpose: "age_gate",
+          result_token: "result.jwt",
+        },
+      })
+    ).rejects.toMatchObject({
+      code: "policy_invalid",
+      message: 'metadata must not include reserved key "result_token"',
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
