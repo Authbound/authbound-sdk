@@ -72,7 +72,7 @@ describe("verifyWebhookSignature - Replay Attack Prevention", () => {
       const result = verify(PAYLOAD, header, SECRET);
 
       expect(result.valid).toBe(false);
-      expect(result.error).toContain("tolerance");
+      expect(result.error).toContain("future");
     });
 
     it("rejects timestamp at boundary + 1 second (tolerance=300s)", () => {
@@ -85,8 +85,19 @@ describe("verifyWebhookSignature - Replay Attack Prevention", () => {
       expect(result.valid).toBe(false);
     });
 
-    it("accepts timestamp exactly at future boundary (tolerance=300s)", () => {
-      const futureTimestamp = NOW_SECONDS + 300; // Exactly at 5 min tolerance
+    it("rejects timestamp at the old symmetric future boundary", () => {
+      const futureTimestamp = NOW_SECONDS + 300;
+      const signature = generateSignature(PAYLOAD, futureTimestamp, SECRET);
+      const header = createSignatureHeader(futureTimestamp, signature);
+
+      const result = verify(PAYLOAD, header, SECRET);
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("future");
+    });
+
+    it("accepts small future clock skew", () => {
+      const futureTimestamp = NOW_SECONDS + 5;
       const signature = generateSignature(PAYLOAD, futureTimestamp, SECRET);
       const header = createSignatureHeader(futureTimestamp, signature);
 
@@ -186,6 +197,44 @@ describe("verifyWebhookSignature - Replay Attack Prevention", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toContain("signature");
+    });
+
+    it("rejects timestamps with trailing characters", () => {
+      const signature = generateSignature(PAYLOAD, NOW_SECONDS, SECRET);
+      const result = verify(PAYLOAD, `t=${NOW_SECONDS}junk,v1=${signature}`, SECRET);
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("timestamp");
+    });
+
+    it("rejects duplicate timestamp fields", () => {
+      const signature = generateSignature(PAYLOAD, NOW_SECONDS, SECRET);
+      const result = verify(
+        PAYLOAD,
+        `t=${NOW_SECONDS},t=${NOW_SECONDS + 1},v1=${signature}`,
+        SECRET
+      );
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("timestamp");
+    });
+
+    it("accepts rotation-style headers when any v1 signature matches", () => {
+      const signature = generateSignature(PAYLOAD, NOW_SECONDS, SECRET);
+      const result = verify(
+        PAYLOAD,
+        `t=${NOW_SECONDS},v1=${"0".repeat(64)},v1=${signature}`,
+        SECRET
+      );
+
+      expect(result.valid).toBe(true);
+    });
+
+    it("accepts signature headers with whitespace between parts", () => {
+      const signature = generateSignature(PAYLOAD, NOW_SECONDS, SECRET);
+      const result = verify(PAYLOAD, `t=${NOW_SECONDS}, v1=${signature}`, SECRET);
+
+      expect(result.valid).toBe(true);
     });
   });
 });

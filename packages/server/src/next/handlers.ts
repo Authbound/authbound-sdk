@@ -72,7 +72,7 @@ export interface HandlersOptions {
    * Return true if valid, false if invalid.
    * By default, Authbound verifies the raw body with `config.webhookSecret`.
    *
-   * Use the Authbound-Signature header to verify the webhook:
+   * Use the X-Authbound-Signature header to verify the webhook:
    * Format: "t=<timestamp>,v1=<signature>"
    */
   validateWebhookSignature?: (

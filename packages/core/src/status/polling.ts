@@ -13,6 +13,7 @@ import {
   projectVerificationStatusForUi,
   type VerificationUiStatus,
 } from "../types/verification-contract";
+import { assertBrowserSafeStatusPayload } from "./browser-safe-status";
 
 // ============================================================================
 // Status Mapping
@@ -140,7 +141,8 @@ export function createPollingSubscription(
         status: string;
         error?: { code: string; message: string };
         timeRemaining?: number;
-      };
+      } & Record<string, unknown>;
+      assertBrowserSafeStatusPayload(data);
 
       // Map gateway status to SDK-friendly status
       const mappedStatus = mapGatewayStatus(data.status);
@@ -289,7 +291,8 @@ export async function pollOnce(
     status: string;
     error?: { code: string; message: string };
     timeRemaining?: number;
-  };
+  } & Record<string, unknown>;
+  assertBrowserSafeStatusPayload(data);
 
   return {
     status: mapGatewayStatus(data.status),

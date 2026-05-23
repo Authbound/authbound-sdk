@@ -134,8 +134,8 @@ export function isTerminalVerificationUiStatus(
 export const VerificationClientActionSchema = z
   .object({
     kind: z.enum(["qr", "link", "request_blob"]),
-    data: z.string(),
-    expires_at: z.string(),
+    data: z.string().min(1),
+    expires_at: z.string().min(1),
   })
   .strict();
 export type VerificationClientActionWire = z.infer<

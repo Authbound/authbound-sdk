@@ -29,6 +29,7 @@ import {
   type ProviderPreference,
   ProviderPreferenceSchema,
   PublicVerificationListSchema as VerificationListSchema,
+  TERMINAL_VERIFICATION_PROGRESS_STATUSES,
   type VerificationProgressStatus,
   VerificationProgressStatusSchema,
   SignedVerificationResultSchema as VerificationResultSchema,
@@ -138,10 +139,21 @@ function normalizeBrowserOrigin(value: string | undefined): string | undefined {
   }
 
   try {
-    const origin = new URL(value).origin;
-    return origin === "null" ? undefined : origin;
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("Unsupported browser origin protocol");
+    }
+    const origin = parsed.origin;
+    if (origin === "null") {
+      throw new Error("Invalid browser origin");
+    }
+    return origin;
   } catch {
-    return;
+    throw new AuthboundClientError(
+      "origin must be a valid HTTP(S) browser origin",
+      "VALIDATION_ERROR",
+      400
+    );
   }
 }
 
@@ -437,13 +449,38 @@ function mapClientAction(
   };
 }
 
+function rejectTerminalWalletHandoff(
+  status: PublicVerificationStatus,
+  action: unknown
+): void {
+  if (
+    action &&
+    TERMINAL_VERIFICATION_PROGRESS_STATUSES.some(
+      (terminalStatus) => terminalStatus === status
+    )
+  ) {
+    throw new AuthboundClientError(
+      "Invalid response from API",
+      "INVALID_RESPONSE",
+      undefined,
+      {
+        message:
+          "Verification client_action is not allowed for terminal verification status",
+      }
+    );
+  }
+}
+
 function mapVerification(
   raw: z.infer<typeof VerificationSchema>
 ): Verification {
+  const status = normalizeVerificationStatus(raw.status);
+  rejectTerminalWalletHandoff(status, raw.client_action);
+
   return {
     object: raw.object,
     id: raw.id,
-    status: normalizeVerificationStatus(raw.status),
+    status,
     policyId: raw.policy_id ?? undefined,
     policyHash: raw.policy_hash ?? undefined,
     provider: raw.provider ?? undefined,
@@ -471,10 +508,13 @@ function mapCreateVerification(
 function mapVerificationStatus(
   raw: z.infer<typeof VerificationStatusSchema>
 ): VerificationStatus {
+  const status = normalizeVerificationStatus(raw.status);
+  rejectTerminalWalletHandoff(status, raw.client_action);
+
   return {
     object: raw.object,
     id: raw.id,
-    status: normalizeVerificationStatus(raw.status),
+    status,
     failureCode: raw.failure_code ?? undefined,
     clientAction: mapClientAction(raw.client_action),
   };
@@ -722,6 +762,14 @@ function assertNonEmpty(value: string, field: string): void {
       400
     );
   }
+}
+
+function assertBrowserStatusCredentials(options: {
+  clientToken: string;
+  publishableKey: string;
+}): void {
+  assertNonEmpty(options.clientToken, "clientToken");
+  assertNonEmpty(options.publishableKey, "publishableKey");
 }
 
 function assertProviderPreference(
@@ -1010,6 +1058,7 @@ class VerificationsApi {
     verificationId: string,
     options: GetVerificationStatusOptions
   ): Promise<VerificationStatus> {
+    assertBrowserStatusCredentials(options);
     const headers: Record<string, string> = {
       Authorization: `Bearer ${options.clientToken}`,
       "X-Authbound-Publishable-Key": options.publishableKey,
@@ -1120,22 +1169,36 @@ class WebhooksApi {
     const crypto = require("node:crypto") as typeof import("node:crypto");
 
     const { payload, signature, secret, tolerance = 300 } = options;
+    const clockSkewSeconds = 5;
 
     // Parse signature header: "t=timestamp,v1=signature"
-    const parts = signature.split(",");
-    const timestampPart = parts.find((p) => p.startsWith("t="));
-    const signaturePart = parts.find((p) => p.startsWith("v1="));
+    const parts = signature.split(",").map((part) => part.trim());
+    const timestampParts = parts.filter((p) => p.startsWith("t="));
+    const timestampPart = timestampParts[0];
+    const signatureParts = parts.filter((p) => p.startsWith("v1="));
 
-    if (!(timestampPart && signaturePart)) {
+    if (timestampParts.length !== 1 || signatureParts.length === 0) {
       return false;
     }
 
-    const timestamp = Number.parseInt(timestampPart.slice(2), 10);
-    const expectedSignature = signaturePart.slice(3);
+    const timestampValue = timestampPart.slice(2);
+    if (!/^\d+$/.test(timestampValue)) {
+      return false;
+    }
 
-    // Check timestamp is within tolerance
+    const timestamp = Number.parseInt(timestampValue, 10);
+    const expectedSignatures = signatureParts
+      .map((part) => part.slice(3))
+      .filter((candidate) => candidate.length <= 256);
+
+    if (expectedSignatures.length === 0) {
+      return false;
+    }
+
+    // Check timestamp is within tolerance. Future timestamps use a tight skew
+    // allowance to avoid pre-computed replay windows.
     const now = Math.floor(Date.now() / 1000);
-    if (Math.abs(now - timestamp) > tolerance) {
+    if (timestamp > now + clockSkewSeconds || now - timestamp > tolerance) {
       return false;
     }
 
@@ -1148,13 +1211,18 @@ class WebhooksApi {
       .createHmac("sha256", secret)
       .update(signedPayload)
       .digest("hex");
+    const computedBuffer = Buffer.from(computedSignature, "hex");
 
     // Constant-time comparison
     try {
-      return crypto.timingSafeEqual(
-        Buffer.from(expectedSignature, "hex"),
-        Buffer.from(computedSignature, "hex")
-      );
+      return expectedSignatures.some((expectedSignature) => {
+        const signatureBuffer = Buffer.from(expectedSignature, "hex");
+
+        return (
+          signatureBuffer.length === computedBuffer.length &&
+          crypto.timingSafeEqual(signatureBuffer, computedBuffer)
+        );
+      });
     } catch {
       return false;
     }
@@ -1206,6 +1274,7 @@ export async function getVerificationStatus(options: {
   publishableKey: string;
 }): Promise<VerificationStatus> {
   const { apiUrl, verificationId, clientToken, publishableKey } = options;
+  assertBrowserStatusCredentials({ clientToken, publishableKey });
   const response = await fetch(
     `${apiUrl ?? DEFAULT_API_URL}/v1/verifications/${encodePathSegment(verificationId)}/status`,
     {

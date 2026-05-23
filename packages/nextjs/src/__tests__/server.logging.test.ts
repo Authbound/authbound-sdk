@@ -1098,15 +1098,17 @@ describe("Next.js server debug logging", () => {
   it("logs only webhook metadata when debug logging is enabled", async () => {
     const eventPayload = JSON.stringify({
       id: "evt_1234567890abcdef",
+      object: "event",
+      api_version: "2026-05-23",
       type: "verification.completed",
       created: 1_741_510_400,
+      livemode: false,
       data: {
         object: {
           id: "ver_1234567890abcdef",
+          object: "verification",
           status: "verified",
-          verified_outputs: {
-            age_over_18: true,
-          },
+          verified_outputs: {},
         },
       },
     });
@@ -1146,5 +1148,51 @@ describe("Next.js server debug logging", () => {
       status: "verified",
       errorCode: undefined,
     });
+  });
+
+  it("rejects signed malformed webhook events before calling handlers", async () => {
+    const eventPayload = JSON.stringify({
+      id: "evt_malformed",
+      type: "verification.completed",
+      data: {
+        object: {
+          id: "ver_123",
+          status: "verified",
+        },
+      },
+    });
+
+    const { generateWebhookSignature } = await import("../server");
+    const { signature } = generateWebhookSignature({
+      payload: eventPayload,
+      secret: "whsec_test_secret",
+    });
+
+    const onEvent = vi.fn();
+    const onVerified = vi.fn();
+    const handler = createWebhookRoute({
+      webhookSecret: "whsec_test_secret",
+      onEvent,
+      onVerified,
+    });
+
+    const response = await handler(
+      new Request("https://playground.authbound.io/api/authbound/webhook", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-authbound-signature": signature,
+        },
+        body: eventPayload,
+      }) as never
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Invalid webhook event",
+      code: "INVALID_PAYLOAD",
+    });
+    expect(onEvent).not.toHaveBeenCalled();
+    expect(onVerified).not.toHaveBeenCalled();
   });
 });

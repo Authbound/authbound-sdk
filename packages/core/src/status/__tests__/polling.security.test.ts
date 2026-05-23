@@ -305,6 +305,46 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
       );
     });
 
+    it("fails closed when browser status polling receives signed result material", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            object: "verification_status",
+            id: "vrf_test123",
+            status: "verified",
+            result_token: "signed-result-token-secret",
+            assertions: { age_over_18: true },
+          }),
+      });
+
+      cleanup = createPollingSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        { pollingConfig: { initialInterval: 100 } }
+      );
+
+      await vi.advanceTimersByTimeAsync(100);
+
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          status: "error",
+          error: expect.objectContaining({
+            code: "verification_invalid_state",
+          }),
+        })
+      );
+      expect(events).not.toContainEqual(
+        expect.objectContaining({
+          type: "status",
+          status: "verified",
+        })
+      );
+    });
+
     it("rejects stale durable outbox statuses", async () => {
       fetchMock
         .mockResolvedValueOnce({

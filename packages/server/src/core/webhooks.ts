@@ -160,6 +160,7 @@ export function verifyWebhookSignatureDetailed(
   const crypto = require("node:crypto") as typeof import("crypto");
 
   const { payload, signature, secret, tolerance = 300 } = options;
+  const clockSkewSeconds = 5;
 
   // Validate inputs
   if (!signature) {
@@ -175,29 +176,53 @@ export function verifyWebhookSignatureDetailed(
   }
 
   // Parse signature header: "t=timestamp,v1=signature"
-  const parts = signature.split(",");
-  const timestampPart = parts.find((p) => p.startsWith("t="));
-  const signaturePart = parts.find((p) => p.startsWith("v1="));
+  const parts = signature.split(",").map((part) => part.trim());
+  const timestampParts = parts.filter((p) => p.startsWith("t="));
+  const timestampPart = timestampParts[0];
+  const signatureParts = parts.filter((p) => p.startsWith("v1="));
 
-  if (!timestampPart) {
+  if (timestampParts.length === 0) {
     return { valid: false, error: "Missing timestamp in signature" };
   }
 
-  if (!signaturePart) {
+  if (timestampParts.length > 1) {
+    return { valid: false, error: "Duplicate timestamp in signature" };
+  }
+
+  if (signatureParts.length === 0) {
     return { valid: false, error: "Missing v1 signature" };
   }
 
-  const timestamp = Number.parseInt(timestampPart.slice(2), 10);
-  const expectedSignature = signaturePart.slice(3);
+  const timestampValue = timestampPart.slice(2);
+  if (!/^\d+$/.test(timestampValue)) {
+    return { valid: false, error: "Invalid timestamp format" };
+  }
+
+  const timestamp = Number.parseInt(timestampValue, 10);
+  const expectedSignatures = signatureParts
+    .map((part) => part.slice(3))
+    .filter((candidate) => candidate.length <= 256);
+
+  if (expectedSignatures.length === 0) {
+    return { valid: false, error: "Missing v1 signature" };
+  }
 
   if (Number.isNaN(timestamp)) {
     return { valid: false, error: "Invalid timestamp format" };
   }
 
-  // Check timestamp is within tolerance
+  // Check timestamp is within tolerance. Future timestamps get a tight clock-skew
+  // allowance so attackers cannot pre-compute signatures for later replay.
   const now = Math.floor(Date.now() / 1000);
-  const age = Math.abs(now - timestamp);
+  if (timestamp > now + clockSkewSeconds) {
+    return {
+      valid: false,
+      error: `Webhook timestamp is too far in the future: ${timestamp - now}s > ${clockSkewSeconds}s clock skew`,
+      timestamp,
+    };
+  }
 
+  const age = now - timestamp;
   if (age > tolerance) {
     return {
       valid: false,
@@ -218,20 +243,27 @@ export function verifyWebhookSignatureDetailed(
 
   // Constant-time comparison to prevent timing attacks
   try {
-    const signatureBuffer = Buffer.from(expectedSignature, "hex");
     const computedBuffer = Buffer.from(computedSignature, "hex");
 
-    if (signatureBuffer.length !== computedBuffer.length) {
+    let sawSameLengthSignature = false;
+    for (const expectedSignature of expectedSignatures) {
+      const signatureBuffer = Buffer.from(expectedSignature, "hex");
+
+      if (signatureBuffer.length !== computedBuffer.length) {
+        continue;
+      }
+
+      sawSameLengthSignature = true;
+      if (crypto.timingSafeEqual(signatureBuffer, computedBuffer)) {
+        return { valid: true, timestamp };
+      }
+    }
+
+    if (!sawSameLengthSignature) {
       return { valid: false, error: "Invalid signature length", timestamp };
     }
 
-    const isValid = crypto.timingSafeEqual(signatureBuffer, computedBuffer);
-
-    if (!isValid) {
-      return { valid: false, error: "Signature mismatch", timestamp };
-    }
-
-    return { valid: true, timestamp };
+    return { valid: false, error: "Signature mismatch", timestamp };
   } catch {
     return { valid: false, error: "Signature comparison failed", timestamp };
   }

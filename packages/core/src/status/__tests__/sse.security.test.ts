@@ -309,10 +309,6 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
               object: "verification_status",
               id: "vrf_test123",
               status: "verified",
-              result: {
-                verified: true,
-                attributes: { "Pension.startDate": "2025-01-01" },
-              },
             }),
             { status: 200, headers: { "Content-Type": "application/json" } }
           )
@@ -339,6 +335,158 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
         type: "status",
       });
       expect(events.at(-1)).not.toHaveProperty("result");
+    });
+
+    it("fails closed when terminal SSE status refresh receives public result material", async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          body: createMockStream([
+            'event: status\ndata: {"status":"verified","updatedAt":"2026-04-21T10:00:00.000Z"}\n\n',
+          ]),
+        })
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              object: "verification_status",
+              id: "vrf_test123",
+              status: "verified",
+              result: {
+                verified: true,
+                attributes: { birth_date: "1990-05-15" },
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          )
+        );
+      vi.stubGlobal("fetch", fetchMock);
+
+      cleanup = createStatusSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          onError: (error) => errors.push(error),
+          autoReconnect: false,
+        }
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(errors).toEqual([]);
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          status: "error",
+          error: expect.objectContaining({
+            code: "verification_invalid_state",
+          }),
+        })
+      );
+      expect(events).not.toContainEqual(
+        expect.objectContaining({
+          type: "status",
+          status: "verified",
+        })
+      );
+    });
+
+    it("fails closed when terminal SSE status refresh receives signed result material", async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          body: createMockStream([
+            'event: status\ndata: {"status":"verified","updatedAt":"2026-04-21T10:00:00.000Z"}\n\n',
+          ]),
+        })
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              object: "verification_status",
+              id: "vrf_test123",
+              status: "verified",
+              result_token: "signed-result-token-secret",
+              assertions: { age_over_18: true },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          )
+        );
+      vi.stubGlobal("fetch", fetchMock);
+
+      cleanup = createStatusSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          onError: (error) => errors.push(error),
+          autoReconnect: false,
+        }
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(errors).toEqual([]);
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          status: "error",
+          error: expect.objectContaining({
+            code: "verification_invalid_state",
+          }),
+        })
+      );
+      expect(events).not.toContainEqual(
+        expect.objectContaining({
+          type: "status",
+          status: "verified",
+        })
+      );
+    });
+
+    it("fails closed when an SSE status event contains signed result material", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          body: createMockStream([
+            'event: status\ndata: {"status":"awaiting_user","result_token":"signed-result-token-secret","assertions":{"age_over_18":true}}\n\n',
+          ]),
+        })
+      );
+
+      cleanup = createStatusSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          onError: (error) => errors.push(error),
+          autoReconnect: false,
+        }
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(errors).toEqual([]);
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          status: "error",
+          error: expect.objectContaining({
+            code: "verification_invalid_state",
+          }),
+        })
+      );
+      expect(events).not.toContainEqual(
+        expect.objectContaining({
+          type: "status",
+          status: "pending",
+        })
+      );
     });
 
     it.each([

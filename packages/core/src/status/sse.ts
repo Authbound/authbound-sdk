@@ -13,6 +13,7 @@ import {
   isTerminalVerificationUiStatus,
   projectVerificationStatusForUi,
 } from "../types/verification-contract";
+import { assertBrowserSafeStatusPayload } from "./browser-safe-status";
 
 // ============================================================================
 // Constants
@@ -119,7 +120,8 @@ async function fetchLatestStatus(
   const data = (await response.json()) as {
     status?: string;
     error?: StatusEvent["error"];
-  };
+  } & Record<string, unknown>;
+  assertBrowserSafeStatusPayload(data);
   if (typeof data.status !== "string") {
     throw new AuthboundError(
       "verification_invalid_state",
@@ -278,6 +280,7 @@ export function createStatusSubscription(
             // Map gateway status to SDK-friendly status
             let mappedStatus: StatusEvent["status"];
             try {
+              assertBrowserSafeStatusPayload(parsed);
               mappedStatus = mapGatewayStatus(parsed.status as string);
             } catch (error) {
               const authboundError = AuthboundError.from(error);
@@ -317,11 +320,20 @@ export function createStatusSubscription(
             if (isTerminalStatus(parsed.status as string)) {
               const finalEvent = statusEvent.error
                 ? null
-                : await fetchLatestStatus(
-                    config,
-                    verificationId,
-                    clientToken
-                  ).catch(() => null);
+                : await fetchLatestStatus(config, verificationId, clientToken)
+                    .then((event) => event)
+                    .catch((error) => {
+                      const authboundError = AuthboundError.from(error);
+                      return {
+                        type: "error" as const,
+                        status: "error" as const,
+                        error: {
+                          code: authboundError.code,
+                          message: authboundError.message,
+                        },
+                        timestamp: new Date().toISOString(),
+                      };
+                    });
               onEvent(finalEvent ?? statusEvent);
               cleanup();
               return;

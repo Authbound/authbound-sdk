@@ -26,6 +26,8 @@ import {
   BrowserVerificationResponseError,
   BrowserWalletUrlError,
   type CreateVerificationResponse,
+  type WebhookEvent,
+  WebhookEventSchema,
   createToken,
   getVerificationFromToken,
   toBrowserVerificationResponse,
@@ -144,20 +146,6 @@ export interface WebhookRouteOptions {
    * @default false
    */
   debug?: boolean;
-}
-
-interface WebhookEvent {
-  id: string;
-  type: string;
-  created: number;
-  data: {
-    object: {
-      id: string;
-      status: string;
-      verified_outputs?: Record<string, unknown>;
-      last_error?: { code: string; message: string };
-    };
-  };
 }
 
 // ============================================================================
@@ -649,7 +637,27 @@ export function createWebhookRoute(
       }
 
       // Parse the body (we already have it as text from signature verification)
-      const event = JSON.parse(rawBody) as WebhookEvent;
+      let eventBody: unknown;
+      try {
+        eventBody = JSON.parse(rawBody);
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON payload", code: "INVALID_PAYLOAD" },
+          { status: 400 }
+        );
+      }
+
+      const parsed = WebhookEventSchema.safeParse(eventBody);
+      if (!parsed.success) {
+        if (debug) {
+          console.error("[Authbound] Invalid webhook event");
+        }
+        return NextResponse.json(
+          { error: "Invalid webhook event", code: "INVALID_PAYLOAD" },
+          { status: 400 }
+        );
+      }
+      const event = parsed.data;
 
       if (debug) {
         console.log("[Authbound] Webhook event:", summarizeWebhookEvent(event));
