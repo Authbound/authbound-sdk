@@ -28,8 +28,8 @@ import {
   PublicCreateVerificationResponseSchema as CreateVerificationResponseSchema,
   type ProviderPreference,
   ProviderPreferenceSchema,
-  PublicVerificationListSchema as VerificationListSchema,
   TERMINAL_VERIFICATION_PROGRESS_STATUSES,
+  PublicVerificationListSchema as VerificationListSchema,
   type VerificationProgressStatus,
   VerificationProgressStatusSchema,
   SignedVerificationResultSchema as VerificationResultSchema,
@@ -37,6 +37,7 @@ import {
   PublicVerificationStatusSnapshotSchema as VerificationStatusSchema,
 } from "@authbound/core";
 import { z } from "zod";
+import { verifyWebhookSignature } from "./webhooks";
 
 // ============================================================================
 // Configuration
@@ -1166,66 +1167,7 @@ class WebhooksApi {
    * ```
    */
   verifySignature(options: VerifySignatureOptions): boolean {
-    const crypto = require("node:crypto") as typeof import("node:crypto");
-
-    const { payload, signature, secret, tolerance = 300 } = options;
-    const clockSkewSeconds = 5;
-
-    // Parse signature header: "t=timestamp,v1=signature"
-    const parts = signature.split(",").map((part) => part.trim());
-    const timestampParts = parts.filter((p) => p.startsWith("t="));
-    const timestampPart = timestampParts[0];
-    const signatureParts = parts.filter((p) => p.startsWith("v1="));
-
-    if (timestampParts.length !== 1 || signatureParts.length === 0) {
-      return false;
-    }
-
-    const timestampValue = timestampPart.slice(2);
-    if (!/^\d+$/.test(timestampValue)) {
-      return false;
-    }
-
-    const timestamp = Number.parseInt(timestampValue, 10);
-    const expectedSignatures = signatureParts
-      .map((part) => part.slice(3))
-      .filter((candidate) => candidate.length <= 256);
-
-    if (expectedSignatures.length === 0) {
-      return false;
-    }
-
-    // Check timestamp is within tolerance. Future timestamps use a tight skew
-    // allowance to avoid pre-computed replay windows.
-    const now = Math.floor(Date.now() / 1000);
-    if (timestamp > now + clockSkewSeconds || now - timestamp > tolerance) {
-      return false;
-    }
-
-    // Compute expected signature
-    const payloadString =
-      typeof payload === "string" ? payload : payload.toString("utf8");
-    const signedPayload = `${timestamp}.${payloadString}`;
-
-    const computedSignature = crypto
-      .createHmac("sha256", secret)
-      .update(signedPayload)
-      .digest("hex");
-    const computedBuffer = Buffer.from(computedSignature, "hex");
-
-    // Constant-time comparison
-    try {
-      return expectedSignatures.some((expectedSignature) => {
-        const signatureBuffer = Buffer.from(expectedSignature, "hex");
-
-        return (
-          signatureBuffer.length === computedBuffer.length &&
-          crypto.timingSafeEqual(signatureBuffer, computedBuffer)
-        );
-      });
-    } catch {
-      return false;
-    }
+    return verifyWebhookSignature(options);
   }
 }
 

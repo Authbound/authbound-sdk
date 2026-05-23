@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { AuthboundClient } from "./client";
+import { generateWebhookSignature } from "./webhooks";
 
 const SECRET = "whsec_test_secret_key_12345";
 const PAYLOAD = JSON.stringify({ type: "test.event", data: { id: "123" } });
@@ -117,6 +118,42 @@ describe("WebhooksApi signature verification", () => {
           secret: SECRET,
         })
       ).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects empty verifier inputs consistently with the canonical webhook verifier", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000));
+
+    try {
+      const client = new AuthboundClient({ apiKey: "sk_test_123" });
+      const emptyPayloadSignature = generateWebhookSignature({
+        payload: "",
+        secret: SECRET,
+        timestamp: NOW_SECONDS,
+      }).signature;
+      const emptySecretSignature = generateWebhookSignature({
+        payload: PAYLOAD,
+        secret: "",
+        timestamp: NOW_SECONDS,
+      }).signature;
+
+      expect(
+        client.webhooks.verifySignature({
+          payload: "",
+          signature: emptyPayloadSignature,
+          secret: SECRET,
+        })
+      ).toBe(false);
+      expect(
+        client.webhooks.verifySignature({
+          payload: PAYLOAD,
+          signature: emptySecretSignature,
+          secret: "",
+        })
+      ).toBe(false);
     } finally {
       vi.useRealTimers();
     }
