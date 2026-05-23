@@ -774,7 +774,8 @@ describe("AuthboundClient verifications API", () => {
           {
             object: "error",
             code: "bad_request",
-            message: "Bad request",
+            message:
+              "Bad request for client_token_secret and result_token_secret using whsec_secret",
             client_token: "client_token_secret",
             result_token: "result_token_secret",
             assertions: { age_over_18: true },
@@ -804,10 +805,12 @@ describe("AuthboundClient verifications API", () => {
         hasWebhookSecret: true,
         object: "error",
       },
-      message: "Bad request",
       statusCode: 400,
     });
-    const serialized = JSON.stringify((thrown as AuthboundClientError).details);
+    const serialized = JSON.stringify({
+      message: (thrown as AuthboundClientError).message,
+      details: (thrown as AuthboundClientError).details,
+    });
     expect(serialized).not.toContain("client_token_secret");
     expect(serialized).not.toContain("result_token_secret");
     expect(serialized).not.toContain("age_over_18");

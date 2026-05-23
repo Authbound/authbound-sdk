@@ -84,6 +84,21 @@ function hasStringProperty(
   return typeof value[key] === "string" && value[key].length > 0;
 }
 
+const SENSITIVE_TEXT_PATTERNS = [
+  /\b(?:client|result)[_-]?token[A-Za-z0-9._~+/=-]*/gi,
+  /\bsk_(?:test|live)_[A-Za-z0-9._~-]+/gi,
+  /\bwhsec_[A-Za-z0-9._~-]+/gi,
+  /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi,
+  /\b(?:openid4vp|openid-credential-offer|haip):\/\/\S+/gi,
+] as const;
+
+function redactSensitiveText(value: string): string {
+  return SENSITIVE_TEXT_PATTERNS.reduce(
+    (redacted, pattern) => redacted.replace(pattern, "[redacted]"),
+    value
+  );
+}
+
 function summarizeForDebug(value: unknown): Record<string, unknown> {
   if (!isRecord(value)) {
     return { bodyType: typeof value };
@@ -97,7 +112,7 @@ function summarizeForDebug(value: unknown): Record<string, unknown> {
   }
 
   if (typeof value.message === "string") {
-    summary.message = value.message;
+    summary.message = redactSensitiveText(value.message);
   }
   if (typeof value.livemode === "boolean") {
     summary.livemode = value.livemode;
@@ -654,9 +669,10 @@ export class AuthboundClient {
             : undefined;
 
         throw new AuthboundClientError(
-          typeof publicError?.message === "string"
-            ? publicError.message
-            : `API request failed: ${response.status} ${response.statusText}`,
+          errorMessageFromApiResponse(
+            publicError,
+            `API request failed: ${response.status} ${response.statusText}`
+          ),
           typeof publicError?.code === "string"
             ? publicError.code
             : "API_ERROR",
@@ -801,6 +817,16 @@ function assertCredentialDefinitionAuthoringFormat(format: string): void {
       400
     );
   }
+}
+
+function errorMessageFromApiResponse(
+  publicError: Record<string, unknown> | undefined,
+  fallback: string
+): string {
+  if (typeof publicError?.message === "string") {
+    return redactSensitiveText(publicError.message);
+  }
+  return fallback;
 }
 
 // ============================================================================
@@ -1247,9 +1273,10 @@ export async function getVerificationStatus(options: {
         : undefined;
 
     throw new AuthboundClientError(
-      typeof publicError?.message === "string"
-        ? publicError.message
-        : `API request failed: ${response.status} ${response.statusText}`,
+      errorMessageFromApiResponse(
+        publicError,
+        `API request failed: ${response.status} ${response.statusText}`
+      ),
       typeof publicError?.code === "string" ? publicError.code : "API_ERROR",
       response.status,
       summarizeForDebug(body)
