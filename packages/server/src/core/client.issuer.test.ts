@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AuthboundClient } from "./client";
+import { AuthboundClient, AuthboundClientError } from "./client";
 
 const apiKey = `sk_test_${"x".repeat(32)}`;
 const apiUrl = "https://api.example.com";
@@ -318,5 +318,43 @@ describe("AuthboundClient issuer APIs", () => {
       code: "credential_definition_not_found",
       statusCode: 404,
     });
+  });
+
+  it("redacts OpenID4VCI offer material from API errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          {
+            object: "error",
+            code: "bad_request",
+            message:
+              "Offer rejected for credential_offer_uri=https://issuer.example.com/offers/credential-offer.jwt?pre-authorized_code=pre_auth_secret&tx_code=123456",
+            param:
+              'credential_offer={"grants":{"urn:ietf:params:oauth:grant-type:pre-authorized_code":{"pre-authorized_code":"pre_auth_secret"}}}',
+          },
+          400
+        )
+      )
+    );
+
+    let thrown: unknown;
+    try {
+      await createClient().openId4Vc.issuance.createOffer({
+        vct: "urn:vc:authbound:pension:1.0",
+        claims: { Pension: { startDate: "2025-01-01" } },
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(AuthboundClientError);
+    const serialized = JSON.stringify({
+      message: (thrown as AuthboundClientError).message,
+      details: (thrown as AuthboundClientError).details,
+    });
+    expect(serialized).not.toContain("credential-offer.jwt");
+    expect(serialized).not.toContain("pre_auth_secret");
+    expect(serialized).not.toContain("123456");
   });
 });

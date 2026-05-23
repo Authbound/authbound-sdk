@@ -86,6 +86,9 @@ function hasStringProperty(
 
 const SENSITIVE_TEXT_PATTERNS = [
   /\b(?:client|result)[_-]?token[A-Za-z0-9._~+/=-]*/gi,
+  /\bcredential[_-]?offer(?:[_-]?uri)?\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}]+)/gi,
+  /\bpre-authorized_code\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}&]+)/gi,
+  /\btx_code\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}&]+)/gi,
   /\bsk_(?:test|live)_[A-Za-z0-9._~-]+/gi,
   /\bwhsec_[A-Za-z0-9._~-]+/gi,
   /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi,
