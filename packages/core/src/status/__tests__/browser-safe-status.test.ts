@@ -30,4 +30,23 @@ describe("browser-safe status payload guard", () => {
       })
     ).toThrow("terminal verification status");
   });
+
+  it("rejects public failure-code drift in browser status payloads", () => {
+    expect(() =>
+      assertBrowserSafeStatusPayload({
+        object: "verification_status",
+        id: "vrf_test123",
+        status: "failed",
+      })
+    ).toThrow("failed status response");
+
+    expect(() =>
+      assertBrowserSafeStatusPayload({
+        object: "verification_status",
+        id: "vrf_test123",
+        status: "verified",
+        failure_code: "policy_not_satisfied",
+      })
+    ).toThrow("non-failed status response");
+  });
 });
