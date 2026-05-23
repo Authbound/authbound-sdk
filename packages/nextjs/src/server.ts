@@ -17,8 +17,10 @@
 
 import {
   isSameOriginSessionRequest,
+  isTerminalVerificationProgressStatus,
   originForStatusProxy,
   type PolicyId,
+  PublicVerificationStatusSnapshotSchema,
 } from "@authbound/core";
 import {
   AuthboundClient,
@@ -26,13 +28,13 @@ import {
   BrowserVerificationResponseError,
   BrowserWalletUrlError,
   type CreateVerificationResponse,
-  type WebhookEvent,
-  WebhookEventSchema,
   createToken,
   getVerificationFromToken,
   toBrowserVerificationResponse,
   toVerifiedSessionFinalization,
   verifyWebhookSignatureDetailed,
+  type WebhookEvent,
+  WebhookEventSchema,
 } from "@authbound/server";
 import { NextResponse } from "next/server.js";
 
@@ -210,6 +212,32 @@ function summarizeError(error: unknown): { name: string; message: string } {
     name: "UnknownError",
     message: "Unknown error",
   };
+}
+
+function parseBrowserSafeStatusProxyResponse(data: Record<string, unknown>):
+  | {
+      ok: true;
+      value: ReturnType<typeof PublicVerificationStatusSnapshotSchema.parse>;
+    }
+  | { ok: false; error: Error } {
+  const parsed = PublicVerificationStatusSnapshotSchema.safeParse(data);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error };
+  }
+
+  if (
+    isTerminalVerificationProgressStatus(parsed.data.status) &&
+    parsed.data.client_action
+  ) {
+    return {
+      ok: false,
+      error: new Error(
+        "Status response included wallet handoff data after terminal verification status"
+      ),
+    };
+  }
+
+  return { ok: true, value: parsed.data };
 }
 
 function summarizeVerificationRequest(
@@ -868,8 +896,21 @@ export function createStatusRoute(
       }
 
       const data = (await response.json()) as Record<string, unknown>;
-      delete data.result;
-      return NextResponse.json(data);
+      const statusResponse = parseBrowserSafeStatusProxyResponse(data);
+      if (!statusResponse.ok) {
+        if (debug) {
+          console.error(
+            "[Authbound] Invalid status response:",
+            summarizeError(statusResponse.error)
+          );
+        }
+        return NextResponse.json(
+          { error: "Invalid status response" },
+          { status: 502 }
+        );
+      }
+
+      return NextResponse.json(statusResponse.value);
     } catch (error) {
       if (debug) {
         console.error("[Authbound] Status error:", summarizeError(error));

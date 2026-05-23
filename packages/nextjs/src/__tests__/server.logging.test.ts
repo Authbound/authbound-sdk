@@ -518,6 +518,41 @@ describe("Next.js server debug logging", () => {
     );
   });
 
+  it("rejects secret-bearing gateway status responses before proxying to the browser", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        object: "verification_status",
+        id: "vrf_123",
+        status: "verified",
+        result_token: "signed_result_token_secret",
+        assertions: { birth_date: "1990-05-15" },
+      }),
+    }) as typeof fetch;
+
+    const handler = createStatusRoute({
+      gatewayUrl: "https://api.authbound.io",
+      publishableKey: "pk_test_configured",
+    });
+
+    const statusResponse = await handler(
+      new Request(
+        "https://playground.authbound.io/api/authbound/status/vrf_123",
+        {
+          headers: {
+            Authorization: "Bearer client_token_123",
+          },
+        }
+      ) as never,
+      { params: Promise.resolve({ verificationId: "vrf_123" }) }
+    );
+
+    expect(statusResponse.status).toBe(502);
+    await expect(statusResponse.json()).resolves.toEqual({
+      error: "Invalid status response",
+    });
+  });
+
   it("resolves status route publishable key at request time", async () => {
     const originalNextPublicPk = process.env.NEXT_PUBLIC_AUTHBOUND_PK;
     const originalPublishableKey = process.env.AUTHBOUND_PUBLISHABLE_KEY;
