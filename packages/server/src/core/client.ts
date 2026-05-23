@@ -107,7 +107,7 @@ function summarizeForDebug(value: unknown): Record<string, unknown> {
   const summary: Record<string, unknown> = {};
   for (const key of ["object", "id", "status", "type", "code", "param"]) {
     if (typeof value[key] === "string") {
-      summary[key] = value[key];
+      summary[key] = redactSensitiveText(value[key]);
     }
   }
 
@@ -118,7 +118,7 @@ function summarizeForDebug(value: unknown): Record<string, unknown> {
     summary.livemode = value.livemode;
   }
   if (typeof value.env_mode === "string") {
-    summary.envMode = value.env_mode;
+    summary.envMode = redactSensitiveText(value.env_mode);
   }
   if (Array.isArray(value.data)) {
     summary.dataCount = value.data.length;

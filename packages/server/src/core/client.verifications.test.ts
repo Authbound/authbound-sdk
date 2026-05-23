@@ -776,6 +776,9 @@ describe("AuthboundClient verifications API", () => {
             code: "bad_request",
             message:
               "Bad request for client_token_secret and result_token_secret using whsec_secret",
+            id: "sk_live_summary_secret",
+            type: "openid4vp://authorize?request=secret-request",
+            param: "Authorization: Bearer result_token_summary_secret",
             client_token: "client_token_secret",
             result_token: "result_token_secret",
             assertions: { age_over_18: true },
@@ -803,7 +806,9 @@ describe("AuthboundClient verifications API", () => {
         hasClientToken: true,
         hasResultToken: true,
         hasWebhookSecret: true,
+        id: "[redacted]",
         object: "error",
+        type: "[redacted]",
       },
       statusCode: 400,
     });
@@ -813,7 +818,10 @@ describe("AuthboundClient verifications API", () => {
     });
     expect(serialized).not.toContain("client_token_secret");
     expect(serialized).not.toContain("result_token_secret");
+    expect(serialized).not.toContain("result_token_summary_secret");
     expect(serialized).not.toContain("age_over_18");
     expect(serialized).not.toContain("whsec_secret");
+    expect(serialized).not.toContain("sk_live_summary_secret");
+    expect(serialized).not.toContain("secret-request");
   });
 });
