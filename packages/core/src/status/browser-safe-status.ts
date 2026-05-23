@@ -4,8 +4,15 @@ import {
   VerificationFailureCodeSchema,
 } from "../types/verification-contract";
 
-export function assertBrowserSafeStatusPayload(data: Record<string, unknown>): void {
-  const forbiddenFields = ["result_token", "resultToken", "assertions", "result"];
+export function assertBrowserSafeStatusPayload(
+  data: Record<string, unknown>
+): void {
+  const forbiddenFields = [
+    "result_token",
+    "resultToken",
+    "assertions",
+    "result",
+  ];
   for (const field of forbiddenFields) {
     if (field in data) {
       throw new AuthboundError(
@@ -30,7 +37,8 @@ export function assertBrowserSafeStatusPayload(data: Record<string, unknown>): v
 
   const failureCode = data.failure_code ?? data.failureCode;
   if (data.status === "failed") {
-    const parsedFailureCode = VerificationFailureCodeSchema.safeParse(failureCode);
+    const parsedFailureCode =
+      VerificationFailureCodeSchema.safeParse(failureCode);
     if (!parsedFailureCode.success) {
       throw new AuthboundError(
         "verification_invalid_state",
