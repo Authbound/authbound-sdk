@@ -41,6 +41,8 @@ const SENSITIVE_DEBUG_PATTERNS: [RegExp, string][] = [
     "[redacted]",
   ],
 ];
+const SENSITIVE_DEBUG_KEY_PATTERN =
+  /(?:authorization|bearer|api[_-]?key|secret|password|client[_-]?token|clientToken|result[_-]?token|resultToken|credential[_-]?offer(?:[_-]?uri)?|pre[_-]?authorized[_-]?code|tx[_-]?code|\btoken\b)/i;
 
 function redactDebugText(value: string): string {
   return SENSITIVE_DEBUG_PATTERNS.reduce(
@@ -48,6 +50,23 @@ function redactDebugText(value: string): string {
       redacted.replace(pattern, replacement),
     value
   );
+}
+
+function isSensitiveDebugKey(key: string): boolean {
+  return SENSITIVE_DEBUG_KEY_PATTERN.test(key) || redactDebugText(key) !== key;
+}
+
+function redactDebugEntry(
+  key: string,
+  entry: unknown,
+  seen: WeakSet<object>,
+  depth: number
+): [string, unknown] {
+  const isSensitiveKey = isSensitiveDebugKey(key);
+  return [
+    isSensitiveKey ? "[redacted]" : redactDebugText(key),
+    isSensitiveKey ? "[redacted]" : redactDebugValue(entry, seen, depth + 1),
+  ];
 }
 
 function redactDebugValue(
@@ -87,11 +106,13 @@ function redactDebugValue(
       if (key === "cause") {
         continue;
       }
-      sanitized[redactDebugText(key)] = redactDebugValue(
+      const [sanitizedKey, sanitizedValue] = redactDebugEntry(
+        key,
         entry,
         seen,
-        depth + 1
+        depth
       );
+      sanitized[sanitizedKey] = sanitizedValue;
     }
     return sanitized;
   }
@@ -101,10 +122,9 @@ function redactDebugValue(
   }
 
   return Object.fromEntries(
-    Object.entries(value).map(([key, entry]) => [
-      redactDebugText(key),
-      redactDebugValue(entry, seen, depth + 1),
-    ])
+    Object.entries(value).map(([key, entry]) =>
+      redactDebugEntry(key, entry, seen, depth)
+    )
   );
 }
 

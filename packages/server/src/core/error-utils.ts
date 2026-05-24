@@ -14,6 +14,8 @@ const TOKEN_FIELD_PATTERN =
 const SENSITIVE_IDENTIFIER_PATTERN =
   "(?:client[_-]?token|clientToken|result[_-]?token|resultToken|credential[_-]?offer(?:[_-]?uri)?|pre[_-]?authorized[_-]?code|tx[_-]?code)";
 const SENSITIVE_ASSIGNMENT_VALUE_PATTERN = String.raw`(?:\\?["'][^"'\\]*(?:\\.[^"'\\]*)*\\?["']|[^\s,}&]+)`;
+const SENSITIVE_OBJECT_KEY_PATTERN =
+  /(?:authorization|bearer|api[_-]?key|secret|password|client[_-]?token|clientToken|result[_-]?token|resultToken|credential[_-]?offer(?:[_-]?uri)?|pre[_-]?authorized[_-]?code|tx[_-]?code|\btoken\b)/i;
 
 function sensitiveAssignmentPattern(fieldPattern: string): RegExp {
   return new RegExp(
@@ -45,6 +47,25 @@ export function redactSensitiveText(value: string): string {
   );
 }
 
+function isSensitiveObjectKey(key: string): boolean {
+  return (
+    SENSITIVE_OBJECT_KEY_PATTERN.test(key) || redactSensitiveText(key) !== key
+  );
+}
+
+function sanitizeObjectEntry(
+  key: string,
+  item: unknown,
+  seen: WeakSet<object>,
+  depth: number
+): [string, unknown] {
+  const isSensitiveKey = isSensitiveObjectKey(key);
+  return [
+    isSensitiveKey ? "[redacted]" : redactSensitiveText(key),
+    isSensitiveKey ? "[redacted]" : sanitizeDebugValue(item, seen, depth + 1),
+  ];
+}
+
 function sanitizeDebugValue(
   value: unknown,
   seen = new WeakSet<object>(),
@@ -68,16 +89,29 @@ function sanitizeDebugValue(
   seen.add(value);
 
   if (value instanceof Error) {
-    return {
+    const sanitized: Record<string, unknown> = {
       name: redactSensitiveText(value.name),
       message: redactSensitiveText(value.message),
-      ...(value.stack
-        ? { stack: redactSensitiveText(value.stack) }
-        : undefined),
-      ...(value.cause
-        ? { cause: sanitizeDebugValue(value.cause, seen, depth + 1) }
-        : undefined),
     };
+    if (value.stack) {
+      sanitized.stack = redactSensitiveText(value.stack);
+    }
+    if (value.cause) {
+      sanitized.cause = sanitizeDebugValue(value.cause, seen, depth + 1);
+    }
+    for (const [key, item] of Object.entries(value)) {
+      if (key === "cause") {
+        continue;
+      }
+      const [sanitizedKey, sanitizedValue] = sanitizeObjectEntry(
+        key,
+        item,
+        seen,
+        depth
+      );
+      sanitized[sanitizedKey] = sanitizedValue;
+    }
+    return sanitized;
   }
 
   if (Array.isArray(value)) {
@@ -86,11 +120,13 @@ function sanitizeDebugValue(
 
   const sanitized: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value)) {
-    sanitized[redactSensitiveText(key)] = sanitizeDebugValue(
+    const [sanitizedKey, sanitizedValue] = sanitizeObjectEntry(
+      key,
       item,
       seen,
-      depth + 1
+      depth
     );
+    sanitized[sanitizedKey] = sanitizedValue;
   }
   return sanitized;
 }

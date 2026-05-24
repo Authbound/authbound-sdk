@@ -22,4 +22,29 @@ describe("error sanitization", () => {
     expect(serialized).not.toContain(leakedOfferUri);
     expect(serialized).toContain("[redacted]");
   });
+
+  it("redacts opaque values stored under sensitive debug keys", () => {
+    const leakedClientToken = "alpha.12345";
+    const leakedAuthorization = "beta.67890";
+    const leakedApiKey = "gamma.54321";
+    const error = new Error("Gateway request failed", {
+      cause: {
+        clientToken: leakedClientToken,
+        authorization: leakedAuthorization,
+        nested: {
+          apiKey: leakedApiKey,
+        },
+      },
+    });
+
+    const serialized = JSON.stringify(sanitizeError(error, true));
+
+    expect(serialized).not.toContain(leakedClientToken);
+    expect(serialized).not.toContain(leakedAuthorization);
+    expect(serialized).not.toContain(leakedApiKey);
+    expect(serialized).not.toContain("clientToken");
+    expect(serialized).not.toContain("authorization");
+    expect(serialized).not.toContain("apiKey");
+    expect(serialized).toContain("[redacted]");
+  });
 });

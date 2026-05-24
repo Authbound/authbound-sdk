@@ -376,6 +376,44 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
       expect(serializedLogs).toContain("[redacted]");
     });
 
+    it("redacts opaque values stored under sensitive SSE debug keys", async () => {
+      const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
+      const error = new Error("Gateway stream failed") as Error &
+        Record<string, unknown>;
+      const leakedClientToken = "alpha.12345";
+      const leakedAuthorization = "beta.67890";
+      const leakedApiKey = "gamma.54321";
+      error.clientToken = leakedClientToken;
+      error.authorization = leakedAuthorization;
+      error.nested = {
+        apiKey: leakedApiKey,
+      };
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(error));
+
+      cleanup = createStatusSubscription(
+        DEBUG_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          onError: (authboundError) => errors.push(authboundError),
+          autoReconnect: false,
+        }
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const serializedLogs = JSON.stringify(consoleLog.mock.calls);
+      expect(errors).toHaveLength(1);
+      expect(serializedLogs).not.toContain(leakedClientToken);
+      expect(serializedLogs).not.toContain(leakedAuthorization);
+      expect(serializedLogs).not.toContain(leakedApiKey);
+      expect(serializedLogs).not.toContain("clientToken");
+      expect(serializedLogs).not.toContain("authorization");
+      expect(serializedLogs).not.toContain("apiKey");
+      expect(serializedLogs).toContain("[redacted]");
+    });
+
     it("handles cyclic SSE connection errors without bypassing sanitized error handling", async () => {
       const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
       const error = createSecretBearingConnectionError() as Error & {
