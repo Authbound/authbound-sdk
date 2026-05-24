@@ -285,6 +285,51 @@ describe("Next.js server debug logging", () => {
     expect(serializedResponse).toContain("[redacted]");
   });
 
+  it("redacts secret-bearing generic verification errors from debug logs", async () => {
+    const leakedClientToken = "next_debug_client_token_secret";
+    const leakedPreAuthorizedCode = "next_debug_pre_authorized_code_secret";
+    const leakedApiKey = `sk_test_${"n".repeat(32)}`;
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const handler = createVerificationRoute({
+      policyId: "pol_age_over_18_authbound_v1" as PolicyId,
+      gatewayUrl: "https://api.authbound.io",
+      secret: "sk_test_secret",
+      debug: true,
+      transformRequest: () => {
+        throw new Error(
+          `Gateway failed with {"client_token":"${leakedClientToken}","preAuthorizedCode":"${leakedPreAuthorizedCode}"} and key ${leakedApiKey}`
+        );
+      },
+    });
+
+    const response = await handler(
+      new Request(
+        "https://playground.authbound.io/api/authbound/verification",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ customerUserRef: "user_12345" }),
+        }
+      ) as never
+    );
+
+    const serializedLog = JSON.stringify(consoleError.mock.calls);
+    const serializedResponse = JSON.stringify(await response.json());
+
+    expect(serializedResponse).not.toContain(leakedClientToken);
+    expect(serializedResponse).not.toContain(leakedPreAuthorizedCode);
+    expect(serializedResponse).not.toContain(leakedApiKey);
+    expect(serializedLog).not.toContain(leakedClientToken);
+    expect(serializedLog).not.toContain(leakedPreAuthorizedCode);
+    expect(serializedLog).not.toContain(leakedApiKey);
+    expect(serializedLog).toContain("[redacted]");
+  });
+
   it("maps Gateway verification responses without legacy ses_ prefixes", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

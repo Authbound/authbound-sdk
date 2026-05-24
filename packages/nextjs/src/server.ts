@@ -214,8 +214,8 @@ const GATEWAY_SENSITIVE_TEXT_PATTERNS = [
     "(?:client[_-]?token|clientToken|result[_-]?token|resultToken)"
   ),
   sensitiveGatewayAssignmentPattern("credential[_-]?offer(?:[_-]?uri)?"),
-  sensitiveGatewayAssignmentPattern("pre-authorized_code"),
-  sensitiveGatewayAssignmentPattern("tx_code"),
+  sensitiveGatewayAssignmentPattern("pre[_-]?authorized[_-]?code"),
+  sensitiveGatewayAssignmentPattern("tx[_-]?code"),
   /\b(?:client[_-]?token|clientToken|result[_-]?token|resultToken)[A-Za-z0-9._~+/=-]*/gi,
   /\bsk_(?:test|live)_[A-Za-z0-9._~-]+/gi,
   /\bwhsec_[A-Za-z0-9._~-]+/gi,
@@ -234,7 +234,7 @@ function summarizeError(error: unknown): { name: string; message: string } {
   if (error instanceof Error) {
     return {
       name: error.name,
-      message: error.message,
+      message: redactGatewayErrorText(error.message),
     };
   }
 

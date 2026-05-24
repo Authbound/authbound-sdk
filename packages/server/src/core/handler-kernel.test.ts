@@ -145,6 +145,53 @@ describe("framework handler kernel", () => {
     });
   });
 
+  it("redacts secret-bearing generic errors from debug logs and responses", async () => {
+    const leakedClientToken = "debug_client_token_secret";
+    const leakedPreAuthorizedCode = "debug_pre_authorized_code_secret";
+    const leakedApiKey = `sk_test_${"s".repeat(32)}`;
+    const leakedBearer = "bearer_token_secret";
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const client = {
+      verifications: {
+        create: vi.fn(async () => {
+          const error = new Error(
+            `Gateway failed with {"client_token":"${leakedClientToken}","preAuthorizedCode":"${leakedPreAuthorizedCode}"} and key ${leakedApiKey}`
+          );
+          error.stack = `Error: Authorization Bearer ${leakedBearer}`;
+          throw error;
+        }),
+      },
+    };
+
+    const result = await createVerificationHandlerKernel({
+      requestBody: { policyId: "pol_authbound_pension_v1" },
+      config: { ...config, debug: true },
+      client,
+    });
+
+    const serializedResponse = JSON.stringify(result.body);
+    const serializedLogs = JSON.stringify(
+      consoleError.mock.calls,
+      (_key, value) =>
+        value instanceof Error
+          ? { name: value.name, message: value.message, stack: value.stack }
+          : value
+    );
+
+    for (const serialized of [serializedResponse, serializedLogs]) {
+      expect(serialized).not.toContain(leakedClientToken);
+      expect(serialized).not.toContain(leakedPreAuthorizedCode);
+      expect(serialized).not.toContain(leakedApiKey);
+      expect(serialized).not.toContain(leakedBearer);
+    }
+    expect(serializedResponse).toContain("[redacted]");
+    expect(serializedLogs).toContain("[redacted]");
+
+    consoleError.mockRestore();
+  });
+
   it("finalizes only a same-origin pending browser verification", async () => {
     const pendingVerification: AuthboundVerificationContext = {
       isVerified: false,

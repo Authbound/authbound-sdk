@@ -23,8 +23,8 @@ function sensitiveAssignmentPattern(fieldPattern: string): RegExp {
 const SENSITIVE_TEXT_PATTERNS = [
   sensitiveAssignmentPattern(TOKEN_FIELD_PATTERN),
   sensitiveAssignmentPattern("credential[_-]?offer(?:[_-]?uri)?"),
-  sensitiveAssignmentPattern("pre-authorized_code"),
-  sensitiveAssignmentPattern("tx_code"),
+  sensitiveAssignmentPattern("pre[_-]?authorized[_-]?code"),
+  sensitiveAssignmentPattern("tx[_-]?code"),
   new RegExp(`\\b${TOKEN_FIELD_PATTERN}[A-Za-z0-9._~+/=-]*`, "gi"),
   /\bsk_(?:test|live)_[A-Za-z0-9._~-]+/gi,
   /\bwhsec_[A-Za-z0-9._~-]+/gi,
@@ -37,6 +37,52 @@ export function redactSensitiveText(value: string): string {
     (redacted, pattern) => redacted.replace(pattern, "[redacted]"),
     value
   );
+}
+
+function sanitizeDebugValue(
+  value: unknown,
+  seen = new WeakSet<object>(),
+  depth = 0
+): unknown {
+  if (typeof value === "string") {
+    return redactSensitiveText(value);
+  }
+
+  if (typeof value !== "object" || value === null) {
+    return value;
+  }
+
+  if (seen.has(value)) {
+    return "[circular]";
+  }
+  if (depth >= 4) {
+    return "[truncated]";
+  }
+
+  seen.add(value);
+
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: redactSensitiveText(value.message),
+      ...(value.stack
+        ? { stack: redactSensitiveText(value.stack) }
+        : undefined),
+      ...(value.cause
+        ? { cause: sanitizeDebugValue(value.cause, seen, depth + 1) }
+        : undefined),
+    };
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeDebugValue(item, seen, depth + 1));
+  }
+
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) {
+    sanitized[key] = sanitizeDebugValue(item, seen, depth + 1);
+  }
+  return sanitized;
 }
 
 /**
@@ -61,11 +107,14 @@ export function sanitizeError(error: unknown, debug = false): SanitizedError {
   // In debug mode, include more details
   if (debug) {
     return {
-      message: errorMessage,
+      message: redactSensitiveText(errorMessage),
       code: errorName || "ERROR",
       details: {
-        stack: error.stack,
-        cause: error.cause,
+        stack:
+          typeof error.stack === "string"
+            ? redactSensitiveText(error.stack)
+            : undefined,
+        cause: sanitizeDebugValue(error.cause),
       },
     };
   }
@@ -137,9 +186,17 @@ export function sanitizeError(error: unknown, debug = false): SanitizedError {
  */
 export function logError(error: unknown, context: string, debug = false): void {
   if (debug) {
-    console.error(`[Authbound] ${context}:`, error);
-    if (error instanceof Error && error.stack) {
-      console.error(`[Authbound] ${context} stack:`, error.stack);
+    const sanitized = sanitizeError(error, true);
+    console.error(`[Authbound] ${context}:`, sanitized);
+    const stack =
+      sanitized.details &&
+      typeof sanitized.details === "object" &&
+      "stack" in sanitized.details &&
+      typeof sanitized.details.stack === "string"
+        ? sanitized.details.stack
+        : undefined;
+    if (stack) {
+      console.error(`[Authbound] ${context} stack:`, stack);
     }
   } else {
     // In production, log minimal info
