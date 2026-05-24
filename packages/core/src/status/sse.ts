@@ -27,6 +27,64 @@ import { assertBrowserSafeStatusPayload } from "./browser-safe-status";
  */
 export const MAX_BUFFER_SIZE = 64 * 1024;
 
+const SENSITIVE_DEBUG_PATTERNS: [RegExp, string][] = [
+  [/\bBearer\s+[^"',}\]\s]+/gi, "Bearer [redacted]"],
+  [/\b(?:sk|whsec)_(?:live|test)?_?[A-Za-z0-9._=-]+/gi, "[redacted]"],
+  [/\bopenid(?:4vp|-credential-offer):\/\/[^"',}\]\s]+/gi, "[redacted]"],
+  [/\brequest_uri=[^&"',}\]\s]+/gi, "request_uri=[redacted]"],
+  [
+    /(["']?(?:client|result)[_-]?token["']?\s*[:=]\s*["']?)[^"',}\]\s]+/gi,
+    "$1[redacted]",
+  ],
+  [
+    /\b[A-Za-z0-9_-]*(?:client|result)[_-]?token[A-Za-z0-9_-]*\b/gi,
+    "[redacted]",
+  ],
+];
+
+function redactDebugText(value: string): string {
+  return SENSITIVE_DEBUG_PATTERNS.reduce(
+    (redacted, [pattern, replacement]) =>
+      redacted.replace(pattern, replacement),
+    value
+  );
+}
+
+function redactDebugValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    return redactDebugText(value);
+  }
+
+  if (value instanceof Error) {
+    const sanitized: Record<string, unknown> = {
+      message: redactDebugText(value.message),
+      name: redactDebugText(value.name),
+    };
+    if (value.stack) {
+      sanitized.stack = redactDebugText(value.stack);
+    }
+    for (const [key, entry] of Object.entries(value)) {
+      sanitized[key] = redactDebugValue(entry);
+    }
+    return sanitized;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => redactDebugValue(entry));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [
+        key,
+        redactDebugValue(entry),
+      ])
+    );
+  }
+
+  return value;
+}
+
 // ============================================================================
 // SSE Subscription
 // ============================================================================
@@ -344,8 +402,8 @@ export function createStatusSubscription(
             if (config.debug) {
               console.error(
                 "[Authbound] Failed to parse SSE event:",
-                parseError,
-                data
+                redactDebugValue(parseError),
+                redactDebugValue(data)
               );
             }
           }
@@ -365,7 +423,10 @@ export function createStatusSubscription(
       }
 
       if (config.debug) {
-        console.log("[Authbound] SSE connection error:", error);
+        console.log(
+          "[Authbound] SSE connection error:",
+          redactDebugValue(error)
+        );
       }
 
       const authboundError = AuthboundError.from(error);

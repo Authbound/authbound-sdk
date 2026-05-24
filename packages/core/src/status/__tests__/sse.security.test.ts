@@ -27,6 +27,30 @@ const TEST_CONFIG: ResolvedConfig = {
 
 const TEST_VERIFICATION_ID = asVerificationId("vrf_test123");
 const TEST_CLIENT_TOKEN = asClientToken("token_test123");
+const DEBUG_CONFIG: ResolvedConfig = {
+  ...TEST_CONFIG,
+  debug: true,
+};
+
+const leakedDebugValues = {
+  bearer: "core_sse_bearer_token_secret",
+  clientToken: "core_sse_client_token_secret",
+  errorName: "core_sse_result_token_secret_name",
+  resultToken: "core_sse_signed_result_token_secret",
+  walletLink:
+    "openid4vp://authorize?request_uri=https%3A%2F%2Fgateway.authbound.test%2Fsecret.jwt",
+};
+
+function createSecretBearingConnectionError(): Error {
+  const error = new Error(
+    `SSE failed with clientToken=${leakedDebugValues.clientToken} and ${leakedDebugValues.walletLink}`
+  ) as Error & { authorization?: string; resultToken?: string };
+  error.name = leakedDebugValues.errorName;
+  error.stack = `Error: Authorization Bearer ${leakedDebugValues.bearer}`;
+  error.authorization = `Bearer ${leakedDebugValues.bearer}`;
+  error.resultToken = leakedDebugValues.resultToken;
+  return error;
+}
 
 /**
  * Create a mock ReadableStream that emits specified chunks.
@@ -255,6 +279,70 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
       expect(errors.filter((e) => e.message.includes("overflow")).length).toBe(
         0
       );
+    });
+
+    it("redacts malformed SSE event payloads from debug logs", async () => {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      vi.spyOn(console, "log").mockImplementation(() => {});
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          body: createMockStream([
+            `event: status\ndata: {"status":"awaiting_user","result_token":"${leakedDebugValues.resultToken}","clientToken":"${leakedDebugValues.clientToken}","wallet":"${leakedDebugValues.walletLink}"\n\n`,
+          ]),
+        })
+      );
+
+      cleanup = createStatusSubscription(
+        DEBUG_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          onError: (error) => errors.push(error),
+          autoReconnect: false,
+        }
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const serializedLogs = JSON.stringify(consoleError.mock.calls);
+      expect(consoleError).toHaveBeenCalled();
+      for (const leakedValue of Object.values(leakedDebugValues)) {
+        expect(serializedLogs).not.toContain(leakedValue);
+      }
+      expect(serializedLogs).toContain("[redacted]");
+    });
+
+    it("redacts secret-bearing SSE connection errors from debug logs", async () => {
+      const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockRejectedValue(createSecretBearingConnectionError())
+      );
+
+      cleanup = createStatusSubscription(
+        DEBUG_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          onError: (error) => errors.push(error),
+          autoReconnect: false,
+        }
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const serializedLogs = JSON.stringify(consoleLog.mock.calls);
+      expect(consoleLog).toHaveBeenCalled();
+      for (const leakedValue of Object.values(leakedDebugValues)) {
+        expect(serializedLogs).not.toContain(leakedValue);
+      }
+      expect(serializedLogs).toContain("[redacted]");
     });
 
     it("clears buffer when complete events are received", async () => {
