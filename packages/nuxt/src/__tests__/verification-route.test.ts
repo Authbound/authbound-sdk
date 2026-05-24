@@ -40,7 +40,7 @@ const leakedValues = {
 
 function createSecretBearingError(): Error {
   const error = new Error(
-    `Gateway failed with clientToken=${leakedValues.clientToken}, ${leakedValues.apiKey}, and ${leakedValues.offer}`
+    `API failed with clientToken=${leakedValues.clientToken}, ${leakedValues.apiKey}, and ${leakedValues.offer}`
   );
   error.name = leakedValues.errorName;
   error.stack = `Error: Authorization Bearer ${leakedValues.bearer}`;

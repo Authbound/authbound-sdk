@@ -86,7 +86,7 @@ export function parseVerificationProgressStatus(
   if (!parsed.success) {
     throw new AuthboundError(
       "verification_invalid_state",
-      `Unknown verification status from gateway: ${String(value)}`
+      `Unknown verification status from API: ${String(value)}`
     );
   }
   return parsed.data;
@@ -110,7 +110,7 @@ export function projectVerificationStatusForUi(
     default:
       throw new AuthboundError(
         "verification_invalid_state",
-        `Unknown verification status from gateway: ${status}`
+        `Unknown verification status from API: ${status}`
       );
   }
 }

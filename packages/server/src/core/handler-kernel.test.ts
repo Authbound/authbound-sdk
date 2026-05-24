@@ -158,7 +158,7 @@ describe("framework handler kernel", () => {
       verifications: {
         create: vi.fn(async () => {
           const error = new Error(
-            `Gateway failed with {"client_token":"${leakedClientToken}","preAuthorizedCode":"${leakedPreAuthorizedCode}"} and key ${leakedApiKey}`
+            `API failed with {"client_token":"${leakedClientToken}","preAuthorizedCode":"${leakedPreAuthorizedCode}"} and key ${leakedApiKey}`
           );
           error.name = leakedErrorName;
           error.stack = `Error: Authorization Bearer ${leakedBearer}`;

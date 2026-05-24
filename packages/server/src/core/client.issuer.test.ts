@@ -54,7 +54,7 @@ describe("AuthboundClient issuer APIs", () => {
     vi.unstubAllGlobals();
   });
 
-  it("accepts Gateway secret keys and rejects publishable keys", () => {
+  it("accepts API secret keys and rejects publishable keys", () => {
     expect(
       () => new AuthboundClient({ apiKey: `sk_test_${"x".repeat(32)}` })
     ).not.toThrow();
@@ -66,7 +66,7 @@ describe("AuthboundClient issuer APIs", () => {
     ).toThrow(/sk_test_|sk_live_/);
   });
 
-  it("lists credential definitions from the public Gateway endpoint", async () => {
+  it("lists credential definitions from the public API endpoint", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         object: "list",

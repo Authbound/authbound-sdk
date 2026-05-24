@@ -188,7 +188,7 @@ describe("Next.js server debug logging", () => {
     );
   });
 
-  it("redacts sensitive Gateway error material from debug logs and browser responses", async () => {
+  it("redacts sensitive API error material from debug logs and browser responses", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 400,
@@ -237,7 +237,7 @@ describe("Next.js server debug logging", () => {
     expect(serializedResponse).toContain("[redacted]");
   });
 
-  it("redacts JSON-shaped Gateway error material from debug logs and browser responses", async () => {
+  it("redacts JSON-shaped API error material from debug logs and browser responses", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 400,
@@ -245,7 +245,7 @@ describe("Next.js server debug logging", () => {
         object: "error",
         code: "bad_request",
         message:
-          'Gateway rejected {"client_token":"json_client_token_secret","resultToken":"json_result_token_secret","credential_offer_uri":"openid-credential-offer://offer-secret"} and escaped {\\"clientToken\\":\\"escaped_client_token_secret\\"}',
+          'API rejected {"client_token":"json_client_token_secret","resultToken":"json_result_token_secret","credential_offer_uri":"openid-credential-offer://offer-secret"} and escaped {\\"clientToken\\":\\"escaped_client_token_secret\\"}',
       }),
     }) as typeof fetch;
 
@@ -301,7 +301,7 @@ describe("Next.js server debug logging", () => {
       debug: true,
       transformRequest: () => {
         const error = new Error(
-          `Gateway failed with {"client_token":"${leakedClientToken}","preAuthorizedCode":"${leakedPreAuthorizedCode}"} and key ${leakedApiKey}`
+          `API failed with {"client_token":"${leakedClientToken}","preAuthorizedCode":"${leakedPreAuthorizedCode}"} and key ${leakedApiKey}`
         );
         error.name = leakedErrorName;
         throw error;
@@ -334,7 +334,7 @@ describe("Next.js server debug logging", () => {
     expect(serializedLog).toContain("[redacted]");
   });
 
-  it("maps Gateway verification responses without legacy ses_ prefixes", async () => {
+  it("maps API verification responses without legacy ses_ prefixes", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -438,7 +438,7 @@ describe("Next.js server debug logging", () => {
     });
   });
 
-  it("maps first-class wallet URLs from gateway responses", async () => {
+  it("maps first-class wallet URLs from API responses", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({

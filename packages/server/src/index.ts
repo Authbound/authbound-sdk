@@ -46,6 +46,7 @@
 export {
   createSafeErrorResponse,
   logError,
+  redactSensitiveText,
   type SanitizedError,
   sanitizeError,
 } from "./core/error-utils";

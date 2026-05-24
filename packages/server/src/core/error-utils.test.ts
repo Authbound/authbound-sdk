@@ -6,7 +6,7 @@ describe("error sanitization", () => {
     const leakedClientToken = "debug_client_token_secret";
     const leakedOfferUri =
       "openid-credential-offer://issuer.example.test/offer?credential_offer_uri=https%3A%2F%2Fissuer.example.test%2Fsecret";
-    const error = new Error("Gateway request failed", {
+    const error = new Error("API request failed", {
       cause: {
         [`clientToken=${leakedClientToken}`]: "client token metadata",
         [leakedOfferUri]: "credential offer metadata",
@@ -27,7 +27,7 @@ describe("error sanitization", () => {
     const leakedClientToken = "alpha.12345";
     const leakedAuthorization = "beta.67890";
     const leakedApiKey = "gamma.54321";
-    const error = new Error("Gateway request failed", {
+    const error = new Error("API request failed", {
       cause: {
         clientToken: leakedClientToken,
         authorization: leakedAuthorization,
@@ -53,7 +53,7 @@ describe("error sanitization", () => {
     const leakedRefreshToken = "refresh.67890";
     const leakedIdToken = "id.54321";
     const leakedAuthToken = "auth.09876";
-    const error = new Error("Gateway request failed", {
+    const error = new Error("API request failed", {
       cause: {
         accessToken: leakedAccessToken,
         refreshToken: leakedRefreshToken,

@@ -378,7 +378,7 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
 
     it("redacts opaque values stored under sensitive SSE debug keys", async () => {
       const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
-      const error = new Error("Gateway stream failed") as Error &
+      const error = new Error("API stream failed") as Error &
         Record<string, unknown>;
       const leakedClientToken = "alpha.12345";
       const leakedAuthorization = "beta.67890";
@@ -416,7 +416,7 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
 
     it("redacts opaque values stored under camelCase token SSE debug keys", async () => {
       const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
-      const error = new Error("Gateway stream failed") as Error &
+      const error = new Error("API stream failed") as Error &
         Record<string, unknown>;
       const leakedAccessToken = "access.12345";
       const leakedRefreshToken = "refresh.67890";

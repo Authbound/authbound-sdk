@@ -17,7 +17,6 @@
 
 import {
   isSameOriginSessionRequest,
-  isTerminalVerificationProgressStatus,
   originForStatusProxy,
   type PolicyId,
   PublicVerificationStatusSnapshotSchema,
@@ -30,6 +29,7 @@ import {
   type CreateVerificationResponse,
   createToken,
   getVerificationFromToken,
+  redactSensitiveText,
   toBrowserVerificationResponse,
   toVerifiedSessionFinalization,
   verifyWebhookSignatureDetailed,
@@ -200,41 +200,11 @@ function maskIdentifier(value: string | undefined): string | undefined {
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
-const GATEWAY_SENSITIVE_ASSIGNMENT_VALUE_PATTERN = String.raw`(?:\\?["'][^"'\\]*(?:\\.[^"'\\]*)*\\?["']|[^\s,}&]+)`;
-
-function sensitiveGatewayAssignmentPattern(fieldPattern: string): RegExp {
-  return new RegExp(
-    String.raw`(?:\\?["'])?\b${fieldPattern}(?:\\?["'])?\s*[:=]\s*${GATEWAY_SENSITIVE_ASSIGNMENT_VALUE_PATTERN}`,
-    "gi"
-  );
-}
-
-const GATEWAY_SENSITIVE_TEXT_PATTERNS = [
-  sensitiveGatewayAssignmentPattern(
-    "(?:client[_-]?token|clientToken|result[_-]?token|resultToken)"
-  ),
-  sensitiveGatewayAssignmentPattern("credential[_-]?offer(?:[_-]?uri)?"),
-  sensitiveGatewayAssignmentPattern("pre[_-]?authorized[_-]?code"),
-  sensitiveGatewayAssignmentPattern("tx[_-]?code"),
-  /\b(?:client[_-]?token|clientToken|result[_-]?token|resultToken)[A-Za-z0-9._~+/=-]*/gi,
-  /\bsk_(?:test|live)_[A-Za-z0-9._~-]+/gi,
-  /\bwhsec_[A-Za-z0-9._~-]+/gi,
-  /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi,
-  /\b(?:openid4vp|openid-credential-offer|haip):\/\/\S+/gi,
-] as const;
-
-function redactGatewayErrorText(value: string): string {
-  return GATEWAY_SENSITIVE_TEXT_PATTERNS.reduce(
-    (redacted, pattern) => redacted.replace(pattern, "[redacted]"),
-    value
-  );
-}
-
 function summarizeError(error: unknown): { name: string; message: string } {
   if (error instanceof Error) {
     return {
-      name: redactGatewayErrorText(error.name),
-      message: redactGatewayErrorText(error.message),
+      name: redactSensitiveText(error.name),
+      message: redactSensitiveText(error.message),
     };
   }
 
@@ -244,7 +214,7 @@ function summarizeError(error: unknown): { name: string; message: string } {
   };
 }
 
-function parseBrowserSafeStatusProxyResponse(data: Record<string, unknown>):
+function parseBrowserStatusSnapshot(data: Record<string, unknown>):
   | {
       ok: true;
       value: ReturnType<typeof PublicVerificationStatusSnapshotSchema.parse>;
@@ -253,18 +223,6 @@ function parseBrowserSafeStatusProxyResponse(data: Record<string, unknown>):
   const parsed = PublicVerificationStatusSnapshotSchema.safeParse(data);
   if (!parsed.success) {
     return { ok: false, error: parsed.error };
-  }
-
-  if (
-    isTerminalVerificationProgressStatus(parsed.data.status) &&
-    parsed.data.client_action
-  ) {
-    return {
-      ok: false,
-      error: new Error(
-        "Status response included wallet handoff data after terminal verification status"
-      ),
-    };
   }
 
   return { ok: true, value: parsed.data };
@@ -291,7 +249,7 @@ function summarizeVerificationRequest(
   };
 }
 
-function summarizeGatewayError(errorBody: unknown): Record<string, unknown> {
+function summarizeApiError(errorBody: unknown): Record<string, unknown> {
   if (!errorBody || typeof errorBody !== "object") {
     return {
       type: typeof errorBody,
@@ -303,11 +261,11 @@ function summarizeGatewayError(errorBody: unknown): Record<string, unknown> {
   return {
     code:
       typeof typedErrorBody.code === "string"
-        ? redactGatewayErrorText(typedErrorBody.code)
+        ? redactSensitiveText(typedErrorBody.code)
         : undefined,
     message:
       typeof typedErrorBody.message === "string"
-        ? redactGatewayErrorText(typedErrorBody.message)
+        ? redactSensitiveText(typedErrorBody.message)
         : undefined,
     object:
       typeof typedErrorBody.object === "string"
@@ -316,7 +274,7 @@ function summarizeGatewayError(errorBody: unknown): Record<string, unknown> {
   };
 }
 
-function gatewayErrorField(
+function apiErrorField(
   errorBody: unknown,
   field: "code" | "message"
 ): string | undefined {
@@ -325,7 +283,7 @@ function gatewayErrorField(
   }
 
   const value = (errorBody as Record<string, unknown>)[field];
-  return typeof value === "string" ? redactGatewayErrorText(value) : undefined;
+  return typeof value === "string" ? redactSensitiveText(value) : undefined;
 }
 
 function summarizeVerificationResponse(
@@ -377,11 +335,11 @@ export {
 } from "@authbound/server";
 
 // ============================================================================
-// Gateway Response Mapping
+// API Response Mapping
 // ============================================================================
 
 /**
- * Map gateway response fields to SDK-expected shape.
+ * Map API response fields to SDK-expected shape.
  *
  * Authbound returns snake_case REST conventions:
  *   { id, client_token, client_action: { kind, data }, verification_url, expires_at }
@@ -389,7 +347,7 @@ export {
  * SDK expects camelCase with semantic names:
  *   { verificationId, clientToken, authorizationRequestUrl, expiresAt, deepLink }
  */
-function mapGatewayResponse(
+function mapApiVerificationResponse(
   raw: Record<string, unknown>
 ): CreateVerificationResponse {
   const clientAction = (raw.client_action ?? raw.clientAction) as
@@ -531,21 +489,21 @@ export function createVerificationRoute(
 
       if (!gatewayResponse.ok) {
         const errorBody = await gatewayResponse.json().catch(() => ({}));
-        const gatewayErrorMessage =
-          gatewayErrorField(errorBody, "message") ??
+        const apiErrorMessage =
+          apiErrorField(errorBody, "message") ??
           "Failed to create verification";
-        const gatewayErrorCode = gatewayErrorField(errorBody, "code");
+        const apiErrorCode = apiErrorField(errorBody, "code");
         if (debug) {
           console.error(
-            "[Authbound] Gateway error:",
-            summarizeGatewayError(errorBody)
+            "[Authbound] API error:",
+            summarizeApiError(errorBody)
           );
         }
         return NextResponse.json(
           {
-            error: gatewayErrorMessage,
-            code: gatewayErrorCode,
-            message: gatewayErrorMessage,
+            error: apiErrorMessage,
+            code: apiErrorCode,
+            message: apiErrorMessage,
           },
           { status: gatewayResponse.status }
         );
@@ -555,7 +513,7 @@ export function createVerificationRoute(
 
       // Map gateway response shape to SDK-expected shape
       let responseData: Record<string, unknown> = {
-        ...mapGatewayResponse(rawResponse),
+        ...mapApiVerificationResponse(rawResponse),
       };
 
       // Apply custom transform on top of mapped response
@@ -944,7 +902,7 @@ export function createStatusRoute(
       }
 
       const data = (await response.json()) as Record<string, unknown>;
-      const statusResponse = parseBrowserSafeStatusProxyResponse(data);
+      const statusResponse = parseBrowserStatusSnapshot(data);
       if (!statusResponse.ok) {
         if (debug) {
           console.error(
@@ -1268,7 +1226,7 @@ export async function createVerification(options: {
   }
 
   const raw = await response.json();
-  return mapGatewayResponse(raw);
+  return mapApiVerificationResponse(raw);
 }
 
 // ============================================================================

@@ -869,7 +869,7 @@ describe("AuthboundClient verifications API", () => {
             object: "error",
             code: "bad_request",
             message:
-              'Gateway rejected {"client_token":"json_client_token_secret","resultToken":"json_result_token_secret","credential_offer_uri":"openid-credential-offer://offer-secret"} and escaped {\\"clientToken\\":\\"escaped_client_token_secret\\"}',
+              'API rejected {"client_token":"json_client_token_secret","resultToken":"json_result_token_secret","credential_offer_uri":"openid-credential-offer://offer-secret"} and escaped {\\"clientToken\\":\\"escaped_client_token_secret\\"}',
           },
           400
         )
