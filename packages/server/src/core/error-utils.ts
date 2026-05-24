@@ -15,7 +15,7 @@ const SENSITIVE_IDENTIFIER_PATTERN =
   "(?:client[_-]?token|clientToken|result[_-]?token|resultToken|credential[_-]?offer(?:[_-]?uri)?|pre[_-]?authorized[_-]?code|tx[_-]?code)";
 const SENSITIVE_ASSIGNMENT_VALUE_PATTERN = String.raw`(?:\\?["'][^"'\\]*(?:\\.[^"'\\]*)*\\?["']|[^\s,}&]+)`;
 const SENSITIVE_OBJECT_KEY_PATTERN =
-  /(?:authorization|bearer|api[_-]?key|secret|password|client[_-]?token|clientToken|result[_-]?token|resultToken|credential[_-]?offer(?:[_-]?uri)?|pre[_-]?authorized[_-]?code|tx[_-]?code|\btoken\b)/i;
+  /(?:authorization|bearer|api[_-]?key|secret|password|client[_-]?token|clientToken|result[_-]?token|resultToken|credential[_-]?offer(?:[_-]?uri)?|pre[_-]?authorized[_-]?code|tx[_-]?code|tokens?$)/i;
 
 function sensitiveAssignmentPattern(fieldPattern: string): RegExp {
   return new RegExp(

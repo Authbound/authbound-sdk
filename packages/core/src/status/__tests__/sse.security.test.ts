@@ -414,6 +414,48 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
       expect(serializedLogs).toContain("[redacted]");
     });
 
+    it("redacts opaque values stored under camelCase token SSE debug keys", async () => {
+      const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
+      const error = new Error("Gateway stream failed") as Error &
+        Record<string, unknown>;
+      const leakedAccessToken = "access.12345";
+      const leakedRefreshToken = "refresh.67890";
+      const leakedIdToken = "id.54321";
+      const leakedAuthToken = "auth.09876";
+      error.accessToken = leakedAccessToken;
+      error.refreshToken = leakedRefreshToken;
+      error.nested = {
+        idToken: leakedIdToken,
+        authToken: leakedAuthToken,
+      };
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(error));
+
+      cleanup = createStatusSubscription(
+        DEBUG_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          onError: (authboundError) => errors.push(authboundError),
+          autoReconnect: false,
+        }
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const serializedLogs = JSON.stringify(consoleLog.mock.calls);
+      expect(errors).toHaveLength(1);
+      expect(serializedLogs).not.toContain(leakedAccessToken);
+      expect(serializedLogs).not.toContain(leakedRefreshToken);
+      expect(serializedLogs).not.toContain(leakedIdToken);
+      expect(serializedLogs).not.toContain(leakedAuthToken);
+      expect(serializedLogs).not.toContain("accessToken");
+      expect(serializedLogs).not.toContain("refreshToken");
+      expect(serializedLogs).not.toContain("idToken");
+      expect(serializedLogs).not.toContain("authToken");
+      expect(serializedLogs).toContain("[redacted]");
+    });
+
     it("handles cyclic SSE connection errors without bypassing sanitized error handling", async () => {
       const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
       const error = createSecretBearingConnectionError() as Error & {

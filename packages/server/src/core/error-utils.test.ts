@@ -47,4 +47,33 @@ describe("error sanitization", () => {
     expect(serialized).not.toContain("apiKey");
     expect(serialized).toContain("[redacted]");
   });
+
+  it("redacts opaque values stored under camelCase token debug keys", () => {
+    const leakedAccessToken = "access.12345";
+    const leakedRefreshToken = "refresh.67890";
+    const leakedIdToken = "id.54321";
+    const leakedAuthToken = "auth.09876";
+    const error = new Error("Gateway request failed", {
+      cause: {
+        accessToken: leakedAccessToken,
+        refreshToken: leakedRefreshToken,
+        nested: {
+          idToken: leakedIdToken,
+          authToken: leakedAuthToken,
+        },
+      },
+    });
+
+    const serialized = JSON.stringify(sanitizeError(error, true));
+
+    expect(serialized).not.toContain(leakedAccessToken);
+    expect(serialized).not.toContain(leakedRefreshToken);
+    expect(serialized).not.toContain(leakedIdToken);
+    expect(serialized).not.toContain(leakedAuthToken);
+    expect(serialized).not.toContain("accessToken");
+    expect(serialized).not.toContain("refreshToken");
+    expect(serialized).not.toContain("idToken");
+    expect(serialized).not.toContain("authToken");
+    expect(serialized).toContain("[redacted]");
+  });
 });

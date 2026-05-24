@@ -42,7 +42,7 @@ const SENSITIVE_DEBUG_PATTERNS: [RegExp, string][] = [
   ],
 ];
 const SENSITIVE_DEBUG_KEY_PATTERN =
-  /(?:authorization|bearer|api[_-]?key|secret|password|client[_-]?token|clientToken|result[_-]?token|resultToken|credential[_-]?offer(?:[_-]?uri)?|pre[_-]?authorized[_-]?code|tx[_-]?code|\btoken\b)/i;
+  /(?:authorization|bearer|api[_-]?key|secret|password|client[_-]?token|clientToken|result[_-]?token|resultToken|credential[_-]?offer(?:[_-]?uri)?|pre[_-]?authorized[_-]?code|tx[_-]?code|tokens?$)/i;
 
 function redactDebugText(value: string): string {
   return SENSITIVE_DEBUG_PATTERNS.reduce(
