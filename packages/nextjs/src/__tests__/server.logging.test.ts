@@ -156,7 +156,7 @@ describe("Next.js server debug logging", () => {
         body: JSON.stringify({
           customerUserRef: "user_12345",
           metadata: {
-            playground_user_email: "lassi@example.com",
+            customer_email: "user@example.test",
           },
         }),
       }
@@ -172,7 +172,7 @@ describe("Next.js server debug logging", () => {
         policyId: "pol_age_over_18_authbound_v1",
         bodyKeys: ["customerUserRef", "metadata", "policyId"],
         hasCustomerUserRef: true,
-        metadataKeys: ["playground_user_email"],
+        metadataKeys: ["customer_email"],
       }
     );
     expect(consoleLog).toHaveBeenNthCalledWith(
