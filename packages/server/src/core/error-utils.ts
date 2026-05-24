@@ -11,15 +11,20 @@ export interface SanitizedError {
 
 const TOKEN_FIELD_PATTERN =
   "(?:client[_-]?token|clientToken|result[_-]?token|resultToken)";
+const SENSITIVE_ASSIGNMENT_VALUE_PATTERN = String.raw`(?:\\?["'][^"'\\]*(?:\\.[^"'\\]*)*\\?["']|[^\s,}&]+)`;
+
+function sensitiveAssignmentPattern(fieldPattern: string): RegExp {
+  return new RegExp(
+    String.raw`(?:\\?["'])?\b${fieldPattern}(?:\\?["'])?\s*[:=]\s*${SENSITIVE_ASSIGNMENT_VALUE_PATTERN}`,
+    "gi"
+  );
+}
 
 const SENSITIVE_TEXT_PATTERNS = [
-  new RegExp(
-    `\\b${TOKEN_FIELD_PATTERN}\\s*[:=]\\s*(?:"[^"]*"|'[^']*'|[^\\s,}]+)`,
-    "gi"
-  ),
-  /\bcredential[_-]?offer(?:[_-]?uri)?\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}]+)/gi,
-  /\bpre-authorized_code\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}&]+)/gi,
-  /\btx_code\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}&]+)/gi,
+  sensitiveAssignmentPattern(TOKEN_FIELD_PATTERN),
+  sensitiveAssignmentPattern("credential[_-]?offer(?:[_-]?uri)?"),
+  sensitiveAssignmentPattern("pre-authorized_code"),
+  sensitiveAssignmentPattern("tx_code"),
   new RegExp(`\\b${TOKEN_FIELD_PATTERN}[A-Za-z0-9._~+/=-]*`, "gi"),
   /\bsk_(?:test|live)_[A-Za-z0-9._~-]+/gi,
   /\bwhsec_[A-Za-z0-9._~-]+/gi,

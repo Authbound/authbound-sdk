@@ -859,4 +859,41 @@ describe("AuthboundClient verifications API", () => {
     expect(serialized).not.toContain("result_token_secret_value");
     expect(serialized).toContain("[redacted]");
   });
+
+  it("redacts JSON-shaped token values from API error messages", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          {
+            object: "error",
+            code: "bad_request",
+            message:
+              'Gateway rejected {"client_token":"json_client_token_secret","resultToken":"json_result_token_secret","credential_offer_uri":"openid-credential-offer://offer-secret"} and escaped {\\"clientToken\\":\\"escaped_client_token_secret\\"}',
+          },
+          400
+        )
+      )
+    );
+
+    let thrown: unknown;
+    try {
+      await createClient().verifications.create({
+        policyId: "pol_authbound_pension_v1",
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(AuthboundClientError);
+    const serialized = JSON.stringify({
+      message: (thrown as AuthboundClientError).message,
+      details: (thrown as AuthboundClientError).details,
+    });
+    expect(serialized).not.toContain("json_client_token_secret");
+    expect(serialized).not.toContain("json_result_token_secret");
+    expect(serialized).not.toContain("escaped_client_token_secret");
+    expect(serialized).not.toContain("offer-secret");
+    expect(serialized).toContain("[redacted]");
+  });
 });

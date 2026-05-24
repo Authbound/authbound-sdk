@@ -200,11 +200,22 @@ function maskIdentifier(value: string | undefined): string | undefined {
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
+const GATEWAY_SENSITIVE_ASSIGNMENT_VALUE_PATTERN = String.raw`(?:\\?["'][^"'\\]*(?:\\.[^"'\\]*)*\\?["']|[^\s,}&]+)`;
+
+function sensitiveGatewayAssignmentPattern(fieldPattern: string): RegExp {
+  return new RegExp(
+    String.raw`(?:\\?["'])?\b${fieldPattern}(?:\\?["'])?\s*[:=]\s*${GATEWAY_SENSITIVE_ASSIGNMENT_VALUE_PATTERN}`,
+    "gi"
+  );
+}
+
 const GATEWAY_SENSITIVE_TEXT_PATTERNS = [
-  /\b(?:client[_-]?token|clientToken|result[_-]?token|resultToken)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}]+)/gi,
-  /\bcredential[_-]?offer(?:[_-]?uri)?\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}]+)/gi,
-  /\bpre-authorized_code\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}&]+)/gi,
-  /\btx_code\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}&]+)/gi,
+  sensitiveGatewayAssignmentPattern(
+    "(?:client[_-]?token|clientToken|result[_-]?token|resultToken)"
+  ),
+  sensitiveGatewayAssignmentPattern("credential[_-]?offer(?:[_-]?uri)?"),
+  sensitiveGatewayAssignmentPattern("pre-authorized_code"),
+  sensitiveGatewayAssignmentPattern("tx_code"),
   /\b(?:client[_-]?token|clientToken|result[_-]?token|resultToken)[A-Za-z0-9._~+/=-]*/gi,
   /\bsk_(?:test|live)_[A-Za-z0-9._~-]+/gi,
   /\bwhsec_[A-Za-z0-9._~-]+/gi,
