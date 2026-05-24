@@ -4,7 +4,7 @@
  * Protects routes that require verification.
  */
 
-import { verifyToken } from "@authbound/server";
+import { logError, verifyToken } from "@authbound/server";
 import { defineEventHandler, getCookie, getRequestURL, sendRedirect } from "h3";
 import { useRuntimeConfig } from "nitropack/runtime";
 
@@ -135,7 +135,7 @@ export default defineEventHandler(async (event) => {
       } catch (error) {
         // Token is invalid, tampered with, or corrupted
         if (config.public.authbound?.debug) {
-          console.error("[Authbound] Session token verification error:", error);
+          logError(error, "Session token verification error", true);
         }
       }
     } else if (config.public.authbound?.debug) {

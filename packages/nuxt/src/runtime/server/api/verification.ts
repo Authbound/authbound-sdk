@@ -9,6 +9,7 @@ import {
   AuthboundClient,
   type CreateVerificationResponse,
   createVerificationHandlerKernel,
+  logError,
 } from "@authbound/server";
 import { createError, defineEventHandler, getHeader, readBody } from "h3";
 import { useRuntimeConfig } from "nitropack/runtime";
@@ -105,7 +106,7 @@ export default defineEventHandler(async (event) => {
       throw error;
     }
     if (config.public.authbound?.debug) {
-      console.error("[Authbound] Verification creation error:", error);
+      logError(error, "Verification creation error", true);
     }
     throw createError({
       statusCode: 500,

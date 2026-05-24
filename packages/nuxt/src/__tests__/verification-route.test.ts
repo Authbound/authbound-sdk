@@ -29,11 +29,35 @@ const authboundServer = vi.hoisted(() => ({
   })),
 }));
 
+const leakedValues = {
+  apiKey: `sk_test_${"a".repeat(32)}`,
+  bearer: "nuxt_verification_bearer_token_secret",
+  clientToken: "nuxt_verification_client_token_secret",
+  errorName: "nuxt_verification_result_token_secret_name",
+  offer:
+    "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.test%2Fsecret.jwt",
+};
+
+function createSecretBearingError(): Error {
+  const error = new Error(
+    `Gateway failed with clientToken=${leakedValues.clientToken}, ${leakedValues.apiKey}, and ${leakedValues.offer}`
+  );
+  error.name = leakedValues.errorName;
+  error.stack = `Error: Authorization Bearer ${leakedValues.bearer}`;
+  return error;
+}
+
 vi.mock("nitropack/runtime", () => ({
   useRuntimeConfig: () => runtimeConfig.current,
 }));
 
-vi.mock("@authbound/server", () => authboundServer);
+vi.mock("@authbound/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@authbound/server")>();
+  return {
+    ...actual,
+    ...authboundServer,
+  };
+});
 
 import verificationHandler from "../runtime/server/api/verification";
 
@@ -143,5 +167,44 @@ describe("Nuxt verification route", () => {
     expect(event.node.res.getHeader("set-cookie")).toContain(
       "__authbound_pending="
     );
+  });
+
+  it("redacts secret-bearing verification creation errors from debug logs", async () => {
+    runtimeConfig.current = {
+      authbound: {
+        apiKey: `sk_test_${"x".repeat(32)}`,
+        cookieName: "__authbound",
+        policyId: "pol_age_over_18_authbound_v1",
+        sessionSecret: "session-secret-at-least-32-characters",
+      },
+      public: {
+        authbound: {
+          debug: true,
+          sessionMode: "sdk",
+        },
+      },
+    };
+    authboundServer.createVerificationHandlerKernel.mockRejectedValueOnce(
+      createSecretBearingError()
+    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const event = createEvent(
+      { "idempotency-key": "idem_123" },
+      { customerUserRef: "user_123" }
+    );
+
+    await expect(verificationHandler(event as never)).rejects.toMatchObject({
+      statusCode: 500,
+    });
+
+    const serializedLogs = JSON.stringify(consoleError.mock.calls);
+    expect(consoleError).toHaveBeenCalled();
+    for (const leakedValue of Object.values(leakedValues)) {
+      expect(serializedLogs).not.toContain(leakedValue);
+    }
+    expect(serializedLogs).toContain("[redacted]");
   });
 });
