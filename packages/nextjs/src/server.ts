@@ -200,6 +200,25 @@ function maskIdentifier(value: string | undefined): string | undefined {
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
+const GATEWAY_SENSITIVE_TEXT_PATTERNS = [
+  /\b(?:client[_-]?token|clientToken|result[_-]?token|resultToken)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}]+)/gi,
+  /\bcredential[_-]?offer(?:[_-]?uri)?\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}]+)/gi,
+  /\bpre-authorized_code\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}&]+)/gi,
+  /\btx_code\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}&]+)/gi,
+  /\b(?:client[_-]?token|clientToken|result[_-]?token|resultToken)[A-Za-z0-9._~+/=-]*/gi,
+  /\bsk_(?:test|live)_[A-Za-z0-9._~-]+/gi,
+  /\bwhsec_[A-Za-z0-9._~-]+/gi,
+  /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi,
+  /\b(?:openid4vp|openid-credential-offer|haip):\/\/\S+/gi,
+] as const;
+
+function redactGatewayErrorText(value: string): string {
+  return GATEWAY_SENSITIVE_TEXT_PATTERNS.reduce(
+    (redacted, pattern) => redacted.replace(pattern, "[redacted]"),
+    value
+  );
+}
+
 function summarizeError(error: unknown): { name: string; message: string } {
   if (error instanceof Error) {
     return {
@@ -272,16 +291,30 @@ function summarizeGatewayError(errorBody: unknown): Record<string, unknown> {
 
   return {
     code:
-      typeof typedErrorBody.code === "string" ? typedErrorBody.code : undefined,
+      typeof typedErrorBody.code === "string"
+        ? redactGatewayErrorText(typedErrorBody.code)
+        : undefined,
     message:
       typeof typedErrorBody.message === "string"
-        ? typedErrorBody.message
+        ? redactGatewayErrorText(typedErrorBody.message)
         : undefined,
     object:
       typeof typedErrorBody.object === "string"
         ? typedErrorBody.object
         : undefined,
   };
+}
+
+function gatewayErrorField(
+  errorBody: unknown,
+  field: "code" | "message"
+): string | undefined {
+  if (!errorBody || typeof errorBody !== "object") {
+    return;
+  }
+
+  const value = (errorBody as Record<string, unknown>)[field];
+  return typeof value === "string" ? redactGatewayErrorText(value) : undefined;
 }
 
 function summarizeVerificationResponse(
@@ -487,6 +520,10 @@ export function createVerificationRoute(
 
       if (!gatewayResponse.ok) {
         const errorBody = await gatewayResponse.json().catch(() => ({}));
+        const gatewayErrorMessage =
+          gatewayErrorField(errorBody, "message") ??
+          "Failed to create verification";
+        const gatewayErrorCode = gatewayErrorField(errorBody, "code");
         if (debug) {
           console.error(
             "[Authbound] Gateway error:",
@@ -495,9 +532,9 @@ export function createVerificationRoute(
         }
         return NextResponse.json(
           {
-            error: errorBody.message ?? "Failed to create verification",
-            code: errorBody.code,
-            message: errorBody.message,
+            error: gatewayErrorMessage,
+            code: gatewayErrorCode,
+            message: gatewayErrorMessage,
           },
           { status: gatewayResponse.status }
         );

@@ -120,10 +120,20 @@ describe("AuthboundProvider session finalization", () => {
         "https://api.authbound.test/v1/verifications/vrf_test123/events/sse"
       ) {
         return new Response(
-          createSseStream(
-            'event: status\ndata: {"status":"verified","result":{"verified":true}}\n\n'
-          ),
+          createSseStream('event: status\ndata: {"status":"verified"}\n\n'),
           { status: 200, headers: { "Content-Type": "text/event-stream" } }
+        );
+      }
+      if (
+        url === "https://api.authbound.test/v1/verifications/vrf_test123/status"
+      ) {
+        return new Response(
+          JSON.stringify({
+            object: "verification_status",
+            id: "vrf_test123",
+            status: "verified",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
         );
       }
       if (url === "/api/authbound/session") {
@@ -180,10 +190,21 @@ describe("AuthboundProvider session finalization", () => {
         "https://api.authbound.test/v1/verifications/vrf_manual123/events/sse"
       ) {
         return new Response(
-          createSseStream(
-            'event: status\ndata: {"status":"verified","result":{"verified":true}}\n\n'
-          ),
+          createSseStream('event: status\ndata: {"status":"verified"}\n\n'),
           { status: 200, headers: { "Content-Type": "text/event-stream" } }
+        );
+      }
+      if (
+        url ===
+        "https://api.authbound.test/v1/verifications/vrf_manual123/status"
+      ) {
+        return new Response(
+          JSON.stringify({
+            object: "verification_status",
+            id: "vrf_manual123",
+            status: "verified",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
         );
       }
       throw new Error(`Unexpected fetch: ${url}`);

@@ -37,6 +37,7 @@ import {
   PublicVerificationStatusSnapshotSchema as VerificationStatusSchema,
 } from "@authbound/core";
 import { z } from "zod";
+import { redactSensitiveText } from "./error-utils";
 import { verifyWebhookSignature } from "./webhooks";
 
 // ============================================================================
@@ -82,24 +83,6 @@ function hasStringProperty(
   key: string
 ): boolean {
   return typeof value[key] === "string" && value[key].length > 0;
-}
-
-const SENSITIVE_TEXT_PATTERNS = [
-  /\b(?:client|result)[_-]?token[A-Za-z0-9._~+/=-]*/gi,
-  /\bcredential[_-]?offer(?:[_-]?uri)?\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}]+)/gi,
-  /\bpre-authorized_code\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}&]+)/gi,
-  /\btx_code\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}&]+)/gi,
-  /\bsk_(?:test|live)_[A-Za-z0-9._~-]+/gi,
-  /\bwhsec_[A-Za-z0-9._~-]+/gi,
-  /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi,
-  /\b(?:openid4vp|openid-credential-offer|haip):\/\/\S+/gi,
-] as const;
-
-function redactSensitiveText(value: string): string {
-  return SENSITIVE_TEXT_PATTERNS.reduce(
-    (redacted, pattern) => redacted.replace(pattern, "[redacted]"),
-    value
-  );
 }
 
 function summarizeForDebug(value: unknown): Record<string, unknown> {

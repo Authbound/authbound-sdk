@@ -9,6 +9,31 @@ export interface SanitizedError {
   details?: unknown;
 }
 
+const TOKEN_FIELD_PATTERN =
+  "(?:client[_-]?token|clientToken|result[_-]?token|resultToken)";
+
+const SENSITIVE_TEXT_PATTERNS = [
+  new RegExp(
+    `\\b${TOKEN_FIELD_PATTERN}\\s*[:=]\\s*(?:"[^"]*"|'[^']*'|[^\\s,}]+)`,
+    "gi"
+  ),
+  /\bcredential[_-]?offer(?:[_-]?uri)?\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}]+)/gi,
+  /\bpre-authorized_code\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}&]+)/gi,
+  /\btx_code\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}&]+)/gi,
+  new RegExp(`\\b${TOKEN_FIELD_PATTERN}[A-Za-z0-9._~+/=-]*`, "gi"),
+  /\bsk_(?:test|live)_[A-Za-z0-9._~-]+/gi,
+  /\bwhsec_[A-Za-z0-9._~-]+/gi,
+  /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi,
+  /\b(?:openid4vp|openid-credential-offer|haip):\/\/\S+/gi,
+] as const;
+
+export function redactSensitiveText(value: string): string {
+  return SENSITIVE_TEXT_PATTERNS.reduce(
+    (redacted, pattern) => redacted.replace(pattern, "[redacted]"),
+    value
+  );
+}
+
 /**
  * Sanitize an error for client-facing responses.
  * In production, only returns safe error messages.

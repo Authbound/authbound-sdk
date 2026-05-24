@@ -8,13 +8,13 @@ import express, {
   type Response,
 } from "express";
 import QRCode from "qrcode";
+import { renderDemoPage } from "./demo-page.ts";
 import {
   createPensionCredentialOffer,
   createPensionVerificationRequest,
   getPensionVerificationResult,
   getPensionVerificationStatus,
 } from "./pension-flow.ts";
-import { renderDemoPage } from "./demo-page.ts";
 import { parsePensionCredential } from "./utils.ts";
 
 interface PensionCredentialOption {
@@ -392,9 +392,9 @@ export function createApp(options: CreateAppOptions = {}) {
     .route("/verify")
     .post(
       asyncRoute(async (_request, response) => {
-        response.status(201).json(
-          await createVerification(verificationSessions, createClient)
-        );
+        response
+          .status(201)
+          .json(await createVerification(verificationSessions, createClient));
       })
     )
     .all(methodNotAllowed("POST", "/verify"));

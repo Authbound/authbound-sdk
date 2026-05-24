@@ -201,7 +201,11 @@ describe("verifyWebhookSignature - Replay Attack Prevention", () => {
 
     it("rejects timestamps with trailing characters", () => {
       const signature = generateSignature(PAYLOAD, NOW_SECONDS, SECRET);
-      const result = verify(PAYLOAD, `t=${NOW_SECONDS}junk,v1=${signature}`, SECRET);
+      const result = verify(
+        PAYLOAD,
+        `t=${NOW_SECONDS}junk,v1=${signature}`,
+        SECRET
+      );
 
       expect(result.valid).toBe(false);
       expect(result.error).toContain("timestamp");
@@ -232,7 +236,11 @@ describe("verifyWebhookSignature - Replay Attack Prevention", () => {
 
     it("accepts signature headers with whitespace between parts", () => {
       const signature = generateSignature(PAYLOAD, NOW_SECONDS, SECRET);
-      const result = verify(PAYLOAD, `t=${NOW_SECONDS}, v1=${signature}`, SECRET);
+      const result = verify(
+        PAYLOAD,
+        `t=${NOW_SECONDS}, v1=${signature}`,
+        SECRET
+      );
 
       expect(result.valid).toBe(true);
     });

@@ -188,6 +188,55 @@ describe("Next.js server debug logging", () => {
     );
   });
 
+  it("redacts sensitive Gateway error material from debug logs and browser responses", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        object: "error",
+        code: "bad_request",
+        message:
+          'Rejected client_token: "client_token_secret_value" with result_token=result_token_secret_value, sk_live_gateway_secret, whsec_gateway_secret, and openid4vp://authorize?request_uri=https%3A%2F%2Fgateway.example.com%2Frequest.jwt%2Fsecret',
+      }),
+    }) as typeof fetch;
+
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const handler = createVerificationRoute({
+      policyId: "pol_age_over_18_authbound_v1" as PolicyId,
+      gatewayUrl: "https://api.authbound.io",
+      secret: "sk_test_secret",
+      debug: true,
+    });
+
+    const response = await handler(
+      new Request(
+        "https://playground.authbound.io/api/authbound/verification",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ customerUserRef: "user_12345" }),
+        }
+      ) as never
+    );
+
+    const serializedLog = JSON.stringify(consoleError.mock.calls);
+    const serializedResponse = JSON.stringify(await response.json());
+
+    for (const serialized of [serializedLog, serializedResponse]) {
+      expect(serialized).not.toContain("client_token_secret_value");
+      expect(serialized).not.toContain("result_token_secret_value");
+      expect(serialized).not.toContain("sk_live_gateway_secret");
+      expect(serialized).not.toContain("whsec_gateway_secret");
+      expect(serialized).not.toContain("request.jwt/secret");
+    }
+    expect(serializedResponse).toContain("[redacted]");
+  });
+
   it("maps Gateway verification responses without legacy ses_ prefixes", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
