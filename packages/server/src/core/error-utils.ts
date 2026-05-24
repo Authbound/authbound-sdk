@@ -86,7 +86,11 @@ function sanitizeDebugValue(
 
   const sanitized: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value)) {
-    sanitized[key] = sanitizeDebugValue(item, seen, depth + 1);
+    sanitized[redactSensitiveText(key)] = sanitizeDebugValue(
+      item,
+      seen,
+      depth + 1
+    );
   }
   return sanitized;
 }
