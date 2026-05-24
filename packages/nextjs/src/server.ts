@@ -233,7 +233,7 @@ function redactGatewayErrorText(value: string): string {
 function summarizeError(error: unknown): { name: string; message: string } {
   if (error instanceof Error) {
     return {
-      name: error.name,
+      name: redactGatewayErrorText(error.name),
       message: redactGatewayErrorText(error.message),
     };
   }

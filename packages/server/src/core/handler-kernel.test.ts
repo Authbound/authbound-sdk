@@ -149,6 +149,7 @@ describe("framework handler kernel", () => {
     const leakedClientToken = "debug_client_token_secret";
     const leakedPreAuthorizedCode = "debug_pre_authorized_code_secret";
     const leakedApiKey = `sk_test_${"s".repeat(32)}`;
+    const leakedErrorName = `sk_test_${"e".repeat(32)}`;
     const leakedBearer = "bearer_token_secret";
     const consoleError = vi
       .spyOn(console, "error")
@@ -159,6 +160,7 @@ describe("framework handler kernel", () => {
           const error = new Error(
             `Gateway failed with {"client_token":"${leakedClientToken}","preAuthorizedCode":"${leakedPreAuthorizedCode}"} and key ${leakedApiKey}`
           );
+          error.name = leakedErrorName;
           error.stack = `Error: Authorization Bearer ${leakedBearer}`;
           throw error;
         }),
@@ -184,6 +186,7 @@ describe("framework handler kernel", () => {
       expect(serialized).not.toContain(leakedClientToken);
       expect(serialized).not.toContain(leakedPreAuthorizedCode);
       expect(serialized).not.toContain(leakedApiKey);
+      expect(serialized).not.toContain(leakedErrorName);
       expect(serialized).not.toContain(leakedBearer);
     }
     expect(serializedResponse).toContain("[redacted]");

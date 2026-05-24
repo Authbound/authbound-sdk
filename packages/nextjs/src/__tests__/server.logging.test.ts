@@ -289,6 +289,7 @@ describe("Next.js server debug logging", () => {
     const leakedClientToken = "next_debug_client_token_secret";
     const leakedPreAuthorizedCode = "next_debug_pre_authorized_code_secret";
     const leakedApiKey = `sk_test_${"n".repeat(32)}`;
+    const leakedErrorName = `sk_test_${"e".repeat(32)}`;
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
@@ -299,9 +300,11 @@ describe("Next.js server debug logging", () => {
       secret: "sk_test_secret",
       debug: true,
       transformRequest: () => {
-        throw new Error(
+        const error = new Error(
           `Gateway failed with {"client_token":"${leakedClientToken}","preAuthorizedCode":"${leakedPreAuthorizedCode}"} and key ${leakedApiKey}`
         );
+        error.name = leakedErrorName;
+        throw error;
       },
     });
 
@@ -327,6 +330,7 @@ describe("Next.js server debug logging", () => {
     expect(serializedLog).not.toContain(leakedClientToken);
     expect(serializedLog).not.toContain(leakedPreAuthorizedCode);
     expect(serializedLog).not.toContain(leakedApiKey);
+    expect(serializedLog).not.toContain(leakedErrorName);
     expect(serializedLog).toContain("[redacted]");
   });
 

@@ -108,7 +108,7 @@ export function sanitizeError(error: unknown, debug = false): SanitizedError {
   if (debug) {
     return {
       message: redactSensitiveText(errorMessage),
-      code: errorName || "ERROR",
+      code: redactSensitiveText(errorName || "ERROR"),
       details: {
         stack:
           typeof error.stack === "string"
