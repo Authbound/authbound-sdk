@@ -14,6 +14,7 @@
  */
 
 import type { Context, MiddlewareHandler } from "hono";
+import { logError } from "../core/error-utils";
 import type {
   AuthboundConfig,
   AuthboundVerificationContext,
@@ -257,7 +258,7 @@ export function authboundMiddleware(
       return c.redirect(result.redirectUrl, 302);
     } catch (error) {
       if (validatedConfig.debug) {
-        console.error("[Authbound] Middleware error:", error);
+        logError(error, "Middleware error", true);
       }
       throw error;
     }
@@ -354,7 +355,7 @@ export function withAuthbound(
       return c.redirect(result.redirectUrl, 302);
     } catch (error) {
       if (validatedConfig.debug) {
-        console.error("[Authbound] Middleware error:", error);
+        logError(error, "Middleware error", true);
       }
       throw error;
     }
