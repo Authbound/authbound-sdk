@@ -50,10 +50,27 @@ function redactDebugText(value: string): string {
   );
 }
 
-function redactDebugValue(value: unknown): unknown {
+function redactDebugValue(
+  value: unknown,
+  seen = new WeakSet<object>(),
+  depth = 0
+): unknown {
   if (typeof value === "string") {
     return redactDebugText(value);
   }
+
+  if (typeof value !== "object" || value === null) {
+    return value;
+  }
+
+  if (seen.has(value)) {
+    return "[circular]";
+  }
+  if (depth >= 4) {
+    return "[truncated]";
+  }
+
+  seen.add(value);
 
   if (value instanceof Error) {
     const sanitized: Record<string, unknown> = {
@@ -63,26 +80,28 @@ function redactDebugValue(value: unknown): unknown {
     if (value.stack) {
       sanitized.stack = redactDebugText(value.stack);
     }
+    if (value.cause) {
+      sanitized.cause = redactDebugValue(value.cause, seen, depth + 1);
+    }
     for (const [key, entry] of Object.entries(value)) {
-      sanitized[key] = redactDebugValue(entry);
+      if (key === "cause") {
+        continue;
+      }
+      sanitized[key] = redactDebugValue(entry, seen, depth + 1);
     }
     return sanitized;
   }
 
   if (Array.isArray(value)) {
-    return value.map((entry) => redactDebugValue(entry));
+    return value.map((entry) => redactDebugValue(entry, seen, depth + 1));
   }
 
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, entry]) => [
-        key,
-        redactDebugValue(entry),
-      ])
-    );
-  }
-
-  return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [
+      key,
+      redactDebugValue(entry, seen, depth + 1),
+    ])
+  );
 }
 
 // ============================================================================

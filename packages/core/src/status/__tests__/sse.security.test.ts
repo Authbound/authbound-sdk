@@ -345,6 +345,41 @@ describe("createStatusSubscription - Buffer Overflow Protection", () => {
       expect(serializedLogs).toContain("[redacted]");
     });
 
+    it("handles cyclic SSE connection errors without bypassing sanitized error handling", async () => {
+      const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
+      const error = createSecretBearingConnectionError() as Error & {
+        nested?: unknown;
+        self?: unknown;
+      };
+      error.self = error;
+      error.nested = {
+        parent: error,
+        clientToken: leakedDebugValues.clientToken,
+      };
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(error));
+
+      cleanup = createStatusSubscription(
+        DEBUG_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          onError: (authboundError) => errors.push(authboundError),
+          autoReconnect: false,
+        }
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const serializedLogs = JSON.stringify(consoleLog.mock.calls);
+      expect(errors).toHaveLength(1);
+      for (const leakedValue of Object.values(leakedDebugValues)) {
+        expect(serializedLogs).not.toContain(leakedValue);
+      }
+      expect(serializedLogs).toContain("[redacted]");
+      expect(serializedLogs).toContain("[circular]");
+    });
+
     it("clears buffer when complete events are received", async () => {
       // Send multiple events - buffer should clear after each \n\n
       const events_data: string[] = [];
