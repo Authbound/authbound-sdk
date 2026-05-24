@@ -87,7 +87,11 @@ function redactDebugValue(
       if (key === "cause") {
         continue;
       }
-      sanitized[key] = redactDebugValue(entry, seen, depth + 1);
+      sanitized[redactDebugText(key)] = redactDebugValue(
+        entry,
+        seen,
+        depth + 1
+      );
     }
     return sanitized;
   }
@@ -98,7 +102,7 @@ function redactDebugValue(
 
   return Object.fromEntries(
     Object.entries(value).map(([key, entry]) => [
-      key,
+      redactDebugText(key),
       redactDebugValue(entry, seen, depth + 1),
     ])
   );
