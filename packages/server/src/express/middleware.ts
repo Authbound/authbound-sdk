@@ -16,6 +16,7 @@
  */
 
 import type { NextFunction, Request, RequestHandler, Response } from "express";
+import { logError } from "../core/error-utils";
 import type {
   AuthboundConfig,
   AuthboundVerificationContext,
@@ -283,7 +284,7 @@ export function authboundMiddleware(
       res.redirect(302, result.redirectUrl);
     } catch (error) {
       if (validatedConfig.debug) {
-        console.error("[Authbound] Middleware error:", error);
+        logError(error, "Middleware error", true);
       }
       next(error);
     }
@@ -390,7 +391,7 @@ export function withAuthbound(
       res.redirect(302, result.redirectUrl);
     } catch (error) {
       if (validatedConfig.debug) {
-        console.error("[Authbound] Middleware error:", error);
+        logError(error, "Middleware error", true);
       }
       next(error);
     }

@@ -11,6 +11,8 @@ export interface SanitizedError {
 
 const TOKEN_FIELD_PATTERN =
   "(?:client[_-]?token|clientToken|result[_-]?token|resultToken)";
+const SENSITIVE_IDENTIFIER_PATTERN =
+  "(?:client[_-]?token|clientToken|result[_-]?token|resultToken|credential[_-]?offer(?:[_-]?uri)?|pre[_-]?authorized[_-]?code|tx[_-]?code)";
 const SENSITIVE_ASSIGNMENT_VALUE_PATTERN = String.raw`(?:\\?["'][^"'\\]*(?:\\.[^"'\\]*)*\\?["']|[^\s,}&]+)`;
 
 function sensitiveAssignmentPattern(fieldPattern: string): RegExp {
@@ -25,6 +27,10 @@ const SENSITIVE_TEXT_PATTERNS = [
   sensitiveAssignmentPattern("credential[_-]?offer(?:[_-]?uri)?"),
   sensitiveAssignmentPattern("pre[_-]?authorized[_-]?code"),
   sensitiveAssignmentPattern("tx[_-]?code"),
+  new RegExp(
+    `\\b[A-Za-z0-9._~-]*${SENSITIVE_IDENTIFIER_PATTERN}[A-Za-z0-9._~-]*\\b`,
+    "gi"
+  ),
   new RegExp(`\\b${TOKEN_FIELD_PATTERN}[A-Za-z0-9._~+/=-]*`, "gi"),
   /\bsk_(?:test|live)_[A-Za-z0-9._~-]+/gi,
   /\bwhsec_[A-Za-z0-9._~-]+/gi,
@@ -63,7 +69,7 @@ function sanitizeDebugValue(
 
   if (value instanceof Error) {
     return {
-      name: value.name,
+      name: redactSensitiveText(value.name),
       message: redactSensitiveText(value.message),
       ...(value.stack
         ? { stack: redactSensitiveText(value.stack) }
