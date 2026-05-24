@@ -67,6 +67,7 @@
   "scripts": {
     "build": "tsup --config tsup.config.ts && cp src/styles.css dist/styles.css",
     "dev": "tsup --config tsup.config.ts --watch",
+    "pretypecheck": "pnpm --filter @authbound/server build",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "ultracite lint",
