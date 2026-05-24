@@ -19,7 +19,7 @@
  */
 
 import type { PolicyId } from "@authbound/core";
-import { type AuthboundClaims, verifyToken } from "@authbound/server";
+import { type AuthboundClaims, logError, verifyToken } from "@authbound/server";
 import { NextResponse } from "next/server.js";
 
 // ============================================================================
@@ -310,10 +310,7 @@ export function withAuthbound(
         } catch (error) {
           // Token is invalid, tampered with, or corrupted
           if (debug) {
-            console.error(
-              "[Authbound] Session token verification error:",
-              error
-            );
+            logError(error, "Session token verification error", true);
           }
           verified = false;
         }
