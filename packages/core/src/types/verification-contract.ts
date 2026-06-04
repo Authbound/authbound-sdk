@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { AuthboundError } from "./errors";
 
-export const ProviderPreferenceSchema = z.enum(["auto", "vcs", "eudi"]);
+export const ProviderPreferenceSchema = z.enum(["auto", "vcs", "eudi", "eudiplo"]);
 export type ProviderPreference = z.infer<typeof ProviderPreferenceSchema>;
 
-export const SelectedVerificationProviderSchema = z.enum(["vcs", "eudi"]);
+export const SelectedVerificationProviderSchema = z.enum(["vcs", "eudi", "eudiplo"]);
 export type SelectedVerificationProvider = z.infer<
   typeof SelectedVerificationProviderSchema
 >;
@@ -73,7 +73,7 @@ export function parseProviderPreference(value: unknown): ProviderPreference {
   if (!parsed.success) {
     throw new AuthboundError(
       "policy_invalid",
-      'provider must be one of "auto", "vcs", or "eudi"'
+      'provider must be one of "auto", "vcs", "eudi", or "eudiplo"'
     );
   }
   return parsed.data;
