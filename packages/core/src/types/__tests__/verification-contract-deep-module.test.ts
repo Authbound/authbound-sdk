@@ -35,6 +35,7 @@ describe("public verification contract module", () => {
     expect(ProviderPreferenceSchema.safeParse("auto").success).toBe(true);
     expect(ProviderPreferenceSchema.safeParse("vcs").success).toBe(true);
     expect(ProviderPreferenceSchema.safeParse("eudi").success).toBe(true);
+    expect(ProviderPreferenceSchema.safeParse("eudiplo").success).toBe(true);
     expect(ProviderPreferenceSchema.safeParse("reverify").success).toBe(false);
   });
 

@@ -139,7 +139,7 @@ describe("public issuer SDK/OpenAPI contract", () => {
       | undefined;
 
     expect(verificationProperties?.provider).toMatchObject({
-      enum: ["vcs", "eudi"],
+      enum: ["vcs", "eudi", "eudiplo"],
       type: "string",
     });
     expect(verificationProperties?.failure_code).toMatchObject({

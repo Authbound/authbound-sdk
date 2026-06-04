@@ -74,7 +74,7 @@ type CreateVerificationClient = {
       policyId: string;
       customerUserRef?: string;
       metadata?: Record<string, unknown>;
-      provider?: "auto" | "vcs" | "eudi";
+      provider?: "auto" | "vcs" | "eudi" | "eudiplo";
       idempotencyKey?: string;
     }): Promise<BrowserVerificationSource>;
   };
