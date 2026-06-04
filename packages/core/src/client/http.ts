@@ -199,7 +199,7 @@ export function createVerificationClient(config: ResolvedConfig) {
     clientToken: string;
     expiresAt: string;
     deepLink?: string;
-    walletHandoffKind?: "qr" | "link" | "request_blob";
+    walletHandoffKind?: "qr" | "link" | "request_blob" | "dc_api";
   }> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), config.timeout);

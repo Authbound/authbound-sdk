@@ -223,7 +223,7 @@ function validatePublicMetadata(
 
 export const VerificationClientActionSchema = z
   .object({
-    kind: z.enum(["qr", "link", "request_blob"]),
+    kind: z.enum(["qr", "link", "request_blob", "dc_api"]),
     data: z.string().min(1),
     expires_at: z.string().min(1),
   })

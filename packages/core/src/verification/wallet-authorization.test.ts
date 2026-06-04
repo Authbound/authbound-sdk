@@ -237,6 +237,36 @@ describe("resolveWalletAuthorizationRequest", () => {
     expect(result.deepLink).toBeUndefined();
   });
 
+  it("preserves dc_api data as opaque handoff payload without treating it as a deep link", () => {
+    const data = JSON.stringify({
+      client_id: "x509_hash:Verifier",
+      request_uri: "https://verifier.example/request.jwt/req_dc_api",
+    });
+    const handoff = resolveWalletHandoff({
+      client_action: {
+        kind: "dc_api",
+        data,
+        expires_at: "2026-05-15T10:00:00.000Z",
+      },
+    });
+
+    expect(handoff).toEqual({
+      kind: "dc_api",
+      qrPayload: data,
+      expiresAt: "2026-05-15T10:00:00.000Z",
+    });
+
+    const result = resolveWalletAuthorizationRequest({
+      client_action: {
+        kind: "dc_api",
+        data,
+      },
+    });
+
+    expect(result.authorizationRequestUrl).toBe(data);
+    expect(result.deepLink).toBeUndefined();
+  });
+
   it("does not use verification_url as a wallet invocation fallback", () => {
     const result = resolveWalletAuthorizationRequest({
       verification_url:

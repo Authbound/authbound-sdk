@@ -396,7 +396,7 @@ export interface GetVerificationStatusOptions {
 export type PublicVerificationStatus = VerificationProgressStatus;
 
 export interface VerificationClientAction {
-  kind: "qr" | "link" | "request_blob";
+  kind: "qr" | "link" | "request_blob" | "dc_api";
   data: string;
   expiresAt?: string;
 }

@@ -375,7 +375,7 @@ export interface CreateVerificationResponse {
   authorizationRequestUrl: string;
   expiresAt: string;
   deepLink?: string;
-  walletHandoffKind?: "qr" | "link" | "request_blob";
+  walletHandoffKind?: "qr" | "link" | "request_blob" | "dc_api";
 }
 
 export interface VerificationStatusResponse {

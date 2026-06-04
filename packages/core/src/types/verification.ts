@@ -93,9 +93,14 @@ export const CreateVerificationOptionsSchema = z.object({
   timeoutSeconds: z.number().int().positive().max(600).optional(),
 });
 
-export type WalletHandoffKind = "qr" | "link" | "request_blob";
+export type WalletHandoffKind = "qr" | "link" | "request_blob" | "dc_api";
 
-export const WalletHandoffKindSchema = z.enum(["qr", "link", "request_blob"]);
+export const WalletHandoffKindSchema = z.enum([
+  "qr",
+  "link",
+  "request_blob",
+  "dc_api",
+]);
 
 /**
  * Verification creation response from your server route.
