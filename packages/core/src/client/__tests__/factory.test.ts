@@ -1,11 +1,51 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AuthboundError } from "../../types/errors";
+import { VerificationProviderOptionsSchema } from "../../types/verification";
 import { createClient } from "../factory";
 
 describe("createClient", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it("rejects EUDI provider options that the verifier runtime rejects", () => {
+    expect(
+      VerificationProviderOptionsSchema.safeParse({
+        eudi: {
+          verifierAttestations: [{ format: "jwt", data: "   " }],
+        },
+      }).success
+    ).toBe(false);
+    expect(
+      VerificationProviderOptionsSchema.safeParse({
+        eudi: {
+          authorizationRequestScheme: "not a scheme",
+        },
+      }).success
+    ).toBe(false);
+    expect(
+      VerificationProviderOptionsSchema.safeParse({
+        eudi: {
+          authorizationRequestScheme: "javascript",
+        },
+      }).success
+    ).toBe(false);
+    expect(
+      VerificationProviderOptionsSchema.safeParse({
+        eudi: {
+          authorizationRequestUri:
+            "haip-vp://?request_uri=https%3A%2F%2Fverifier.example%2Frequest.jwt",
+        },
+      }).success
+    ).toBe(false);
+    expect(
+      VerificationProviderOptionsSchema.safeParse({
+        eudi: {
+          authorizationRequestUri: "file:///tmp/request",
+        },
+      }).success
+    ).toBe(false);
   });
 
   it("sends the publishable key when polling verification status", async () => {
@@ -251,6 +291,59 @@ describe("createClient", () => {
         body: JSON.stringify({
           policyId: "pol_authbound_pension_v1",
           provider: "vcs",
+        }),
+      })
+    );
+  });
+
+  it("sends provider options through the configured verification endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          verificationId: "vrf_test123",
+          authorizationRequestUrl: "https://gateway.authbound.test/request",
+          clientToken: "client_token_123",
+          expiresAt: "2026-04-21T10:10:00.000Z",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createClient({
+      publishableKey: "pk_test_public123" as never,
+      policyId: "pol_authbound_pension_v1" as never,
+      verificationEndpoint: "/api/authbound/verification",
+    });
+
+    await client.startVerification({
+      provider: "eudi",
+      providerOptions: {
+        eudi: {
+          responseMode: "dc_api.jwt",
+          expectedOrigins: ["https://merchant.example"],
+          requestUriMethod: "post",
+        },
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/authbound/verification",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          policyId: "pol_authbound_pension_v1",
+          provider: "eudi",
+          providerOptions: {
+            eudi: {
+              responseMode: "dc_api.jwt",
+              expectedOrigins: ["https://merchant.example"],
+              requestUriMethod: "post",
+            },
+          },
         }),
       })
     );

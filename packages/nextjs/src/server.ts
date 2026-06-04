@@ -19,8 +19,11 @@ import {
   isSameOriginSessionRequest,
   originForStatusProxy,
   type PolicyId,
+  type ProviderPreference,
   PublicVerificationStatusSnapshotSchema,
   STATION_OPERATOR_GRANT_TOKEN_HEADER,
+  type VerificationProviderOptions,
+  VerificationProviderOptionsSchema,
 } from "@authbound/core";
 import {
   AuthboundClient,
@@ -262,6 +265,39 @@ function summarizeVerificationRequest(
       body.customerUserRef.length > 0,
     metadataKeys: metadata ? Object.keys(metadata).sort() : [],
   };
+}
+
+function mapVerificationProviderOptions(
+  providerOptions: VerificationProviderOptions | undefined
+): Record<string, unknown> | undefined {
+  if (!providerOptions?.eudi) {
+    return;
+  }
+
+  const { eudi } = providerOptions;
+  const mappedEudi: Record<string, unknown> = {};
+  if (eudi.responseMode) mappedEudi.response_mode = eudi.responseMode;
+  if (eudi.expectedOrigins) mappedEudi.expected_origins = eudi.expectedOrigins;
+  if (eudi.jarMode) mappedEudi.jar_mode = eudi.jarMode;
+  if (eudi.requestUriMethod) {
+    mappedEudi.request_uri_method = eudi.requestUriMethod;
+  }
+  if (eudi.authorizationRequestScheme) {
+    mappedEudi.authorization_request_scheme = eudi.authorizationRequestScheme;
+  }
+  if (eudi.authorizationRequestUri) {
+    mappedEudi.authorization_request_uri = eudi.authorizationRequestUri;
+  }
+  if (typeof eudi.stripTrustedAuthoritiesForWallet === "boolean") {
+    mappedEudi.strip_trusted_authorities_for_wallet =
+      eudi.stripTrustedAuthoritiesForWallet;
+  }
+  if (eudi.verifierAttestations) {
+    mappedEudi.verifier_attestations = eudi.verifierAttestations;
+  }
+  if (eudi.profile) mappedEudi.profile = eudi.profile;
+
+  return { eudi: mappedEudi };
 }
 
 function summarizeApiError(errorBody: unknown): Record<string, unknown> {
@@ -602,11 +638,30 @@ export function createVerificationRoute(
         );
       }
 
+      const providerOptions = VerificationProviderOptionsSchema.safeParse(
+        body.providerOptions
+      );
+      if (body.providerOptions !== undefined && !providerOptions.success) {
+        return NextResponse.json(
+          {
+            error: "Invalid providerOptions",
+            code: "VALIDATION_ERROR",
+          },
+          { status: 400 }
+        );
+      }
+
+      const mappedProviderOptions = mapVerificationProviderOptions(
+        providerOptions.success ? providerOptions.data : undefined
+      );
       const gatewayBody = {
         customer_user_ref: body.customerUserRef,
         policy_id: body.policyId,
         metadata: body.metadata,
         provider: body.provider,
+        ...(mappedProviderOptions && {
+          provider_options: mappedProviderOptions,
+        }),
       };
       const idempotencyKey = request.headers.get("Idempotency-Key");
       const gatewayHeaders: Record<string, string> = {
@@ -1630,6 +1685,8 @@ export async function createVerification(options: {
   secret?: string;
   customerUserRef?: string;
   metadata?: Record<string, unknown>;
+  provider?: ProviderPreference;
+  providerOptions?: VerificationProviderOptions;
 }): Promise<CreateVerificationResponse> {
   const {
     policyId,
@@ -1637,7 +1694,12 @@ export async function createVerification(options: {
     secret = getSecretKey(),
     customerUserRef,
     metadata,
+    provider,
+    providerOptions,
   } = options;
+  const parsedProviderOptions = providerOptions
+    ? VerificationProviderOptionsSchema.parse(providerOptions)
+    : undefined;
 
   const response = await fetch(`${gatewayUrl}/v1/verifications`, {
     method: "POST",
@@ -1649,6 +1711,8 @@ export async function createVerification(options: {
       policy_id: policyId,
       customer_user_ref: customerUserRef,
       metadata,
+      provider,
+      provider_options: mapVerificationProviderOptions(parsedProviderOptions),
     }),
   });
 

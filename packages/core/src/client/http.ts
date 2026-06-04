@@ -5,6 +5,7 @@
  */
 
 import { AuthboundError } from "../types/errors";
+import type { VerificationProviderOptions } from "../types/verification";
 import type { ProviderPreference } from "../types/verification-contract";
 import type { ResolvedConfig } from "./config";
 
@@ -193,6 +194,7 @@ export function createVerificationClient(config: ResolvedConfig) {
     customerUserRef?: string;
     metadata?: Record<string, unknown>;
     provider?: ProviderPreference;
+    providerOptions?: VerificationProviderOptions;
   }): Promise<{
     verificationId: string;
     authorizationRequestUrl: string;

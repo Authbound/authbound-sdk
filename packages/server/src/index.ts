@@ -175,6 +175,14 @@ export {
   processWebhookHandlerKernel,
   signOutHandlerKernel,
 } from "./core/handler-kernel";
+export {
+  type EudiVerificationOptions,
+  EudiVerificationOptionsSchema,
+  type EudiVerifierAttestation,
+  EudiVerifierAttestationSchema,
+  type VerificationProviderOptions,
+  VerificationProviderOptionsSchema,
+} from "@authbound/core";
 
 // ============================================================================
 // Webhook Verification

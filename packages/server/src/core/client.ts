@@ -42,6 +42,8 @@ import {
   PublicVerificationListSchema as VerificationListSchema,
   type VerificationProgressStatus,
   VerificationProgressStatusSchema,
+  type VerificationProviderOptions,
+  VerificationProviderOptionsSchema,
   SignedVerificationResultSchema as VerificationResultSchema,
   PublicVerificationSchema as VerificationSchema,
   PublicVerificationStatusSnapshotSchema as VerificationStatusSchema,
@@ -330,6 +332,11 @@ export interface CreateVerificationOptions {
    * Optional provider override.
    */
   provider?: ProviderPreference;
+
+  /**
+   * Provider-specific protocol options.
+   */
+  providerOptions?: VerificationProviderOptions;
 
   /**
    * Idempotency key for safe retries.
@@ -1287,6 +1294,60 @@ function assertCreatePolicyTarget(options: CreatePolicyOptions): void {
   }
 }
 
+function assertVerificationProviderOptions(
+  value: VerificationProviderOptions | undefined
+): VerificationProviderOptions | undefined {
+  if (value === undefined) {
+    return;
+  }
+
+  const parsed = VerificationProviderOptionsSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new AuthboundClientError(
+      "providerOptions is invalid",
+      "VALIDATION_ERROR",
+      400,
+      parsed.error.format()
+    );
+  }
+
+  return parsed.data;
+}
+
+function mapVerificationProviderOptions(
+  value: VerificationProviderOptions | undefined
+): Record<string, unknown> | undefined {
+  const providerOptions = assertVerificationProviderOptions(value);
+  if (!providerOptions?.eudi) {
+    return;
+  }
+
+  const { eudi } = providerOptions;
+  const mappedEudi: Record<string, unknown> = {};
+  if (eudi.responseMode) mappedEudi.response_mode = eudi.responseMode;
+  if (eudi.expectedOrigins) mappedEudi.expected_origins = eudi.expectedOrigins;
+  if (eudi.jarMode) mappedEudi.jar_mode = eudi.jarMode;
+  if (eudi.requestUriMethod) {
+    mappedEudi.request_uri_method = eudi.requestUriMethod;
+  }
+  if (eudi.authorizationRequestScheme) {
+    mappedEudi.authorization_request_scheme = eudi.authorizationRequestScheme;
+  }
+  if (eudi.authorizationRequestUri) {
+    mappedEudi.authorization_request_uri = eudi.authorizationRequestUri;
+  }
+  if (typeof eudi.stripTrustedAuthoritiesForWallet === "boolean") {
+    mappedEudi.strip_trusted_authorities_for_wallet =
+      eudi.stripTrustedAuthoritiesForWallet;
+  }
+  if (eudi.verifierAttestations) {
+    mappedEudi.verifier_attestations = eudi.verifierAttestations;
+  }
+  if (eudi.profile) mappedEudi.profile = eudi.profile;
+
+  return { eudi: mappedEudi };
+}
+
 function assertCredentialDefinitionAuthoringFormat(format: string): void {
   if (!CredentialDefinitionAuthoringFormatSchema.safeParse(format).success) {
     throw new AuthboundClientError(
@@ -1545,6 +1606,7 @@ class VerificationsApi {
    */
   async create(options: CreateVerificationOptions): Promise<Verification> {
     const provider = assertProviderPreference(options.provider);
+    const providerOptions = mapVerificationProviderOptions(options.providerOptions);
     const requestBody = {
       policy_id: options.policyId,
       ...(options.customerUserRef && {
@@ -1552,6 +1614,7 @@ class VerificationsApi {
       }),
       ...(options.metadata && { metadata: options.metadata }),
       ...(provider && { provider }),
+      ...(providerOptions && { provider_options: providerOptions }),
     };
 
     const response = await this.client.request<unknown>(

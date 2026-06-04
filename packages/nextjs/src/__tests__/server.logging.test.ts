@@ -26,7 +26,7 @@ describe("Next.js server debug logging", () => {
       .toEqualTypeOf<string | undefined>();
     expectTypeOf<CreatedVerification>()
       .toHaveProperty("walletHandoffKind")
-      .toEqualTypeOf<"qr" | "link" | "request_blob" | undefined>();
+      .toEqualTypeOf<"qr" | "link" | "request_blob" | "dc_api" | undefined>();
   });
 
   it("returns deep links from createVerification gateway responses", async () => {
@@ -59,6 +59,58 @@ describe("Next.js server debug logging", () => {
       expiresAt: "2026-03-09T12:00:00.000Z",
       deepLink:
         "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.io%2Fverify%2Fsecret",
+    });
+  });
+
+  it("sends provider options from createVerification to the Gateway", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        object: "verification",
+        id: "vrf_1234567890abcdef",
+        client_token: "client_token_secret_value",
+        client_action: {
+          kind: "dc_api",
+          data: JSON.stringify({
+            client_id: "x509_hash:Verifier",
+            request_uri: "https://api.authbound.io/request.jwt/req_123",
+            request_uri_method: "post",
+          }),
+          expires_at: "2026-03-09T12:00:00.000Z",
+        },
+        expires_at: "2026-03-09T12:00:00.000Z",
+      }),
+    });
+    global.fetch = fetchMock as typeof fetch;
+
+    await createVerification({
+      gatewayUrl: "https://api.authbound.io",
+      policyId: "pol_age_over_18_authbound_v1" as PolicyId,
+      secret: "sk_test_secret",
+      provider: "eudi",
+      providerOptions: {
+        eudi: {
+          responseMode: "dc_api.jwt",
+          expectedOrigins: ["https://merchant.example"],
+          requestUriMethod: "post",
+        },
+      },
+    });
+
+    const [, request] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(JSON.parse(request.body as string)).toEqual({
+      policy_id: "pol_age_over_18_authbound_v1",
+      provider: "eudi",
+      provider_options: {
+        eudi: {
+          response_mode: "dc_api.jwt",
+          expected_origins: ["https://merchant.example"],
+          request_uri_method: "post",
+        },
+      },
     });
   });
 

@@ -22,4 +22,22 @@ describe("DeepLinkButton", () => {
 
     expect(screen.queryByRole("button", { name: "Open in Wallet" })).toBeNull();
   });
+
+  it("does not render a synthesized deep-link action for dc api browser handoff payloads", async () => {
+    render(
+      <DeepLinkButton
+        authorizationRequestUrl='{"protocol":"openid4vp-v1-unsigned","request_uri":"https://verifier.example/request.jwt"}'
+        showOnDesktop
+        walletHandoffKind="dc_api"
+      >
+        Open in Wallet
+      </DeepLinkButton>
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByRole("button", { name: "Open in Wallet" })).toBeNull();
+  });
 });

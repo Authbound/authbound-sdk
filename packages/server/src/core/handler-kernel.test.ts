@@ -49,7 +49,14 @@ describe("framework handler kernel", () => {
         policyId: "pol_authbound_pension_v1",
         customerUserRef: "user_123",
         metadata: { flow: "age_gate" },
-        provider: "vcs",
+        provider: "eudi",
+        providerOptions: {
+          eudi: {
+            responseMode: "dc_api.jwt",
+            expectedOrigins: ["https://merchant.example"],
+            requestUriMethod: "post",
+          },
+        },
       },
       config,
       client,
@@ -77,7 +84,14 @@ describe("framework handler kernel", () => {
       policyId: "pol_authbound_pension_v1",
       customerUserRef: "user_123",
       metadata: { flow: "age_gate" },
-      provider: "vcs",
+      provider: "eudi",
+      providerOptions: {
+        eudi: {
+          responseMode: "dc_api.jwt",
+          expectedOrigins: ["https://merchant.example"],
+          requestUriMethod: "post",
+        },
+      },
       idempotencyKey: "idem_123",
     });
     expect(onVerificationCreated).toHaveBeenCalledWith(result.body);

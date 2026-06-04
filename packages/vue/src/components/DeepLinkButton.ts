@@ -150,7 +150,11 @@ export const DeepLinkButton = defineComponent({
         return null;
       }
 
-      if (props.walletHandoffKind === "request_blob" && !props.deepLink) {
+      if (
+        (props.walletHandoffKind === "request_blob" ||
+          props.walletHandoffKind === "dc_api") &&
+        !props.deepLink
+      ) {
         return null;
       }
 
