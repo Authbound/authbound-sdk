@@ -31,9 +31,9 @@ const StationStatusSchema = z.enum([
 
 const StationEntryPayloadSchema = z
   .object({
-    entry_url: z.string(),
-    qr_payload: z.string(),
-    nfc_payload: z.string(),
+    entry_url: z.string().nullable(),
+    qr_payload: z.string().nullable(),
+    nfc_payload: z.string().nullable(),
     token_expires_at: z.string(),
   })
   .strict();

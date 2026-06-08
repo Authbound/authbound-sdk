@@ -6,6 +6,7 @@ import {
   buildStationEntryUrl,
   StationDisplaySchema,
   StationSafeAssertionsSchema,
+  StationSchema,
   StationVerificationDisclosureSchema,
 } from "../../index";
 
@@ -61,6 +62,22 @@ const displayStation = {
 } as const;
 
 describe("station contracts", () => {
+  it("parses station payloads without live entry URLs", () => {
+    const parsed = StationSchema.parse({
+      ...station,
+      entry: {
+        ...station.entry,
+        entry_url: null,
+        qr_payload: null,
+        nfc_payload: null,
+      },
+    });
+
+    expect(parsed.entry.entry_url).toBeNull();
+    expect(parsed.entry.qr_payload).toBeNull();
+    expect(parsed.entry.nfc_payload).toBeNull();
+  });
+
   it("rejects PID fields from token-only station-safe assertions", () => {
     expect(
       StationSafeAssertionsSchema.safeParse({

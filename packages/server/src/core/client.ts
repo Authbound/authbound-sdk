@@ -401,9 +401,9 @@ export interface Station {
   expiresAt: string | undefined;
   closedAt: string | undefined;
   entry: {
-    entryUrl: string;
-    qrPayload: string;
-    nfcPayload: string;
+    entryUrl: string | undefined;
+    qrPayload: string | undefined;
+    nfcPayload: string | undefined;
     tokenExpiresAt: string;
   };
   display: {
@@ -439,9 +439,9 @@ export interface StationDisplayStation {
   status: "created" | "active" | "paused" | "closed" | "expired";
   label: string | undefined;
   entry: {
-    entryUrl: string;
-    qrPayload: string;
-    nfcPayload: string;
+    entryUrl: string | undefined;
+    qrPayload: string | undefined;
+    nfcPayload: string | undefined;
     tokenExpiresAt: string;
   };
   ticket:
@@ -765,9 +765,9 @@ function mapStation(raw: z.infer<typeof StationSchema>): Station {
     expiresAt: raw.expires_at ?? undefined,
     closedAt: raw.closed_at ?? undefined,
     entry: {
-      entryUrl: raw.entry.entry_url,
-      qrPayload: raw.entry.qr_payload,
-      nfcPayload: raw.entry.nfc_payload,
+      entryUrl: raw.entry.entry_url ?? undefined,
+      qrPayload: raw.entry.qr_payload ?? undefined,
+      nfcPayload: raw.entry.nfc_payload ?? undefined,
       tokenExpiresAt: raw.entry.token_expires_at,
     },
     display: {
@@ -819,9 +819,9 @@ function mapStationDisplayStation(
     status: raw.status,
     label: raw.label ?? undefined,
     entry: {
-      entryUrl: raw.entry.entry_url,
-      qrPayload: raw.entry.qr_payload,
-      nfcPayload: raw.entry.nfc_payload,
+      entryUrl: raw.entry.entry_url ?? undefined,
+      qrPayload: raw.entry.qr_payload ?? undefined,
+      nfcPayload: raw.entry.nfc_payload ?? undefined,
       tokenExpiresAt: raw.entry.token_expires_at,
     },
     ticket: raw.ticket

@@ -44,6 +44,16 @@ const stationResponse = {
   },
 };
 
+const stationResponseWithoutLiveEntry = {
+  ...stationResponse,
+  entry: {
+    ...stationResponse.entry,
+    entry_url: null,
+    qr_payload: null,
+    nfc_payload: null,
+  },
+};
+
 const stationDisplayResponse = {
   object: "station",
   id: stationResponse.id,
@@ -147,7 +157,7 @@ describe("AuthboundClient stations API", () => {
       .mockResolvedValueOnce(
         jsonResponse({
           object: "list",
-          data: [stationResponse],
+          data: [stationResponseWithoutLiveEntry],
           has_more: false,
           next_cursor: null,
         })
@@ -193,6 +203,9 @@ describe("AuthboundClient stations API", () => {
     );
 
     expect(list.data[0]?.id).toBe(stationId);
+    expect(list.data[0]?.entry.entryUrl).toBeUndefined();
+    expect(list.data[0]?.entry.qrPayload).toBeUndefined();
+    expect(list.data[0]?.entry.nfcPayload).toBeUndefined();
     expect(grant.token).toBe("sog_secret");
     expect(revoked.revokedAt).toBe("2026-06-07T13:00:00.000Z");
     expect(
