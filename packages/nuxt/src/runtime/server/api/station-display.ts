@@ -1,4 +1,4 @@
-import { defineEventHandler } from "h3";
+import { defineEventHandler, getQuery } from "h3";
 import {
   forwardStationRequest,
   queryToken,
@@ -9,6 +9,10 @@ export default defineEventHandler(async (event) => {
   const stationId = stationParam(event, "stationId");
   const token = queryToken(event, "token", "display_token", "displayToken");
   const search = new URLSearchParams({ token });
+  const query = getQuery(event);
+  if (query.refresh_entry_token === "true") {
+    search.set("refresh_entry_token", "true");
+  }
 
   return forwardStationRequest(
     event,

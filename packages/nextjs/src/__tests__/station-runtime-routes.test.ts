@@ -131,6 +131,30 @@ describe("Next.js station runtime routes", () => {
     );
   });
 
+  it("forwards explicit station entry-token refresh requests", async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ object: "station_display" }),
+    }) as typeof fetch;
+
+    const displayHandler = createStationDisplayRoute({
+      gatewayUrl: "https://api.authbound.test",
+    });
+
+    await displayHandler(
+      new Request(
+        "https://app.test/api/stations/stn_demo/display?token=display_token&refresh_entry_token=true"
+      ),
+      { params: { stationId: "stn_demo" } }
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://api.authbound.test/v1/stations/public/stn_demo/display?token=display_token&refresh_entry_token=true",
+      { method: "GET" }
+    );
+  });
+
   it("redacts token-bearing upstream station errors before returning them", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,

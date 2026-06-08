@@ -186,6 +186,16 @@ describe("station contracts", () => {
       })
     ).toBe("/api/authbound/stations/stn_123/display?token=display_token");
     expect(
+      buildStationDisplayUrl({
+        mode: "proxy",
+        stationId: "stn_123",
+        token: "display_token",
+        refreshEntryToken: true,
+      })
+    ).toBe(
+      "/api/authbound/stations/stn_123/display?token=display_token&refresh_entry_token=true"
+    );
+    expect(
       buildStationDisplayEventsUrl({
         baseUrl: "https://app.test",
         mode: "proxy",

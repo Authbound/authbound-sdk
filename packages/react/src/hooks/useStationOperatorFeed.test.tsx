@@ -9,7 +9,10 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { StationOperatorConsole } from "../components/station-runtime";
+import {
+  StationEntryDisplay,
+  StationOperatorConsole,
+} from "../components/station-runtime";
 import { useStationOperatorFeed } from "./useStationOperatorFeed";
 
 const station = {
@@ -212,6 +215,41 @@ describe("useStationOperatorFeed", () => {
       verification_id: "vrf_live",
       assertions: { age_over_18: true, ticket_valid: true },
     });
+  });
+
+  it("requests entry token refresh only for StationEntryDisplay", async () => {
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = new URL(String(input));
+        if (url.pathname.endsWith("/display")) {
+          return Response.json({
+            object: "station_display",
+            station,
+            verifications: [],
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url.toString()}`);
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", FakeEventSource);
+
+    render(
+      <StationEntryDisplay
+        displayToken="display_123"
+        runtimeBaseUrl="https://app.test"
+        runtimeMode="proxy"
+        stationId="stn_123"
+      />
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://app.test/api/authbound/stations/stn_123/display?token=display_123&refresh_entry_token=true"
+    );
   });
 
   it("ignores malformed station display events without throwing", async () => {

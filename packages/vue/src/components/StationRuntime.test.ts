@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp, defineComponent, h, nextTick, ref } from "vue";
-import { StationOperatorConsole } from "./StationRuntime";
+import { StationEntryDisplay, StationOperatorConsole } from "./StationRuntime";
 
 const station = {
   object: "station",
@@ -38,6 +38,39 @@ async function waitForExpectation(assertion: () => void): Promise<void> {
 describe("StationOperatorConsole", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("requests entry token refresh only for StationEntryDisplay", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/display")) {
+        return Response.json({
+          object: "station_display",
+          station,
+          verifications: [],
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url.toString()}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", undefined);
+
+    const host = document.createElement("div");
+    const app = createApp(StationEntryDisplay, {
+      displayToken: "display_123",
+      runtimeBaseUrl: "https://app.test",
+      runtimeMode: "proxy",
+      stationId: "stn_123",
+    });
+    app.mount(host);
+
+    await waitForExpectation(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://app.test/api/authbound/stations/stn_123/display?token=display_123&refresh_entry_token=true"
+    );
   });
 
   it("reads protected disclosure when a grant token arrives after selection", async () => {

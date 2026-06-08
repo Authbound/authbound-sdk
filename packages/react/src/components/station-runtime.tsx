@@ -74,6 +74,7 @@ export function StationEntryDisplay({
     runtimeMode,
     stationId,
     displayToken,
+    refreshEntryToken: true,
   });
   const payload = feed.display?.station.entry.qr_payload;
 

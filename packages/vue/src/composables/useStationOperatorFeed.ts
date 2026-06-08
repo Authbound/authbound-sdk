@@ -38,6 +38,7 @@ export interface UseStationOperatorFeedOptions {
   displayToken: string;
   grantToken?: string;
   connectEvents?: boolean;
+  refreshEntryToken?: boolean;
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -158,6 +159,7 @@ export function useStationOperatorFeed(
         mode: options.runtimeMode,
         stationId: options.stationId,
         token: options.displayToken,
+        refreshEntryToken: options.refreshEntryToken,
       });
       const parsed = StationDisplaySchema.parse(
         await readJson(await fetch(url))

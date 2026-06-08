@@ -30,6 +30,7 @@ export interface UseStationOperatorFeedOptions {
   displayToken: string;
   grantToken?: string;
   connectEvents?: boolean;
+  refreshEntryToken?: boolean;
 }
 
 export interface UseStationOperatorFeedReturn {
@@ -147,6 +148,7 @@ export function useStationOperatorFeed(
         mode: options.runtimeMode,
         stationId: options.stationId,
         token: options.displayToken,
+        refreshEntryToken: options.refreshEntryToken,
       });
       const parsed = StationDisplaySchema.parse(
         await readJson(await fetch(url))
@@ -171,6 +173,7 @@ export function useStationOperatorFeed(
     options.runtimeMode,
     options.stationId,
     options.displayToken,
+    options.refreshEntryToken,
   ]);
 
   const readDisclosure = useCallback(

@@ -13,6 +13,10 @@ interface StationTokenUrlOptions extends StationRuntimeUrlOptions {
   token: string;
 }
 
+interface StationDisplayUrlOptions extends StationTokenUrlOptions {
+  refreshEntryToken?: boolean;
+}
+
 interface StationDisclosureUrlOptions extends StationRuntimeUrlOptions {
   displayToken: string;
   grantToken: string;
@@ -52,15 +56,19 @@ export function buildStationEntryUrl(options: StationTokenUrlOptions): string {
 }
 
 export function buildStationDisplayUrl(
-  options: StationTokenUrlOptions
+  options: StationDisplayUrlOptions
 ): string {
   const mode = runtimeMode(options.mode);
   const path =
     mode === "proxy"
       ? `/api/authbound/stations/${encodeURIComponent(options.stationId)}/display`
       : `/v1/stations/public/${encodeURIComponent(options.stationId)}/display`;
+  const params: Record<string, string> = { token: options.token };
+  if (options.refreshEntryToken) {
+    params.refresh_entry_token = "true";
+  }
   return buildUrl(
-    appendQuery(path, { token: options.token }),
+    appendQuery(path, params),
     options.baseUrl ?? defaultBaseUrl(mode)
   );
 }

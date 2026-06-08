@@ -817,6 +817,10 @@ export function createStationDisplayRoute(
     }
 
     const search = new URLSearchParams({ token });
+    const requestUrl = new URL(request.url);
+    if (requestUrl.searchParams.get("refresh_entry_token") === "true") {
+      search.set("refresh_entry_token", "true");
+    }
     return forwardStationRuntimeRequest(
       gatewayUrl,
       `/v1/stations/public/${encodeURIComponent(stationId)}/display?${search.toString()}`,

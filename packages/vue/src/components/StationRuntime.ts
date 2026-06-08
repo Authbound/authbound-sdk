@@ -49,7 +49,10 @@ export const StationEntryDisplay = defineComponent({
     displayToken: { type: String, required: true },
   },
   setup(props) {
-    const feed = useStationOperatorFeed(props);
+    const feed = useStationOperatorFeed({
+      ...props,
+      refreshEntryToken: true,
+    });
     return () =>
       h("div", { "data-authbound-station-entry-display": "" }, [
         feed.display.value?.station.entry.qr_payload
