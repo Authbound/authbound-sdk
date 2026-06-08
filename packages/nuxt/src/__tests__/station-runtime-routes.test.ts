@@ -176,6 +176,46 @@ describe("Nuxt station runtime routes", () => {
     );
   });
 
+  it("redacts token-bearing upstream station errors before returning them", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({
+        object: "error",
+        code: "invalid_display_token",
+        message:
+          "display_token=display_secret grant_token=grant_secret entry_token=entry_secret",
+      }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      stationDisplayHandler(
+        createEvent({
+          method: "GET",
+          path: "/api/authbound/stations/stn_demo/display?token=display_secret",
+          params: { stationId: "stn_demo" },
+        }) as never
+      )
+    ).rejects.toMatchObject({
+      statusCode: 401,
+      message: expect.stringContaining("[redacted]"),
+    });
+
+    await stationDisplayHandler(
+      createEvent({
+        method: "GET",
+        path: "/api/authbound/stations/stn_demo/display?token=display_secret",
+        params: { stationId: "stn_demo" },
+      }) as never
+    ).catch((error) => {
+      const serialized = JSON.stringify(error);
+      expect(serialized).not.toContain("display_secret");
+      expect(serialized).not.toContain("grant_secret");
+      expect(serialized).not.toContain("entry_secret");
+    });
+  });
+
   it("rejects disclosure tokens in the query string", async () => {
     const fetchMock = vi.fn();
     global.fetch = fetchMock as unknown as typeof fetch;

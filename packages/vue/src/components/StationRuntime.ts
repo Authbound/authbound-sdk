@@ -78,6 +78,33 @@ function booleanLabel(value: unknown): string {
   return typeof value === "boolean" ? (value ? "Yes" : "No") : "--";
 }
 
+function disclosureCacheKey(params: {
+  displayToken: string;
+  grantToken?: string;
+  stationId: string;
+  verificationId?: string;
+}): string | null {
+  if (!(params.grantToken && params.verificationId)) {
+    return null;
+  }
+  return [
+    params.stationId,
+    params.displayToken,
+    params.grantToken,
+    params.verificationId,
+  ].join("\u0000");
+}
+
+function disclosureIsActive(
+  disclosure: StationVerificationDisclosure | undefined
+): disclosure is StationVerificationDisclosure {
+  if (!disclosure) {
+    return false;
+  }
+  const expiresAt = Date.parse(disclosure.expires_at);
+  return Number.isNaN(expiresAt) || expiresAt > Date.now();
+}
+
 export const StationOperatorConsole = defineComponent({
   name: "StationOperatorConsole",
   props: {
@@ -97,9 +124,22 @@ export const StationOperatorConsole = defineComponent({
     const selectedVerification = computed(() =>
       preferredVerification(feed.verifications.value, selectedId.value)
     );
+    const selectedDisclosureKey = computed(() =>
+      disclosureCacheKey({
+        displayToken: props.displayToken,
+        grantToken: props.grantToken,
+        stationId: props.stationId,
+        verificationId: selectedVerification.value?.verification_id,
+      })
+    );
+    const selectedCachedDisclosure = computed(() =>
+      selectedDisclosureKey.value
+        ? disclosures.value[selectedDisclosureKey.value]
+        : undefined
+    );
     const selectedDisclosure = computed(() =>
-      selectedVerification.value
-        ? disclosures.value[selectedVerification.value.verification_id]
+      disclosureIsActive(selectedCachedDisclosure.value)
+        ? selectedCachedDisclosure.value
         : undefined
     );
 
@@ -114,13 +154,26 @@ export const StationOperatorConsole = defineComponent({
     );
 
     watch(
-      [selectedVerification, () => props.grantToken],
-      async ([verification, grantToken]) => {
+      [() => props.stationId, () => props.displayToken, () => props.grantToken],
+      () => {
+        disclosures.value = {};
+        disclosureError.value = null;
+        isDisclosureLoading.value = false;
+      }
+    );
+
+    watch(
+      [selectedVerification, selectedDisclosureKey],
+      async ([verification, cacheKey], _previous, onCleanup) => {
+        let active = true;
+        onCleanup(() => {
+          active = false;
+        });
         if (
           !(
-            grantToken &&
+            cacheKey &&
             verification?.status === "verified" &&
-            !disclosures.value[verification.verification_id]
+            !disclosures.value[cacheKey]
           )
         ) {
           return;
@@ -132,15 +185,23 @@ export const StationOperatorConsole = defineComponent({
           const disclosure = await feed.readDisclosure(
             verification.verification_id
           );
+          if (!active) {
+            return;
+          }
           disclosures.value = {
             ...disclosures.value,
-            [verification.verification_id]: disclosure,
+            [cacheKey]: disclosure,
           };
         } catch (cause) {
+          if (!active) {
+            return;
+          }
           disclosureError.value =
             cause instanceof Error ? cause : new Error(String(cause));
         } finally {
-          isDisclosureLoading.value = false;
+          if (active) {
+            isDisclosureLoading.value = false;
+          }
         }
       },
       { immediate: true }

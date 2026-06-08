@@ -2,6 +2,7 @@
 
 import {
   act,
+  cleanup,
   render,
   renderHook,
   screen,
@@ -52,10 +53,17 @@ class FakeEventSource {
       listener({ data: JSON.stringify(data) } as MessageEvent);
     }
   }
+
+  emitRaw(eventName: string, data: string) {
+    for (const listener of this.listeners.get(eventName) ?? []) {
+      listener({ data } as MessageEvent);
+    }
+  }
 }
 
 describe("useStationOperatorFeed", () => {
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
     FakeEventSource.instances = [];
   });
@@ -103,7 +111,7 @@ describe("useStationOperatorFeed", () => {
               ticket_valid: true,
             },
             granted_at: "2026-06-07T12:03:00.000Z",
-            expires_at: "2026-06-08T00:00:00.000Z",
+            expires_at: "2999-06-08T00:00:00.000Z",
           });
         }
 
@@ -206,6 +214,43 @@ describe("useStationOperatorFeed", () => {
     });
   });
 
+  it("ignores malformed station display events without throwing", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/display")) {
+        return Response.json({
+          object: "station_display",
+          station,
+          verifications: [],
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url.toString()}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", FakeEventSource);
+
+    const { result } = renderHook(() =>
+      useStationOperatorFeed({
+        runtimeBaseUrl: "https://app.test",
+        runtimeMode: "proxy",
+        stationId: "stn_123",
+        displayToken: "display_123",
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.display?.station.id).toBe("stn_123");
+    });
+
+    expect(() => {
+      FakeEventSource.instances[0]?.emitRaw(
+        "station.verification.completed",
+        "{not-json"
+      );
+    }).not.toThrow();
+    expect(result.current.verifications).toEqual([]);
+  });
+
   it("keeps display events that arrive before the first display snapshot", async () => {
     let resolveDisplay!: (response: Response) => void;
     const displayPromise = new Promise<Response>((resolve) => {
@@ -299,7 +344,7 @@ describe("useStationOperatorFeed", () => {
               birth_date: "2001-08-12",
             },
             granted_at: "2026-06-07T12:03:00.000Z",
-            expires_at: "2026-06-08T00:00:00.000Z",
+            expires_at: "2999-06-08T00:00:00.000Z",
           });
         }
 
@@ -333,6 +378,87 @@ describe("useStationOperatorFeed", () => {
         "X-Authbound-Station-Display-Token": "display_123",
         "X-Authbound-Station-Operator-Grant-Token": "grant_123",
       },
+    });
+  });
+
+  it("removes grant-protected details when the operator grant is removed", async () => {
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = new URL(String(input));
+        if (url.pathname.endsWith("/display")) {
+          return Response.json({
+            object: "station_display",
+            station,
+            verifications: [
+              {
+                object: "station_verification",
+                station_id: "stn_123",
+                verification_id: "vrf_123",
+                status: "verified",
+                created_at: "2026-06-07T12:01:00.000Z",
+                terminal_at: "2026-06-07T12:02:00.000Z",
+                transport: "qr",
+                client_ref: "client_ref_123",
+                failure_code: null,
+                outcome_reason: null,
+                assertions: { age_over_18: true, ticket_valid: true },
+              },
+            ],
+          });
+        }
+
+        if (url.pathname.endsWith("/disclosure")) {
+          return Response.json({
+            object: "station_verification_disclosure",
+            station_id: "stn_123",
+            verification_id: "vrf_123",
+            profile: "physical_id",
+            fields: {
+              given_name: "Erika",
+              family_name: "Mustermann",
+              birth_date: "2001-08-12",
+            },
+            granted_at: "2026-06-07T12:03:00.000Z",
+            expires_at: "2999-06-08T00:00:00.000Z",
+          });
+        }
+
+        throw new Error(`Unexpected fetch: ${url.toString()}`);
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", FakeEventSource);
+
+    const { rerender } = render(
+      <StationOperatorConsole
+        displayToken="display_123"
+        grantToken="grant_123"
+        runtimeBaseUrl="https://app.test"
+        runtimeMode="proxy"
+        stationId="stn_123"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Erika")).toBeTruthy();
+    });
+
+    rerender(
+      <StationOperatorConsole
+        displayToken="display_123"
+        runtimeBaseUrl="https://app.test"
+        runtimeMode="proxy"
+        stationId="stn_123"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText("Erika")).toBeNull();
+      expect(
+        screen.getByText(
+          "Protected identity details require an operator device grant."
+        )
+      ).toBeTruthy();
     });
   });
 });

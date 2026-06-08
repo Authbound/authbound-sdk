@@ -1,3 +1,4 @@
+import { redactSensitiveText } from "@authbound/server";
 import {
   createError,
   getHeader,
@@ -110,7 +111,7 @@ export async function forwardStationRequest<TBody>(
   if (!response.ok) {
     const message =
       body && typeof body === "object" && "message" in body
-        ? String((body as { message?: unknown }).message)
+        ? redactSensitiveText(String((body as { message?: unknown }).message))
         : "Station runtime request failed";
     if (config.public.authbound?.debug) {
       console.error("[Authbound] Station runtime request failed", {

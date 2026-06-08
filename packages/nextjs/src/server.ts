@@ -302,6 +302,30 @@ function apiErrorField(
   return typeof value === "string" ? redactSensitiveText(value) : undefined;
 }
 
+function stationRuntimeErrorBody(
+  errorBody: unknown,
+  fallback: string
+): Record<string, unknown> {
+  const message =
+    apiErrorField(errorBody, "message") ??
+    (errorBody && typeof errorBody === "object"
+      ? typeof (errorBody as Record<string, unknown>).error === "string"
+        ? redactSensitiveText(
+            String((errorBody as Record<string, unknown>).error)
+          )
+        : undefined
+      : undefined) ??
+    redactSensitiveText(fallback || "Station runtime request failed");
+  const code = apiErrorField(errorBody, "code");
+
+  return {
+    object: "error",
+    error: message,
+    message,
+    ...(code ? { code } : {}),
+  };
+}
+
 async function readJsonBody(
   request: Request
 ): Promise<Record<string, unknown>> {
@@ -352,14 +376,19 @@ async function forwardStationRuntimeRequest(
   const body = await gatewayResponse.json().catch(() => ({
     error: gatewayResponse.statusText,
   }));
-  return NextResponse.json(body, {
-    status: gatewayResponse.status,
-    headers: {
-      "Cache-Control": "no-store",
-      "Referrer-Policy": "no-referrer",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+  return NextResponse.json(
+    gatewayResponse.ok
+      ? body
+      : stationRuntimeErrorBody(body, gatewayResponse.statusText),
+    {
+      status: gatewayResponse.status,
+      headers: {
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+      },
+    }
+  );
 }
 
 async function forwardStationRuntimeStream(

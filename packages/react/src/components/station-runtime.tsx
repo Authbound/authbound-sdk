@@ -3,7 +3,7 @@ import type {
   StationVerification,
   StationVerificationDisclosure,
 } from "@authbound/core";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useStationEntry } from "../hooks/useStationEntry";
 import { useStationOperatorFeed } from "../hooks/useStationOperatorFeed";
 import { QRCode } from "./qr-code";
@@ -114,6 +114,33 @@ function booleanLabel(value: unknown): string {
   return typeof value === "boolean" ? (value ? "Yes" : "No") : "--";
 }
 
+function disclosureCacheKey(params: {
+  displayToken: string;
+  grantToken?: string;
+  stationId: string;
+  verificationId?: string;
+}): string | null {
+  if (!(params.grantToken && params.verificationId)) {
+    return null;
+  }
+  return [
+    params.stationId,
+    params.displayToken,
+    params.grantToken,
+    params.verificationId,
+  ].join("\u0000");
+}
+
+function disclosureIsActive(
+  disclosure: StationVerificationDisclosure | undefined
+): disclosure is StationVerificationDisclosure {
+  if (!disclosure) {
+    return false;
+  }
+  const expiresAt = Date.parse(disclosure.expires_at);
+  return Number.isNaN(expiresAt) || expiresAt > Date.now();
+}
+
 export function StationOperatorConsole({
   gatewayBaseUrl,
   runtimeBaseUrl,
@@ -136,12 +163,26 @@ export function StationOperatorConsole({
   >({});
   const [disclosureError, setDisclosureError] = useState<Error | null>(null);
   const [isDisclosureLoading, setIsDisclosureLoading] = useState(false);
+  const disclosureScopeKey = useMemo(
+    () => [stationId, displayToken, grantToken ?? ""].join("\u0000"),
+    [stationId, displayToken, grantToken]
+  );
+  const previousDisclosureScopeKey = useRef(disclosureScopeKey);
   const selectedVerification = useMemo(
     () => preferredVerification(feed.verifications, selectedId),
     [feed.verifications, selectedId]
   );
-  const selectedDisclosure = selectedVerification
-    ? disclosures[selectedVerification.verification_id]
+  const selectedDisclosureKey = disclosureCacheKey({
+    displayToken,
+    grantToken,
+    stationId,
+    verificationId: selectedVerification?.verification_id,
+  });
+  const selectedCachedDisclosure = selectedDisclosureKey
+    ? disclosures[selectedDisclosureKey]
+    : undefined;
+  const selectedDisclosure = disclosureIsActive(selectedCachedDisclosure)
+    ? selectedCachedDisclosure
     : undefined;
 
   useEffect(() => {
@@ -152,11 +193,22 @@ export function StationOperatorConsole({
   }, [selectedId, selectedVerification]);
 
   useEffect(() => {
+    if (previousDisclosureScopeKey.current === disclosureScopeKey) {
+      return;
+    }
+    previousDisclosureScopeKey.current = disclosureScopeKey;
+    setDisclosures({});
+    setDisclosureError(null);
+    setIsDisclosureLoading(false);
+  });
+
+  useEffect(() => {
     if (
       !(
         grantToken &&
+        selectedDisclosureKey &&
         selectedVerification?.status === "verified" &&
-        !selectedDisclosure
+        !selectedCachedDisclosure
       )
     ) {
       return;
@@ -171,7 +223,7 @@ export function StationOperatorConsole({
         if (!active) return;
         setDisclosures((current) => ({
           ...current,
-          [selectedVerification.verification_id]: disclosure,
+          [selectedDisclosureKey]: disclosure,
         }));
       })
       .catch((cause) => {
@@ -191,9 +243,10 @@ export function StationOperatorConsole({
     };
   }, [
     grantToken,
+    selectedDisclosureKey,
     selectedVerification?.verification_id,
     selectedVerification?.status,
-    selectedDisclosure,
+    selectedCachedDisclosure,
     feed.readDisclosure,
   ]);
 

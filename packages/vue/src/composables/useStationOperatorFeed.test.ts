@@ -42,6 +42,12 @@ class FakeEventSource {
       listener({ data: JSON.stringify(data) } as MessageEvent);
     }
   }
+
+  emitRaw(eventName: string, data: string) {
+    for (const listener of this.listeners.get(eventName) ?? []) {
+      listener({ data } as MessageEvent);
+    }
+  }
 }
 
 describe("useStationOperatorFeed", () => {
@@ -93,7 +99,7 @@ describe("useStationOperatorFeed", () => {
               ticket_valid: true,
             },
             granted_at: "2026-06-07T12:03:00.000Z",
-            expires_at: "2026-06-08T00:00:00.000Z",
+            expires_at: "2999-06-08T00:00:00.000Z",
           });
         }
 
@@ -180,6 +186,42 @@ describe("useStationOperatorFeed", () => {
     });
     feed.close();
     expect(FakeEventSource.instances[0]?.closed).toBe(true);
+  });
+
+  it("ignores malformed station display events without throwing", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/display")) {
+        return Response.json({
+          object: "station_display",
+          station,
+          verifications: [],
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url.toString()}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", FakeEventSource);
+
+    const feed = useStationOperatorFeed({
+      runtimeBaseUrl: "https://app.test",
+      runtimeMode: "proxy",
+      stationId: "stn_123",
+      displayToken: "display_123",
+    });
+
+    await feed.refresh();
+    feed.connect();
+
+    expect(() => {
+      FakeEventSource.instances[0]?.emitRaw(
+        "station.verification.completed",
+        "{not-json"
+      );
+    }).not.toThrow();
+    expect(feed.verifications.value).toEqual([]);
+
+    feed.close();
   });
 
   it("keeps display events that arrive before the first display snapshot", async () => {

@@ -229,9 +229,16 @@ export function useStationOperatorFeed(
       "station.verification.completed",
     ]) {
       eventSource.addEventListener(eventName, (event) => {
-        const next = eventVerification(
-          JSON.parse(event.data) as Record<string, unknown>
-        );
+        let data: unknown;
+        try {
+          data = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+        if (!data || typeof data !== "object" || Array.isArray(data)) {
+          return;
+        }
+        const next = eventVerification(data as Record<string, unknown>);
         if (!next) return;
         setDisplay((current) => {
           if (!current) {

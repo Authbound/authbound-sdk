@@ -131,6 +131,37 @@ describe("Next.js station runtime routes", () => {
     );
   });
 
+  it("redacts token-bearing upstream station errors before returning them", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({
+        object: "error",
+        code: "invalid_display_token",
+        message:
+          "display_token=display_secret grant_token=grant_secret entry_token=entry_secret",
+      }),
+    }) as typeof fetch;
+
+    const handler = createStationDisplayRoute({
+      gatewayUrl: "https://api.authbound.test",
+    });
+    const response = await handler(
+      new Request(
+        "https://app.test/api/stations/stn_demo/display?token=display_secret"
+      ),
+      { params: { stationId: "stn_demo" } }
+    );
+    const body = await response.json();
+    const serialized = JSON.stringify(body);
+
+    expect(response.status).toBe(401);
+    expect(serialized).not.toContain("display_secret");
+    expect(serialized).not.toContain("grant_secret");
+    expect(serialized).not.toContain("entry_secret");
+    expect(serialized).toContain("[redacted]");
+  });
+
   it("rejects disclosure tokens in the query string", async () => {
     const fetchMock = vi.fn();
     global.fetch = fetchMock as typeof fetch;

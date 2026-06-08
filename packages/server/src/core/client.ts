@@ -386,6 +386,7 @@ export interface CreateStationOptions {
 
 export interface ListStationsOptions {
   limit?: number;
+  cursor?: string;
 }
 
 export interface Station {
@@ -1528,7 +1529,10 @@ class StationsApi {
   async list(options?: ListStationsOptions): Promise<StationList> {
     const response = await this.client.request<unknown>(
       "GET",
-      `/v1/stations${buildQueryString({ limit: options?.limit })}`
+      `/v1/stations${buildQueryString({
+        limit: options?.limit,
+        cursor: options?.cursor,
+      })}`
     );
     const parsed = StationListSchema.safeParse(response);
     if (!parsed.success) {

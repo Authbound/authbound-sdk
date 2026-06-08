@@ -81,7 +81,7 @@ describe("StationOperatorConsole", () => {
               birth_date: "2001-08-12",
             },
             granted_at: "2026-06-07T12:03:00.000Z",
-            expires_at: "2026-06-08T00:00:00.000Z",
+            expires_at: "2999-06-08T00:00:00.000Z",
           });
         }
 
@@ -140,6 +140,97 @@ describe("StationOperatorConsole", () => {
         "X-Authbound-Station-Display-Token": "display_123",
         "X-Authbound-Station-Operator-Grant-Token": "grant_123",
       },
+    });
+
+    app.unmount();
+  });
+
+  it("removes grant-protected details when the operator grant is removed", async () => {
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = new URL(String(input));
+        if (url.pathname.endsWith("/display")) {
+          return Response.json({
+            object: "station_display",
+            station,
+            verifications: [
+              {
+                object: "station_verification",
+                station_id: "stn_123",
+                verification_id: "vrf_123",
+                status: "verified",
+                created_at: "2026-06-07T12:01:00.000Z",
+                terminal_at: "2026-06-07T12:02:00.000Z",
+                transport: "qr",
+                client_ref: "client_ref_123",
+                failure_code: null,
+                outcome_reason: null,
+                assertions: {
+                  age_over_18: true,
+                  ticket_valid: true,
+                },
+              },
+            ],
+          });
+        }
+
+        if (url.pathname.endsWith("/disclosure")) {
+          return Response.json({
+            object: "station_verification_disclosure",
+            station_id: "stn_123",
+            verification_id: "vrf_123",
+            profile: "physical_id",
+            fields: {
+              given_name: "Erika",
+              family_name: "Mustermann",
+              birth_date: "2001-08-12",
+            },
+            granted_at: "2026-06-07T12:03:00.000Z",
+            expires_at: "2999-06-08T00:00:00.000Z",
+          });
+        }
+
+        throw new Error(`Unexpected fetch: ${url.toString()}`);
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", undefined);
+
+    let clearGrantToken: (() => void) | undefined;
+    const Host = defineComponent({
+      name: "StationOperatorConsoleGrantRemovalHost",
+      setup() {
+        const grantToken = ref<string | undefined>("grant_123");
+        clearGrantToken = () => {
+          grantToken.value = undefined;
+        };
+
+        return () =>
+          h(StationOperatorConsole, {
+            displayToken: "display_123",
+            gatewayBaseUrl: "https://api.authbound.test",
+            grantToken: grantToken.value,
+            stationId: "stn_123",
+          });
+      },
+    });
+
+    const host = document.createElement("div");
+    const app = createApp(Host);
+    app.mount(host);
+
+    await waitForExpectation(() => {
+      expect(host.textContent).toContain("Erika");
+    });
+
+    clearGrantToken?.();
+    await nextTick();
+
+    await waitForExpectation(() => {
+      expect(host.textContent).not.toContain("Erika");
+      expect(host.textContent).toContain(
+        "Protected identity details require an operator device grant."
+      );
     });
 
     app.unmount();

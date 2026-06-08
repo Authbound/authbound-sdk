@@ -158,8 +158,8 @@ describe("AuthboundClient stations API", () => {
         jsonResponse({
           object: "list",
           data: [stationResponseWithoutLiveEntry],
-          has_more: false,
-          next_cursor: null,
+          has_more: true,
+          next_cursor: "cursor_next",
         })
       )
       .mockResolvedValueOnce(jsonResponse(stationResponse))
@@ -189,7 +189,10 @@ describe("AuthboundClient stations API", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const client = createClient();
-    const list = await client.stations.list({ limit: 10 });
+    const list = await client.stations.list({
+      limit: 10,
+      cursor: "cursor_123",
+    });
     await client.stations.rotateDisplayToken(stationId);
     const grant = await client.stations.createOperatorGrant(stationId, {
       profile: "physical_id",
@@ -206,6 +209,8 @@ describe("AuthboundClient stations API", () => {
     expect(list.data[0]?.entry.entryUrl).toBeUndefined();
     expect(list.data[0]?.entry.qrPayload).toBeUndefined();
     expect(list.data[0]?.entry.nfcPayload).toBeUndefined();
+    expect(list.hasMore).toBe(true);
+    expect(list.nextCursor).toBe("cursor_next");
     expect(grant.token).toBe("sog_secret");
     expect(revoked.revokedAt).toBe("2026-06-07T13:00:00.000Z");
     expect(
@@ -214,7 +219,7 @@ describe("AuthboundClient stations API", () => {
         (init as RequestInit).method,
       ])
     ).toEqual([
-      [`${apiUrl}/v1/stations?limit=10`, "GET"],
+      [`${apiUrl}/v1/stations?limit=10&cursor=cursor_123`, "GET"],
       [`${apiUrl}/v1/stations/${stationId}/display-token/rotate`, "POST"],
       [`${apiUrl}/v1/stations/${stationId}/operator-grants`, "POST"],
       [
