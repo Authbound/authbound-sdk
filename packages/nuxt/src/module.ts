@@ -294,6 +294,31 @@ export default defineNuxtModule<ModuleOptions>({
       handler: resolver.resolve("./runtime/server/api/session"),
     });
 
+    addServerHandler({
+      route: "/api/authbound/stations/:stationId/entry",
+      method: "post",
+      handler: resolver.resolve("./runtime/server/api/station-entry"),
+    });
+
+    addServerHandler({
+      route: "/api/authbound/stations/:stationId/display",
+      method: "get",
+      handler: resolver.resolve("./runtime/server/api/station-display"),
+    });
+
+    addServerHandler({
+      route: "/api/authbound/stations/:stationId/display/events/sse",
+      method: "get",
+      handler: resolver.resolve("./runtime/server/api/station-display-events"),
+    });
+
+    addServerHandler({
+      route:
+        "/api/authbound/stations/:stationId/verifications/:verificationId/disclosure",
+      method: "get",
+      handler: resolver.resolve("./runtime/server/api/station-disclosure"),
+    });
+
     // Transpile runtime
     nuxt.options.build.transpile.push(resolver.resolve("./runtime"));
   },

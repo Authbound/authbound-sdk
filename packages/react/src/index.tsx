@@ -63,6 +63,16 @@ export {
 // ============================================================================
 
 export {
+  type UseStationEntryOptions,
+  type UseStationEntryReturn,
+  useStationEntry,
+} from "./hooks/useStationEntry";
+export {
+  type UseStationOperatorFeedOptions,
+  type UseStationOperatorFeedReturn,
+  useStationOperatorFeed,
+} from "./hooks/useStationOperatorFeed";
+export {
   type UseVerificationOptions,
   type UseVerificationReturn,
   useVerification,
@@ -82,6 +92,14 @@ export {
   type QRCodeProps,
   QRCodeWithLoading,
 } from "./components/qr-code";
+export {
+  StationEntry,
+  StationEntryDisplay,
+  type StationEntryDisplayProps,
+  type StationEntryProps,
+  StationOperatorConsole,
+  type StationOperatorConsoleProps,
+} from "./components/station-runtime";
 export {
   StatusBadge,
   type StatusBadgeProps,
@@ -125,6 +143,11 @@ export {
   // Policy presets
   PolicyPresets,
   type PublishableKey,
+  type Station,
+  type StationDisplay,
+  type StationDisplayStation,
+  type StationVerification,
+  type StationVerificationDisclosure,
   type StatusEvent,
   type VerificationClaims,
   type VerificationId,

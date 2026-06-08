@@ -26,8 +26,19 @@
 
 import {
   PublicCreateVerificationResponseSchema as CreateVerificationResponseSchema,
+  OperatorDeviceGrantSchema,
   type ProviderPreference,
   ProviderPreferenceSchema,
+  STATION_DISPLAY_TOKEN_HEADER,
+  STATION_OPERATOR_GRANT_TOKEN_HEADER,
+  StationDisplaySchema,
+  type StationDisplayStationSchema,
+  StationEventListSchema,
+  StationListSchema,
+  StationSchema,
+  StationVerificationDisclosureSchema,
+  StationVerificationListSchema,
+  StationVerificationSchema,
   TERMINAL_VERIFICATION_PROGRESS_STATUSES,
   PublicVerificationListSchema as VerificationListSchema,
   type VerificationProgressStatus,
@@ -125,6 +136,34 @@ function summarizeForDebug(value: unknown): Record<string, unknown> {
     hasStringProperty(value, "webhookSecret");
 
   return summary;
+}
+
+const REDACTED_URL_QUERY_KEYS = new Set([
+  "token",
+  "display_token",
+  "displayToken",
+  "grant_token",
+  "grantToken",
+  "entry_token",
+  "entryToken",
+  "client_token",
+  "clientToken",
+  "result_token",
+  "resultToken",
+]);
+
+function redactRequestUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    for (const key of [...url.searchParams.keys()]) {
+      if (REDACTED_URL_QUERY_KEYS.has(key)) {
+        url.searchParams.set(key, "[redacted]");
+      }
+    }
+    return url.toString();
+  } catch {
+    return redactSensitiveText(value);
+  }
 }
 
 /**
@@ -333,6 +372,184 @@ export interface SignedVerificationResult {
   failureCode?: string;
 }
 
+export type StationDisclosureProfile = "physical_id";
+
+export interface CreateStationOptions {
+  policyRef: string;
+  label?: string;
+  ttlSeconds?: number | null;
+  ticketEventId?: string | null;
+  ticketEventName?: string | null;
+  ticketValidFrom?: string | null;
+  ticketValidUntil?: string | null;
+}
+
+export interface ListStationsOptions {
+  limit?: number;
+}
+
+export interface Station {
+  object: "station";
+  id: string;
+  projectId: string;
+  envMode: "test" | "live";
+  status: "created" | "active" | "paused" | "closed" | "expired";
+  policyRef: string;
+  policyHash: string | undefined;
+  label: string | undefined;
+  createdAt: string;
+  expiresAt: string | undefined;
+  closedAt: string | undefined;
+  entry: {
+    entryUrl: string;
+    qrPayload: string;
+    nfcPayload: string;
+    tokenExpiresAt: string;
+  };
+  display: {
+    entryDisplayUrl: string | undefined;
+    operatorConsoleUrl: string | undefined;
+    tokenRotatedAt: string;
+  };
+  ticket:
+    | {
+        eventId: string;
+        eventName: string | undefined;
+        validFrom: string | undefined;
+        validUntil: string | undefined;
+      }
+    | undefined;
+  dashboardUrl: string;
+  settings: {
+    allowConcurrent: boolean;
+    ttlSeconds: number | undefined;
+  };
+}
+
+export interface StationList {
+  object: "list";
+  data: Station[];
+  hasMore: boolean;
+  nextCursor?: string;
+}
+
+export interface StationDisplayStation {
+  object: "station";
+  id: string;
+  status: "created" | "active" | "paused" | "closed" | "expired";
+  label: string | undefined;
+  entry: {
+    entryUrl: string;
+    qrPayload: string;
+    nfcPayload: string;
+    tokenExpiresAt: string;
+  };
+  ticket:
+    | {
+        eventId: string;
+        eventName: string | undefined;
+        validFrom: string | undefined;
+        validUntil: string | undefined;
+      }
+    | undefined;
+}
+
+export interface StationVerification {
+  object: "station_verification";
+  stationId: string;
+  verificationId: string;
+  envMode?: "test" | "live";
+  status: PublicVerificationStatus;
+  createdAt: string;
+  terminalAt: string | undefined;
+  transport: "qr" | "nfc" | "link";
+  clientRef: string | undefined;
+  failureCode: string | undefined;
+  outcomeReason: string | undefined;
+  assertions?: Record<string, unknown>;
+}
+
+export interface StationVerificationList {
+  object: "list";
+  data: StationVerification[];
+  hasMore: boolean;
+  nextCursor?: string;
+}
+
+export interface StationEvent {
+  id: string;
+  type: string;
+  cursor: number;
+  createdAt: string;
+  data: Record<string, unknown>;
+}
+
+export interface StationEventList {
+  object: "list";
+  data: StationEvent[];
+  hasMore: boolean;
+  nextCursor?: number;
+}
+
+export interface StationDisplay {
+  object: "station_display";
+  station: StationDisplayStation;
+  verifications: StationVerification[];
+}
+
+export interface OperatorDeviceGrant {
+  object: "station_operator_grant";
+  id: string;
+  stationId: string;
+  profile: StationDisclosureProfile;
+  token?: string;
+  expiresAt: string;
+  createdAt: string;
+  revokedAt: string | undefined;
+}
+
+export interface CreateOperatorDeviceGrantOptions {
+  profile: StationDisclosureProfile;
+  deviceRef?: string;
+  operatorRef?: string;
+  ttlSeconds?: number;
+}
+
+export interface ListStationVerificationsOptions {
+  after?: string;
+  limit?: number;
+  status?: PublicVerificationStatus;
+}
+
+export interface GetStationDisplayOptions {
+  stationId: string;
+  displayToken: string;
+}
+
+export interface GetStationVerificationDisclosureOptions {
+  stationId: string;
+  verificationId: string;
+  displayToken: string;
+  grantToken: string;
+}
+
+export interface StationVerificationDisclosure {
+  object: "station_verification_disclosure";
+  stationId: string;
+  verificationId: string;
+  profile: StationDisclosureProfile;
+  fields: {
+    portrait?: string;
+    givenName?: string;
+    familyName?: string;
+    birthDate?: string;
+    ageOver18?: boolean;
+    ticketValid?: boolean;
+  };
+  grantedAt: string;
+  expiresAt: string;
+}
+
 export type PublicCredentialFormat = z.infer<
   typeof PublicCredentialFormatSchema
 >;
@@ -534,6 +751,138 @@ function mapSignedVerificationResult(
   };
 }
 
+function mapStation(raw: z.infer<typeof StationSchema>): Station {
+  return {
+    object: raw.object,
+    id: raw.id,
+    projectId: raw.project_id,
+    envMode: raw.env_mode,
+    status: raw.status,
+    policyRef: raw.policy_ref,
+    policyHash: raw.policy_hash ?? undefined,
+    label: raw.label ?? undefined,
+    createdAt: raw.created_at,
+    expiresAt: raw.expires_at ?? undefined,
+    closedAt: raw.closed_at ?? undefined,
+    entry: {
+      entryUrl: raw.entry.entry_url,
+      qrPayload: raw.entry.qr_payload,
+      nfcPayload: raw.entry.nfc_payload,
+      tokenExpiresAt: raw.entry.token_expires_at,
+    },
+    display: {
+      entryDisplayUrl: raw.display.entry_display_url ?? undefined,
+      operatorConsoleUrl: raw.display.operator_console_url ?? undefined,
+      tokenRotatedAt: raw.display.token_rotated_at,
+    },
+    ticket: raw.ticket
+      ? {
+          eventId: raw.ticket.event_id,
+          eventName: raw.ticket.event_name ?? undefined,
+          validFrom: raw.ticket.valid_from ?? undefined,
+          validUntil: raw.ticket.valid_until ?? undefined,
+        }
+      : undefined,
+    dashboardUrl: raw.dashboard_url,
+    settings: {
+      allowConcurrent: raw.settings.allow_concurrent,
+      ttlSeconds: raw.settings.ttl_seconds ?? undefined,
+    },
+  };
+}
+
+function mapStationVerification(
+  raw: z.infer<typeof StationVerificationSchema>
+): StationVerification {
+  return {
+    object: raw.object,
+    stationId: raw.station_id,
+    verificationId: raw.verification_id,
+    envMode: raw.env_mode,
+    status: normalizeVerificationStatus(raw.status),
+    createdAt: raw.created_at,
+    terminalAt: raw.terminal_at ?? undefined,
+    transport: raw.transport,
+    clientRef: raw.client_ref ?? undefined,
+    failureCode: raw.failure_code ?? undefined,
+    outcomeReason: raw.outcome_reason ?? undefined,
+    assertions: raw.assertions,
+  };
+}
+
+function mapStationDisplayStation(
+  raw: z.infer<typeof StationDisplayStationSchema>
+): StationDisplayStation {
+  return {
+    object: raw.object,
+    id: raw.id,
+    status: raw.status,
+    label: raw.label ?? undefined,
+    entry: {
+      entryUrl: raw.entry.entry_url,
+      qrPayload: raw.entry.qr_payload,
+      nfcPayload: raw.entry.nfc_payload,
+      tokenExpiresAt: raw.entry.token_expires_at,
+    },
+    ticket: raw.ticket
+      ? {
+          eventId: raw.ticket.event_id,
+          eventName: raw.ticket.event_name ?? undefined,
+          validFrom: raw.ticket.valid_from ?? undefined,
+          validUntil: raw.ticket.valid_until ?? undefined,
+        }
+      : undefined,
+  };
+}
+
+function mapStationEvent(
+  raw: z.infer<typeof StationEventListSchema>["data"][number]
+): StationEvent {
+  return {
+    id: raw.id,
+    type: raw.type,
+    cursor: raw.cursor,
+    createdAt: raw.created_at,
+    data: raw.data,
+  };
+}
+
+function mapOperatorDeviceGrant(
+  raw: z.infer<typeof OperatorDeviceGrantSchema>
+): OperatorDeviceGrant {
+  return {
+    object: raw.object,
+    id: raw.id,
+    stationId: raw.station_id,
+    profile: raw.profile,
+    token: raw.token,
+    expiresAt: raw.expires_at,
+    createdAt: raw.created_at,
+    revokedAt: raw.revoked_at ?? undefined,
+  };
+}
+
+function mapStationVerificationDisclosure(
+  raw: z.infer<typeof StationVerificationDisclosureSchema>
+): StationVerificationDisclosure {
+  return {
+    object: raw.object,
+    stationId: raw.station_id,
+    verificationId: raw.verification_id,
+    profile: raw.profile,
+    fields: {
+      portrait: raw.fields.portrait,
+      givenName: raw.fields.given_name,
+      familyName: raw.fields.family_name,
+      birthDate: raw.fields.birth_date,
+      ageOver18: raw.fields.age_over_18,
+      ticketValid: raw.fields.ticket_valid,
+    },
+    grantedAt: raw.granted_at,
+    expiresAt: raw.expires_at,
+  };
+}
+
 // ============================================================================
 // AuthboundClient Class
 // ============================================================================
@@ -548,6 +897,11 @@ export class AuthboundClient {
    * Verification APIs.
    */
   readonly verifications: VerificationsApi;
+
+  /**
+   * Verification Station APIs.
+   */
+  readonly stations: StationsApi;
 
   /**
    * Webhooks API for signature verification.
@@ -583,6 +937,7 @@ export class AuthboundClient {
 
     // Initialize sub-APIs
     this.verifications = new VerificationsApi(this);
+    this.stations = new StationsApi(this);
     this.webhooks = new WebhooksApi();
     this.issuer = new IssuerApi(this);
     this.openId4Vc = new OpenId4VcApi(this);
@@ -602,9 +957,10 @@ export class AuthboundClient {
     }
   ): Promise<T> {
     const url = `${this.apiUrl}${path}`;
+    const safeUrl = redactRequestUrl(url);
 
     if (this.debug) {
-      console.log(`[AuthboundClient] ${method} ${url}`);
+      console.log(`[AuthboundClient] ${method} ${safeUrl}`);
     }
 
     // Create AbortController for timeout
@@ -1131,6 +1487,275 @@ class VerificationsApi {
       response,
       mapSignedVerificationResult
     );
+  }
+}
+
+// ============================================================================
+// Stations API
+// ============================================================================
+
+class StationsApi {
+  constructor(private readonly client: AuthboundClient) {}
+
+  async create(options: CreateStationOptions): Promise<Station> {
+    assertNonEmpty(options.policyRef, "policyRef");
+    const response = await this.client.request<unknown>(
+      "POST",
+      "/v1/stations",
+      {
+        policy_ref: options.policyRef,
+        ...(options.label ? { label: options.label } : {}),
+        ...(options.ttlSeconds !== undefined
+          ? { ttl_seconds: options.ttlSeconds }
+          : {}),
+        ...(options.ticketEventId !== undefined
+          ? { ticket_event_id: options.ticketEventId }
+          : {}),
+        ...(options.ticketEventName !== undefined
+          ? { ticket_event_name: options.ticketEventName }
+          : {}),
+        ...(options.ticketValidFrom !== undefined
+          ? { ticket_valid_from: options.ticketValidFrom }
+          : {}),
+        ...(options.ticketValidUntil !== undefined
+          ? { ticket_valid_until: options.ticketValidUntil }
+          : {}),
+      }
+    );
+    return parseApiResponse(StationSchema, response, mapStation);
+  }
+
+  async list(options?: ListStationsOptions): Promise<StationList> {
+    const response = await this.client.request<unknown>(
+      "GET",
+      `/v1/stations${buildQueryString({ limit: options?.limit })}`
+    );
+    const parsed = StationListSchema.safeParse(response);
+    if (!parsed.success) {
+      throw new AuthboundClientError(
+        "Invalid response from API",
+        "INVALID_RESPONSE",
+        undefined,
+        parsed.error.format()
+      );
+    }
+    return {
+      object: "list",
+      data: parsed.data.data.map(mapStation),
+      hasMore: parsed.data.has_more,
+      nextCursor: parsed.data.next_cursor ?? undefined,
+    };
+  }
+
+  async get(stationId: string): Promise<Station> {
+    assertNonEmpty(stationId, "stationId");
+    const response = await this.client.request<unknown>(
+      "GET",
+      `/v1/stations/${encodePathSegment(stationId)}`
+    );
+    return parseApiResponse(StationSchema, response, mapStation);
+  }
+
+  async pause(stationId: string): Promise<Station> {
+    return this.updateStatus(stationId, "pause");
+  }
+
+  async resume(stationId: string): Promise<Station> {
+    return this.updateStatus(stationId, "resume");
+  }
+
+  async close(stationId: string): Promise<Station> {
+    return this.updateStatus(stationId, "close");
+  }
+
+  async rotateDisplayToken(stationId: string): Promise<Station> {
+    assertNonEmpty(stationId, "stationId");
+    const response = await this.client.request<unknown>(
+      "POST",
+      `/v1/stations/${encodePathSegment(stationId)}/display-token/rotate`
+    );
+    return parseApiResponse(StationSchema, response, mapStation);
+  }
+
+  async createOperatorGrant(
+    stationId: string,
+    options: CreateOperatorDeviceGrantOptions
+  ): Promise<OperatorDeviceGrant> {
+    assertNonEmpty(stationId, "stationId");
+    const response = await this.client.request<unknown>(
+      "POST",
+      `/v1/stations/${encodePathSegment(stationId)}/operator-grants`,
+      {
+        profile: options.profile,
+        ...(options.deviceRef ? { device_ref: options.deviceRef } : {}),
+        ...(options.operatorRef ? { operator_ref: options.operatorRef } : {}),
+        ...(options.ttlSeconds !== undefined
+          ? { ttl_seconds: options.ttlSeconds }
+          : {}),
+      }
+    );
+    return parseApiResponse(
+      OperatorDeviceGrantSchema,
+      response,
+      mapOperatorDeviceGrant
+    );
+  }
+
+  async revokeOperatorGrant(
+    stationId: string,
+    grantId: string
+  ): Promise<OperatorDeviceGrant> {
+    assertNonEmpty(stationId, "stationId");
+    assertNonEmpty(grantId, "grantId");
+    const response = await this.client.request<unknown>(
+      "POST",
+      `/v1/stations/${encodePathSegment(stationId)}/operator-grants/${encodePathSegment(grantId)}/revoke`
+    );
+    return parseApiResponse(
+      OperatorDeviceGrantSchema,
+      response,
+      mapOperatorDeviceGrant
+    );
+  }
+
+  async listVerifications(
+    stationId: string,
+    options?: ListStationVerificationsOptions
+  ): Promise<StationVerificationList> {
+    assertNonEmpty(stationId, "stationId");
+    const response = await this.client.request<unknown>(
+      "GET",
+      `/v1/stations/${encodePathSegment(stationId)}/verifications${buildQueryString(
+        {
+          after: options?.after,
+          limit: options?.limit,
+          status: options?.status,
+        }
+      )}`
+    );
+    const parsed = StationVerificationListSchema.safeParse(response);
+    if (!parsed.success) {
+      throw new AuthboundClientError(
+        "Invalid response from API",
+        "INVALID_RESPONSE",
+        undefined,
+        parsed.error.format()
+      );
+    }
+    return {
+      object: "list",
+      data: parsed.data.data.map(mapStationVerification),
+      hasMore: parsed.data.has_more,
+      nextCursor: parsed.data.next_cursor ?? undefined,
+    };
+  }
+
+  async getVerification(
+    stationId: string,
+    verificationId: string
+  ): Promise<StationVerification> {
+    assertNonEmpty(stationId, "stationId");
+    assertNonEmpty(verificationId, "verificationId");
+    const response = await this.client.request<unknown>(
+      "GET",
+      `/v1/stations/${encodePathSegment(stationId)}/verifications/${encodePathSegment(verificationId)}`
+    );
+    return parseApiResponse(
+      StationVerificationSchema,
+      response,
+      mapStationVerification
+    );
+  }
+
+  async listEvents(
+    stationId: string,
+    options?: { after?: number; limit?: number }
+  ): Promise<StationEventList> {
+    assertNonEmpty(stationId, "stationId");
+    const response = await this.client.request<unknown>(
+      "GET",
+      `/v1/stations/${encodePathSegment(stationId)}/events${buildQueryString({
+        after: options?.after,
+        limit: options?.limit,
+      })}`
+    );
+    const parsed = StationEventListSchema.safeParse(response);
+    if (!parsed.success) {
+      throw new AuthboundClientError(
+        "Invalid response from API",
+        "INVALID_RESPONSE",
+        undefined,
+        parsed.error.format()
+      );
+    }
+    return {
+      object: "list",
+      data: parsed.data.data.map(mapStationEvent),
+      hasMore: parsed.data.has_more,
+      nextCursor: parsed.data.next_cursor ?? undefined,
+    };
+  }
+
+  async getDisplay(options: GetStationDisplayOptions): Promise<StationDisplay> {
+    assertNonEmpty(options.stationId, "stationId");
+    assertNonEmpty(options.displayToken, "displayToken");
+    const response = await this.client.request<unknown>(
+      "GET",
+      `/v1/stations/public/${encodePathSegment(options.stationId)}/display${buildQueryString(
+        {
+          token: options.displayToken,
+        }
+      )}`,
+      undefined,
+      { includeApiKey: false }
+    );
+    const parsed = parseApiResponse<z.infer<typeof StationDisplaySchema>>(
+      StationDisplaySchema,
+      response
+    );
+    return {
+      object: parsed.object,
+      station: mapStationDisplayStation(parsed.station),
+      verifications: parsed.verifications.map(mapStationVerification),
+    };
+  }
+
+  async getVerificationDisclosure(
+    options: GetStationVerificationDisclosureOptions
+  ): Promise<StationVerificationDisclosure> {
+    assertNonEmpty(options.stationId, "stationId");
+    assertNonEmpty(options.verificationId, "verificationId");
+    assertNonEmpty(options.displayToken, "displayToken");
+    assertNonEmpty(options.grantToken, "grantToken");
+    const response = await this.client.request<unknown>(
+      "GET",
+      `/v1/stations/public/${encodePathSegment(options.stationId)}/verifications/${encodePathSegment(options.verificationId)}/disclosure`,
+      undefined,
+      {
+        includeApiKey: false,
+        headers: {
+          [STATION_DISPLAY_TOKEN_HEADER]: options.displayToken,
+          [STATION_OPERATOR_GRANT_TOKEN_HEADER]: options.grantToken,
+        },
+      }
+    );
+    return parseApiResponse(
+      StationVerificationDisclosureSchema,
+      response,
+      mapStationVerificationDisclosure
+    );
+  }
+
+  private async updateStatus(
+    stationId: string,
+    action: "pause" | "resume" | "close"
+  ): Promise<Station> {
+    assertNonEmpty(stationId, "stationId");
+    const response = await this.client.request<unknown>(
+      "POST",
+      `/v1/stations/${encodePathSegment(stationId)}/${action}`
+    );
+    return parseApiResponse(StationSchema, response, mapStation);
   }
 }
 

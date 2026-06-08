@@ -54,7 +54,14 @@ export {
 // ============================================================================
 
 export { useAuthbound, useAuthboundOptional } from "./composables/useAuthbound";
-
+export {
+  type UseStationEntryOptions,
+  useStationEntry,
+} from "./composables/useStationEntry";
+export {
+  type UseStationOperatorFeedOptions,
+  useStationOperatorFeed,
+} from "./composables/useStationOperatorFeed";
 export {
   type UseVerificationOptions,
   type UseVerificationReturn,
@@ -75,6 +82,11 @@ export {
   QRCodeWithLoading,
   type QRCodeWithLoadingProps,
 } from "./components/QRCode";
+export {
+  StationEntry,
+  StationEntryDisplay,
+  StationOperatorConsole,
+} from "./components/StationRuntime";
 export {
   StatusBadge,
   type StatusBadgeProps,
@@ -118,6 +130,11 @@ export {
   // Policy presets
   PolicyPresets,
   type PublishableKey,
+  type Station,
+  type StationDisplay,
+  type StationDisplayStation,
+  type StationVerification,
+  type StationVerificationDisclosure,
   type StatusEvent,
   type VerificationClaims,
   type VerificationId,

@@ -1,10 +1,19 @@
 import { z } from "zod";
 import { AuthboundError } from "./errors";
 
-export const ProviderPreferenceSchema = z.enum(["auto", "vcs", "eudi", "eudiplo"]);
+export const ProviderPreferenceSchema = z.enum([
+  "auto",
+  "vcs",
+  "eudi",
+  "eudiplo",
+]);
 export type ProviderPreference = z.infer<typeof ProviderPreferenceSchema>;
 
-export const SelectedVerificationProviderSchema = z.enum(["vcs", "eudi", "eudiplo"]);
+export const SelectedVerificationProviderSchema = z.enum([
+  "vcs",
+  "eudi",
+  "eudiplo",
+]);
 export type SelectedVerificationProvider = z.infer<
   typeof SelectedVerificationProviderSchema
 >;

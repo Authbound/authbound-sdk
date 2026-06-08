@@ -20,6 +20,8 @@ import {
   originForStatusProxy,
   type PolicyId,
   PublicVerificationStatusSnapshotSchema,
+  STATION_DISPLAY_TOKEN_HEADER,
+  STATION_OPERATOR_GRANT_TOKEN_HEADER,
 } from "@authbound/core";
 import {
   AuthboundClient,
@@ -148,6 +150,20 @@ export interface WebhookRouteOptions {
    * @default false
    */
   debug?: boolean;
+}
+
+export interface StationRuntimeRouteOptions {
+  /**
+   * Custom Authbound API URL.
+   * @default Uses AUTHBOUND_API_URL env var
+   */
+  gatewayUrl?: string;
+}
+
+export interface StationRuntimeRouteContext {
+  params?:
+    | Record<string, string | undefined>
+    | Promise<Record<string, string | undefined>>;
 }
 
 // ============================================================================
@@ -284,6 +300,96 @@ function apiErrorField(
 
   const value = (errorBody as Record<string, unknown>)[field];
   return typeof value === "string" ? redactSensitiveText(value) : undefined;
+}
+
+async function readJsonBody(
+  request: Request
+): Promise<Record<string, unknown>> {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return {};
+  }
+  const body = await request.json().catch(() => ({}));
+  return body && typeof body === "object" && !Array.isArray(body)
+    ? (body as Record<string, unknown>)
+    : {};
+}
+
+async function stationRouteParam(
+  context: StationRuntimeRouteContext | undefined,
+  key: string
+): Promise<string | undefined> {
+  const params = context?.params ? await context.params : undefined;
+  const value = params?.[key];
+  return value && value.length > 0 ? value : undefined;
+}
+
+function stationToken(
+  request: Request,
+  body: Record<string, unknown>,
+  ...keys: string[]
+): string | undefined {
+  const url = new URL(request.url);
+  for (const key of keys) {
+    const queryValue = url.searchParams.get(key);
+    if (queryValue) {
+      return queryValue;
+    }
+    const bodyValue = body[key];
+    if (typeof bodyValue === "string" && bodyValue.length > 0) {
+      return bodyValue;
+    }
+  }
+  return;
+}
+
+async function forwardStationRuntimeRequest(
+  gatewayUrl: string,
+  path: string,
+  init: RequestInit
+): Promise<Response> {
+  const gatewayResponse = await fetch(`${gatewayUrl}${path}`, init);
+  const body = await gatewayResponse.json().catch(() => ({
+    error: gatewayResponse.statusText,
+  }));
+  return NextResponse.json(body, {
+    status: gatewayResponse.status,
+    headers: {
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
+async function forwardStationRuntimeStream(
+  gatewayUrl: string,
+  path: string,
+  options: { lastEventId?: string } = {}
+): Promise<Response> {
+  const requestHeaders = options.lastEventId
+    ? { "Last-Event-ID": options.lastEventId }
+    : undefined;
+  const gatewayResponse = await fetch(`${gatewayUrl}${path}`, {
+    method: "GET",
+    ...(requestHeaders ? { headers: requestHeaders } : {}),
+  });
+  const responseHeaders = new Headers();
+  for (const name of [
+    "content-type",
+    "cache-control",
+    "connection",
+    "x-accel-buffering",
+  ]) {
+    const value = gatewayResponse.headers.get(name);
+    if (value) {
+      responseHeaders.set(name, value);
+    }
+  }
+  return new Response(gatewayResponse.body, {
+    status: gatewayResponse.status,
+    headers: responseHeaders,
+  });
 }
 
 function summarizeVerificationResponse(
@@ -494,10 +600,7 @@ export function createVerificationRoute(
           "Failed to create verification";
         const apiErrorCode = apiErrorField(errorBody, "code");
         if (debug) {
-          console.error(
-            "[Authbound] API error:",
-            summarizeApiError(errorBody)
-          );
+          console.error("[Authbound] API error:", summarizeApiError(errorBody));
         }
         return NextResponse.json(
           {
@@ -580,6 +683,209 @@ export function createVerificationRoute(
         { status: 500 }
       );
     }
+  };
+}
+
+// ============================================================================
+// Station Runtime BFF Route Handlers
+// ============================================================================
+
+/**
+ * Create a station entry BFF route.
+ *
+ * The handler proxies tokenized attendee entry requests to Gateway without
+ * attaching a project secret key.
+ */
+export function createStationEntryRoute(
+  options: StationRuntimeRouteOptions = {}
+): (
+  request: Request,
+  context?: StationRuntimeRouteContext
+) => Promise<Response> {
+  const gatewayUrl =
+    options.gatewayUrl ??
+    getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io");
+
+  return async (
+    request: Request,
+    context?: StationRuntimeRouteContext
+  ): Promise<Response> => {
+    const body = await readJsonBody(request);
+    const stationId =
+      (await stationRouteParam(context, "stationId")) ??
+      (typeof body.stationId === "string" ? body.stationId : undefined);
+    const token = stationToken(
+      request,
+      body,
+      "token",
+      "entryToken",
+      "entry_token"
+    );
+    const clientRef =
+      typeof body.client_ref === "string"
+        ? body.client_ref
+        : typeof body.clientRef === "string"
+          ? body.clientRef
+          : undefined;
+    const transport =
+      body.transport === "qr" ||
+      body.transport === "nfc" ||
+      body.transport === "link"
+        ? body.transport
+        : "link";
+
+    if (!(stationId && token && clientRef)) {
+      return NextResponse.json(
+        { error: "stationId, token, and client_ref are required" },
+        { status: 400 }
+      );
+    }
+
+    const search = new URLSearchParams({ token });
+    return forwardStationRuntimeRequest(
+      gatewayUrl,
+      `/v1/stations/public/${encodeURIComponent(stationId)}/verifications?${search.toString()}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_ref: clientRef, transport }),
+      }
+    );
+  };
+}
+
+/**
+ * Create a station display BFF route for Station Entry Display and Operator
+ * Console feed reads. The display token only returns station-safe data.
+ */
+export function createStationDisplayRoute(
+  options: StationRuntimeRouteOptions = {}
+): (
+  request: Request,
+  context?: StationRuntimeRouteContext
+) => Promise<Response> {
+  const gatewayUrl =
+    options.gatewayUrl ??
+    getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io");
+
+  return async (
+    request: Request,
+    context?: StationRuntimeRouteContext
+  ): Promise<Response> => {
+    const stationId = await stationRouteParam(context, "stationId");
+    const token = stationToken(
+      request,
+      {},
+      "token",
+      "display_token",
+      "displayToken"
+    );
+    if (!(stationId && token)) {
+      return NextResponse.json(
+        { error: "stationId and token are required" },
+        { status: 400 }
+      );
+    }
+
+    const search = new URLSearchParams({ token });
+    return forwardStationRuntimeRequest(
+      gatewayUrl,
+      `/v1/stations/public/${encodeURIComponent(stationId)}/display?${search.toString()}`,
+      { method: "GET" }
+    );
+  };
+}
+
+/**
+ * Create a station display event-stream BFF route for live operator feeds.
+ */
+export function createStationDisplayEventsRoute(
+  options: StationRuntimeRouteOptions = {}
+): (
+  request: Request,
+  context?: StationRuntimeRouteContext
+) => Promise<Response> {
+  const gatewayUrl =
+    options.gatewayUrl ??
+    getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io");
+
+  return async (
+    request: Request,
+    context?: StationRuntimeRouteContext
+  ): Promise<Response> => {
+    const stationId = await stationRouteParam(context, "stationId");
+    const token = stationToken(
+      request,
+      {},
+      "token",
+      "display_token",
+      "displayToken"
+    );
+    if (!(stationId && token)) {
+      return NextResponse.json(
+        { error: "stationId and token are required" },
+        { status: 400 }
+      );
+    }
+
+    const search = new URLSearchParams({ token });
+    const url = new URL(request.url);
+    const after = url.searchParams.get("after");
+    if (after) {
+      search.set("after", after);
+    }
+    const lastEventId = request.headers.get("last-event-id") ?? undefined;
+    return forwardStationRuntimeStream(
+      gatewayUrl,
+      `/v1/stations/public/${encodeURIComponent(stationId)}/display/events/sse?${search.toString()}`,
+      { lastEventId }
+    );
+  };
+}
+
+/**
+ * Create a station disclosure BFF route. Requires both the display token and
+ * an active Operator Device Grant token.
+ */
+export function createStationDisclosureRoute(
+  options: StationRuntimeRouteOptions = {}
+): (
+  request: Request,
+  context?: StationRuntimeRouteContext
+) => Promise<Response> {
+  const gatewayUrl =
+    options.gatewayUrl ??
+    getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io");
+
+  return async (
+    request: Request,
+    context?: StationRuntimeRouteContext
+  ): Promise<Response> => {
+    const stationId = await stationRouteParam(context, "stationId");
+    const verificationId = await stationRouteParam(context, "verificationId");
+    const displayToken = request.headers.get(STATION_DISPLAY_TOKEN_HEADER);
+    const grantToken = request.headers.get(STATION_OPERATOR_GRANT_TOKEN_HEADER);
+    if (!(stationId && verificationId && displayToken && grantToken)) {
+      return NextResponse.json(
+        {
+          error:
+            "stationId, verificationId, station display token header, and operator grant token header are required",
+        },
+        { status: 400 }
+      );
+    }
+
+    return forwardStationRuntimeRequest(
+      gatewayUrl,
+      `/v1/stations/public/${encodeURIComponent(stationId)}/verifications/${encodeURIComponent(verificationId)}/disclosure`,
+      {
+        method: "GET",
+        headers: {
+          [STATION_DISPLAY_TOKEN_HEADER]: displayToken,
+          [STATION_OPERATOR_GRANT_TOKEN_HEADER]: grantToken,
+        },
+      }
+    );
   };
 }
 

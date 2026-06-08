@@ -6,7 +6,7 @@
     "dev": "pnpm -r --filter './packages/*' run dev",
     "lint": "biome check --config-path ./biome.json .",
     "format": "biome check --config-path ./biome.json --write .",
-    "check-types": "pnpm -r --filter './packages/*' --filter './examples/*' --if-present run typecheck",
+    "check-types": "pnpm --filter @authbound/core build && pnpm -r --filter './packages/*' --filter './examples/*' --if-present run typecheck",
     "release:check": "pnpm lint && pnpm check-types && pnpm test && pnpm build && pnpm validate:artifacts",
     "test": "pnpm -r --filter './packages/*' --filter './examples/*' --if-present run test",
     "validate:artifacts": "node scripts/validate-package-artifacts.mjs"
