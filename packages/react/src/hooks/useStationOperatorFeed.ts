@@ -21,6 +21,8 @@ const TERMINAL_STATUSES = new Set([
   "canceled",
   "expired",
 ]);
+const ENTRY_REFRESH_BEFORE_EXPIRY_MS = 55_000;
+const ENTRY_REFRESH_RETRY_MS = 5000;
 
 export interface UseStationOperatorFeedOptions {
   gatewayBaseUrl?: string;
@@ -211,8 +213,70 @@ export function useStationOperatorFeed(
 
   useEffect(() => {
     pendingEventsRef.current = [];
-    refresh().catch(() => undefined);
-  }, [refresh]);
+    let active = true;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const runRefresh = () => {
+      refresh().catch(() => {
+        if (active && options.refreshEntryToken) {
+          retryTimer = setTimeout(runRefresh, ENTRY_REFRESH_RETRY_MS);
+        }
+      });
+    };
+    runRefresh();
+
+    return () => {
+      active = false;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
+    };
+  }, [options.refreshEntryToken, refresh]);
+
+  useEffect(() => {
+    if (
+      !(
+        options.refreshEntryToken &&
+        display?.station.status === "active" &&
+        display.station.entry.token_expires_at
+      )
+    ) {
+      return;
+    }
+
+    const expiresAtMs = Date.parse(display.station.entry.token_expires_at);
+    if (!Number.isFinite(expiresAtMs)) {
+      return;
+    }
+
+    const delayMs = Math.max(
+      ENTRY_REFRESH_RETRY_MS,
+      expiresAtMs - Date.now() - ENTRY_REFRESH_BEFORE_EXPIRY_MS
+    );
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = (nextDelayMs: number) => {
+      timer = setTimeout(() => {
+        refresh().catch(() => {
+          if (active) {
+            schedule(ENTRY_REFRESH_RETRY_MS);
+          }
+        });
+      }, nextDelayMs);
+    };
+    schedule(delayMs);
+
+    return () => {
+      active = false;
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, [
+    display?.station.entry.token_expires_at,
+    display?.station.status,
+    options.refreshEntryToken,
+    refresh,
+  ]);
 
   useEffect(() => {
     if (options.connectEvents === false || typeof EventSource === "undefined") {

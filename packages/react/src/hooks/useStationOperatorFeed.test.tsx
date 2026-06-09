@@ -67,6 +67,7 @@ class FakeEventSource {
 describe("useStationOperatorFeed", () => {
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     FakeEventSource.instances = [];
   });
@@ -250,6 +251,106 @@ describe("useStationOperatorFeed", () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
       "https://app.test/api/authbound/stations/stn_123/display?token=display_123&refresh_entry_token=true"
     );
+  });
+
+  it("refreshes StationEntryDisplay before the entry token expires", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-07T12:00:00.000Z"));
+    const refreshedStation = {
+      ...station,
+      entry: {
+        entry_url:
+          "https://tenant.test/verify/stations/stn_123?token=entry_456",
+        qr_payload:
+          "https://tenant.test/verify/stations/stn_123?token=entry_456&transport=qr",
+        nfc_payload:
+          "https://tenant.test/verify/stations/stn_123?token=entry_456&transport=nfc",
+        token_expires_at: "2026-06-07T12:20:00.000Z",
+      },
+    } as const;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/display")) {
+        return Response.json({
+          object: "station_display",
+          station:
+            fetchMock.mock.calls.length === 1 ? station : refreshedStation,
+          verifications: [],
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url.toString()}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", FakeEventSource);
+
+    render(
+      <StationEntryDisplay
+        displayToken="display_123"
+        runtimeBaseUrl="https://app.test"
+        runtimeMode="proxy"
+        stationId="stn_123"
+      />
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9 * 60 * 1000 + 5 * 1000);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1]?.[0])).toBe(
+      "https://app.test/api/authbound/stations/stn_123/display?token=display_123&refresh_entry_token=true"
+    );
+  });
+
+  it("retries StationEntryDisplay when the first refresh request fails", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-07T12:00:00.000Z"));
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/display")) {
+        if (fetchMock.mock.calls.length === 1) {
+          return Response.json(
+            { object: "error", code: "conflict", message: "Refresh conflict" },
+            { status: 409 }
+          );
+        }
+        return Response.json({
+          object: "station_display",
+          station,
+          verifications: [],
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url.toString()}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", FakeEventSource);
+
+    render(
+      <StationEntryDisplay
+        displayToken="display_123"
+        runtimeBaseUrl="https://app.test"
+        runtimeMode="proxy"
+        stationId="stn_123"
+      />
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("ignores malformed station display events without throwing", async () => {

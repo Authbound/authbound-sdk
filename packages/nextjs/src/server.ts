@@ -415,6 +415,9 @@ async function forwardStationRuntimeStream(
       responseHeaders.set(name, value);
     }
   }
+  responseHeaders.set("Cache-Control", "no-store");
+  responseHeaders.set("Referrer-Policy", "no-referrer");
+  responseHeaders.set("X-Content-Type-Options", "nosniff");
   return new Response(gatewayResponse.body, {
     status: gatewayResponse.status,
     headers: responseHeaders,

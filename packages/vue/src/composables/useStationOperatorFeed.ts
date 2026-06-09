@@ -29,6 +29,8 @@ const TERMINAL_STATUSES = new Set([
   "canceled",
   "expired",
 ]);
+const ENTRY_REFRESH_BEFORE_EXPIRY_MS = 55_000;
+const ENTRY_REFRESH_RETRY_MS = 5000;
 
 export interface UseStationOperatorFeedOptions {
   gatewayBaseUrl?: string;
@@ -145,10 +147,64 @@ export function useStationOperatorFeed(
   const error = ref<Error | null>(null);
   const runtimeBaseUrl = options.runtimeBaseUrl ?? options.gatewayBaseUrl;
   let eventSource: EventSource | null = null;
+  let entryRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   let pendingEvents: StationVerification[] = [];
   const verifications = computed<StationVerification[]>(
     () => display.value?.verifications ?? []
   );
+
+  function clearEntryRefreshTimer() {
+    if (entryRefreshTimer) {
+      clearTimeout(entryRefreshTimer);
+      entryRefreshTimer = null;
+    }
+  }
+
+  function scheduleEntryRefresh(
+    nextDisplay: StationDisplay | null,
+    retryDelayMs?: number
+  ) {
+    clearEntryRefreshTimer();
+    if (!options.refreshEntryToken) {
+      return;
+    }
+    if (!nextDisplay) {
+      if (retryDelayMs !== undefined) {
+        entryRefreshTimer = setTimeout(() => {
+          refresh().catch(() => {
+            scheduleEntryRefresh(display.value, ENTRY_REFRESH_RETRY_MS);
+          });
+        }, retryDelayMs);
+      }
+      return;
+    }
+    if (
+      !(
+        nextDisplay.station.status === "active" &&
+        nextDisplay.station.entry.token_expires_at
+      )
+    ) {
+      return;
+    }
+
+    const expiresAtMs = Date.parse(nextDisplay.station.entry.token_expires_at);
+    if (!Number.isFinite(expiresAtMs)) {
+      return;
+    }
+
+    const delayMs =
+      retryDelayMs ??
+      Math.max(
+        ENTRY_REFRESH_RETRY_MS,
+        expiresAtMs - Date.now() - ENTRY_REFRESH_BEFORE_EXPIRY_MS
+      );
+
+    entryRefreshTimer = setTimeout(() => {
+      refresh().catch(() => {
+        scheduleEntryRefresh(display.value, ENTRY_REFRESH_RETRY_MS);
+      });
+    }, delayMs);
+  }
 
   async function refresh() {
     isLoading.value = true;
@@ -167,11 +223,13 @@ export function useStationOperatorFeed(
       const merged = mergePendingVerifications(parsed, pendingEvents);
       pendingEvents = [];
       display.value = merged;
+      scheduleEntryRefresh(merged);
       return merged;
     } catch (cause) {
       const nextError =
         cause instanceof Error ? cause : new Error(String(cause));
       error.value = nextError;
+      scheduleEntryRefresh(display.value, ENTRY_REFRESH_RETRY_MS);
       throw nextError;
     } finally {
       isLoading.value = false;
@@ -241,6 +299,7 @@ export function useStationOperatorFeed(
   }
 
   function close() {
+    clearEntryRefreshTimer();
     eventSource?.close();
     eventSource = null;
   }

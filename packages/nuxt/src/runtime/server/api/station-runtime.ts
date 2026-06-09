@@ -150,6 +150,9 @@ export async function forwardStationStream(
       responseHeaders.set(name, value);
     }
   }
+  responseHeaders.set("Cache-Control", "no-store");
+  responseHeaders.set("Referrer-Policy", "no-referrer");
+  responseHeaders.set("X-Content-Type-Options", "nosniff");
   return new Response(response.body, {
     status: response.status,
     headers: responseHeaders,

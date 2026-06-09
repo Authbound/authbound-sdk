@@ -281,6 +281,9 @@ describe("Nuxt station runtime routes", () => {
     expect(response.headers.get("content-type")).toBe(
       "text/event-stream; charset=utf-8"
     );
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.authbound.test/v1/stations/public/stn_demo/display/events/sse?token=display_token",
       { method: "GET" }
