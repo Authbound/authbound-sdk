@@ -95,7 +95,6 @@ export interface StationOperatorConsoleProps {
   runtimeBaseUrl?: string;
   runtimeMode?: StationRuntimeMode;
   stationId: string;
-  displayToken: string;
   grantToken?: string;
 }
 
@@ -116,7 +115,6 @@ function booleanLabel(value: unknown): string {
 }
 
 function disclosureCacheKey(params: {
-  displayToken: string;
   grantToken?: string;
   stationId: string;
   verificationId?: string;
@@ -124,12 +122,9 @@ function disclosureCacheKey(params: {
   if (!(params.grantToken && params.verificationId)) {
     return null;
   }
-  return [
-    params.stationId,
-    params.displayToken,
-    params.grantToken,
-    params.verificationId,
-  ].join("\u0000");
+  return [params.stationId, params.grantToken, params.verificationId].join(
+    "\u0000"
+  );
 }
 
 function disclosureIsActive(
@@ -147,7 +142,6 @@ export function StationOperatorConsole({
   runtimeBaseUrl,
   runtimeMode,
   stationId,
-  displayToken,
   grantToken,
 }: StationOperatorConsoleProps) {
   const feed = useStationOperatorFeed({
@@ -155,7 +149,6 @@ export function StationOperatorConsole({
     runtimeBaseUrl,
     runtimeMode,
     stationId,
-    displayToken,
     grantToken,
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -165,8 +158,8 @@ export function StationOperatorConsole({
   const [disclosureError, setDisclosureError] = useState<Error | null>(null);
   const [isDisclosureLoading, setIsDisclosureLoading] = useState(false);
   const disclosureScopeKey = useMemo(
-    () => [stationId, displayToken, grantToken ?? ""].join("\u0000"),
-    [stationId, displayToken, grantToken]
+    () => [stationId, grantToken ?? ""].join("\u0000"),
+    [stationId, grantToken]
   );
   const previousDisclosureScopeKey = useRef(disclosureScopeKey);
   const selectedVerification = useMemo(
@@ -174,7 +167,6 @@ export function StationOperatorConsole({
     [feed.verifications, selectedId]
   );
   const selectedDisclosureKey = disclosureCacheKey({
-    displayToken,
     grantToken,
     stationId,
     verificationId: selectedVerification?.verification_id,

@@ -4,6 +4,8 @@ import {
   createStationDisplayEventsRoute,
   createStationDisplayRoute,
   createStationEntryRoute,
+  createStationOperatorEventsRoute,
+  createStationOperatorRoute,
 } from "../server";
 
 describe("Next.js station runtime routes", () => {
@@ -58,9 +60,14 @@ describe("Next.js station runtime routes", () => {
     );
   });
 
-  it("proxies display feed and grant-protected disclosure reads", async () => {
+  it("proxies display feed, operator feed, and grant-protected disclosure reads", async () => {
     global.fetch = vi
       .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ object: "station_display" }),
+      })
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -78,6 +85,9 @@ describe("Next.js station runtime routes", () => {
     const displayHandler = createStationDisplayRoute({
       gatewayUrl: "https://api.authbound.test",
     });
+    const operatorHandler = createStationOperatorRoute({
+      gatewayUrl: "https://api.authbound.test",
+    });
     const disclosureHandler = createStationDisclosureRoute({
       gatewayUrl: "https://api.authbound.test",
     });
@@ -88,12 +98,19 @@ describe("Next.js station runtime routes", () => {
       ),
       { params: { stationId: "stn_demo" } }
     );
+    const operatorResponse = await operatorHandler(
+      new Request("https://app.test/api/stations/stn_demo/operator", {
+        headers: {
+          "X-Authbound-Station-Operator-Grant-Token": "grant_token",
+        },
+      }),
+      { params: { stationId: "stn_demo" } }
+    );
     const disclosureResponse = await disclosureHandler(
       new Request(
         "https://app.test/api/stations/stn_demo/verifications/vrf_demo/disclosure",
         {
           headers: {
-            "X-Authbound-Station-Display-Token": "display_token",
             "X-Authbound-Station-Operator-Grant-Token": "grant_token",
           },
         }
@@ -106,6 +123,7 @@ describe("Next.js station runtime routes", () => {
     expect(displayResponse.headers.get("x-content-type-options")).toBe(
       "nosniff"
     );
+    expect(operatorResponse.headers.get("cache-control")).toBe("no-store");
     expect(disclosureResponse.headers.get("cache-control")).toBe("no-store");
     expect(disclosureResponse.headers.get("referrer-policy")).toBe(
       "no-referrer"
@@ -120,11 +138,20 @@ describe("Next.js station runtime routes", () => {
     );
     expect(global.fetch).toHaveBeenNthCalledWith(
       2,
+      "https://api.authbound.test/v1/stations/public/stn_demo/operator",
+      {
+        method: "GET",
+        headers: {
+          "X-Authbound-Station-Operator-Grant-Token": "grant_token",
+        },
+      }
+    );
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      3,
       "https://api.authbound.test/v1/stations/public/stn_demo/verifications/vrf_demo/disclosure",
       {
         method: "GET",
         headers: {
-          "X-Authbound-Station-Display-Token": "display_token",
           "X-Authbound-Station-Operator-Grant-Token": "grant_token",
         },
       }
@@ -203,7 +230,7 @@ describe("Next.js station runtime routes", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       error:
-        "stationId, verificationId, station display token header, and operator grant token header are required",
+        "stationId, verificationId, and operator grant token header are required",
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -238,6 +265,37 @@ describe("Next.js station runtime routes", () => {
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(global.fetch).toHaveBeenCalledWith(
       "https://api.authbound.test/v1/stations/public/stn_demo/display/events/sse?token=display_token",
+      { method: "GET" }
+    );
+  });
+
+  it("proxies station operator event streams", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: new ReadableStream(),
+      headers: new Headers({
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-store",
+      }),
+    }) as typeof fetch;
+
+    const handler = createStationOperatorEventsRoute({
+      gatewayUrl: "https://api.authbound.test",
+    });
+    const response = await handler(
+      new Request(
+        "https://app.test/api/stations/stn_demo/operator/events/sse?grant_token=grant_token"
+      ),
+      { params: { stationId: "stn_demo" } }
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe(
+      "text/event-stream; charset=utf-8"
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://api.authbound.test/v1/stations/public/stn_demo/operator/events/sse?grant_token=grant_token",
       { method: "GET" }
     );
   });

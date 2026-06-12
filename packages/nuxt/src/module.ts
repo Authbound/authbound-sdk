@@ -313,6 +313,18 @@ export default defineNuxtModule<ModuleOptions>({
     });
 
     addServerHandler({
+      route: "/api/authbound/stations/:stationId/operator",
+      method: "get",
+      handler: resolver.resolve("./runtime/server/api/station-operator"),
+    });
+
+    addServerHandler({
+      route: "/api/authbound/stations/:stationId/operator/events/sse",
+      method: "get",
+      handler: resolver.resolve("./runtime/server/api/station-operator-events"),
+    });
+
+    addServerHandler({
       route:
         "/api/authbound/stations/:stationId/verifications/:verificationId/disclosure",
       method: "get",

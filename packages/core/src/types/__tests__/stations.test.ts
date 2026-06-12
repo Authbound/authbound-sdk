@@ -4,6 +4,8 @@ import {
   buildStationDisplayEventsUrl,
   buildStationDisplayUrl,
   buildStationEntryUrl,
+  buildStationOperatorEventsUrl,
+  buildStationOperatorUrl,
   StationDisplaySchema,
   StationSafeAssertionsSchema,
   StationSchema,
@@ -206,11 +208,26 @@ describe("station contracts", () => {
       "https://app.test/api/authbound/stations/stn_123/display/events/sse?token=display_token"
     );
     expect(
+      buildStationOperatorUrl({
+        mode: "proxy",
+        stationId: "stn_123",
+      })
+    ).toBe("/api/authbound/stations/stn_123/operator");
+    expect(
+      buildStationOperatorEventsUrl({
+        baseUrl: "https://app.test",
+        mode: "proxy",
+        stationId: "stn_123",
+        grantToken: "grant_token",
+      })
+    ).toBe(
+      "https://app.test/api/authbound/stations/stn_123/operator/events/sse?grant_token=grant_token"
+    );
+    expect(
       buildStationDisclosureUrl({
         mode: "proxy",
         stationId: "stn_123",
         verificationId: "vrf_123",
-        displayToken: "display_token",
         grantToken: "grant_token",
       })
     ).toBe("/api/authbound/stations/stn_123/verifications/vrf_123/disclosure");

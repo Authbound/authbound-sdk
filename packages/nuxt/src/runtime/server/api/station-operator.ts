@@ -8,7 +8,6 @@ import {
 
 export default defineEventHandler(async (event) => {
   const stationId = stationParam(event, "stationId");
-  const verificationId = stationParam(event, "verificationId");
   const grantToken = requiredStationHeader(
     event,
     STATION_OPERATOR_GRANT_TOKEN_HEADER
@@ -16,9 +15,7 @@ export default defineEventHandler(async (event) => {
 
   return forwardStationRequest(
     event,
-    `/v1/stations/public/${encodeURIComponent(
-      stationId
-    )}/verifications/${encodeURIComponent(verificationId)}/disclosure`,
+    `/v1/stations/public/${encodeURIComponent(stationId)}/operator`,
     {
       method: "GET",
       headers: {

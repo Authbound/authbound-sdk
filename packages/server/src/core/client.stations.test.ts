@@ -151,6 +151,25 @@ describe("AuthboundClient stations API", () => {
     });
   });
 
+  it("sends idempotency keys for station creation", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(stationResponse, 201));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createClient().stations.create({
+      policyRef: "pol_station_age_ticket_v1@1",
+      idempotencyKey: "station-create-key",
+    });
+
+    const [, request] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(request.headers).toMatchObject({
+      "X-Authbound-Key": apiKey,
+      "Idempotency-Key": "station-create-key",
+    });
+  });
+
   it("lists, rotates, and manages operator device grants", async () => {
     const fetchMock = vi
       .fn()
@@ -199,6 +218,7 @@ describe("AuthboundClient stations API", () => {
       deviceRef: "door-ipad-1",
       operatorRef: "staff-1",
       ttlSeconds: 3600,
+      idempotencyKey: "grant-create-key",
     });
     const revoked = await client.stations.revokeOperatorGrant(
       stationId,
@@ -232,6 +252,9 @@ describe("AuthboundClient stations API", () => {
       device_ref: "door-ipad-1",
       operator_ref: "staff-1",
       ttl_seconds: 3600,
+    });
+    expect(fetchMock.mock.calls[2]?.[1].headers).toMatchObject({
+      "Idempotency-Key": "grant-create-key",
     });
   });
 
@@ -330,7 +353,6 @@ describe("AuthboundClient stations API", () => {
     const disclosure = await client.stations.getVerificationDisclosure({
       stationId,
       verificationId,
-      displayToken: "display-token",
       grantToken: "grant-token",
     });
 
@@ -356,8 +378,10 @@ describe("AuthboundClient stations API", () => {
     ];
     expect(displayRequest.headers).not.toHaveProperty("X-Authbound-Key");
     expect(disclosureRequest.headers).not.toHaveProperty("X-Authbound-Key");
+    expect(disclosureRequest.headers).not.toHaveProperty(
+      "X-Authbound-Station-Display-Token"
+    );
     expect(disclosureRequest.headers).toMatchObject({
-      "X-Authbound-Station-Display-Token": "display-token",
       "X-Authbound-Station-Operator-Grant-Token": "grant-token",
     });
     expect(fetchMock.mock.calls[1]?.[0]).toBe(

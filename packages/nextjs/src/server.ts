@@ -20,7 +20,6 @@ import {
   originForStatusProxy,
   type PolicyId,
   PublicVerificationStatusSnapshotSchema,
-  STATION_DISPLAY_TOKEN_HEADER,
   STATION_OPERATOR_GRANT_TOKEN_HEADER,
 } from "@authbound/core";
 import {
@@ -776,7 +775,9 @@ export function createStationEntryRoute(
     const search = new URLSearchParams({ token });
     return forwardStationRuntimeRequest(
       gatewayUrl,
-      `/v1/stations/public/${encodeURIComponent(stationId)}/verifications?${search.toString()}`,
+      `/v1/stations/public/${encodeURIComponent(
+        stationId
+      )}/verifications?${search.toString()}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -787,8 +788,8 @@ export function createStationEntryRoute(
 }
 
 /**
- * Create a station display BFF route for Station Entry Display and Operator
- * Console feed reads. The display token only returns station-safe data.
+ * Create a station display BFF route for Station Entry Display reads. The
+ * display token only returns station-safe data.
  */
 export function createStationDisplayRoute(
   options: StationRuntimeRouteOptions = {}
@@ -826,7 +827,9 @@ export function createStationDisplayRoute(
     }
     return forwardStationRuntimeRequest(
       gatewayUrl,
-      `/v1/stations/public/${encodeURIComponent(stationId)}/display?${search.toString()}`,
+      `/v1/stations/public/${encodeURIComponent(
+        stationId
+      )}/display?${search.toString()}`,
       { method: "GET" }
     );
   };
@@ -873,15 +876,99 @@ export function createStationDisplayEventsRoute(
     const lastEventId = request.headers.get("last-event-id") ?? undefined;
     return forwardStationRuntimeStream(
       gatewayUrl,
-      `/v1/stations/public/${encodeURIComponent(stationId)}/display/events/sse?${search.toString()}`,
+      `/v1/stations/public/${encodeURIComponent(
+        stationId
+      )}/display/events/sse?${search.toString()}`,
       { lastEventId }
     );
   };
 }
 
 /**
- * Create a station disclosure BFF route. Requires both the display token and
- * an active Operator Device Grant token.
+ * Create a station operator BFF route for Operator Console feed reads.
+ */
+export function createStationOperatorRoute(
+  options: StationRuntimeRouteOptions = {}
+): (
+  request: Request,
+  context?: StationRuntimeRouteContext
+) => Promise<Response> {
+  const gatewayUrl =
+    options.gatewayUrl ??
+    getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io");
+
+  return async (
+    request: Request,
+    context?: StationRuntimeRouteContext
+  ): Promise<Response> => {
+    const stationId = await stationRouteParam(context, "stationId");
+    const grantToken = request.headers.get(STATION_OPERATOR_GRANT_TOKEN_HEADER);
+    if (!(stationId && grantToken)) {
+      return NextResponse.json(
+        { error: "stationId and operator grant token header are required" },
+        { status: 400 }
+      );
+    }
+
+    return forwardStationRuntimeRequest(
+      gatewayUrl,
+      `/v1/stations/public/${encodeURIComponent(stationId)}/operator`,
+      {
+        method: "GET",
+        headers: {
+          [STATION_OPERATOR_GRANT_TOKEN_HEADER]: grantToken,
+        },
+      }
+    );
+  };
+}
+
+/**
+ * Create a station operator event-stream BFF route for live operator feeds.
+ */
+export function createStationOperatorEventsRoute(
+  options: StationRuntimeRouteOptions = {}
+): (
+  request: Request,
+  context?: StationRuntimeRouteContext
+) => Promise<Response> {
+  const gatewayUrl =
+    options.gatewayUrl ??
+    getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io");
+
+  return async (
+    request: Request,
+    context?: StationRuntimeRouteContext
+  ): Promise<Response> => {
+    const stationId = await stationRouteParam(context, "stationId");
+    const grantToken = stationToken(request, {}, "grant_token", "grantToken");
+    if (!(stationId && grantToken)) {
+      return NextResponse.json(
+        { error: "stationId and grant_token are required" },
+        { status: 400 }
+      );
+    }
+
+    const search = new URLSearchParams({ grant_token: grantToken });
+    const url = new URL(request.url);
+    const after = url.searchParams.get("after");
+    if (after) {
+      search.set("after", after);
+    }
+    const lastEventId = request.headers.get("last-event-id") ?? undefined;
+    return forwardStationRuntimeStream(
+      gatewayUrl,
+      `/v1/stations/public/${encodeURIComponent(
+        stationId
+      )}/operator/events/sse?${search.toString()}`,
+      { lastEventId }
+    );
+  };
+}
+
+/**
+ * Create a station disclosure BFF route. Requires an active Operator Device
+ * Grant token.
  */
 export function createStationDisclosureRoute(
   options: StationRuntimeRouteOptions = {}
@@ -899,13 +986,12 @@ export function createStationDisclosureRoute(
   ): Promise<Response> => {
     const stationId = await stationRouteParam(context, "stationId");
     const verificationId = await stationRouteParam(context, "verificationId");
-    const displayToken = request.headers.get(STATION_DISPLAY_TOKEN_HEADER);
     const grantToken = request.headers.get(STATION_OPERATOR_GRANT_TOKEN_HEADER);
-    if (!(stationId && verificationId && displayToken && grantToken)) {
+    if (!(stationId && verificationId && grantToken)) {
       return NextResponse.json(
         {
           error:
-            "stationId, verificationId, station display token header, and operator grant token header are required",
+            "stationId, verificationId, and operator grant token header are required",
         },
         { status: 400 }
       );
@@ -913,11 +999,12 @@ export function createStationDisclosureRoute(
 
     return forwardStationRuntimeRequest(
       gatewayUrl,
-      `/v1/stations/public/${encodeURIComponent(stationId)}/verifications/${encodeURIComponent(verificationId)}/disclosure`,
+      `/v1/stations/public/${encodeURIComponent(
+        stationId
+      )}/verifications/${encodeURIComponent(verificationId)}/disclosure`,
       {
         method: "GET",
         headers: {
-          [STATION_DISPLAY_TOKEN_HEADER]: displayToken,
           [STATION_OPERATOR_GRANT_TOKEN_HEADER]: grantToken,
         },
       }
@@ -1232,7 +1319,9 @@ export function createStatusRoute(
       }
 
       const response = await fetch(
-        `${gatewayUrl}/v1/verifications/${encodeURIComponent(verificationId)}/status`,
+        `${gatewayUrl}/v1/verifications/${encodeURIComponent(
+          verificationId
+        )}/status`,
         { headers }
       );
 

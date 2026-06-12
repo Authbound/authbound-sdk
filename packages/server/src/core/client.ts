@@ -29,7 +29,6 @@ import {
   OperatorDeviceGrantSchema,
   type ProviderPreference,
   ProviderPreferenceSchema,
-  STATION_DISPLAY_TOKEN_HEADER,
   STATION_OPERATOR_GRANT_TOKEN_HEADER,
   StationDisplaySchema,
   type StationDisplayStationSchema,
@@ -382,6 +381,7 @@ export interface CreateStationOptions {
   ticketEventName?: string | null;
   ticketValidFrom?: string | null;
   ticketValidUntil?: string | null;
+  idempotencyKey?: string;
 }
 
 export interface ListStationsOptions {
@@ -514,6 +514,7 @@ export interface CreateOperatorDeviceGrantOptions {
   deviceRef?: string;
   operatorRef?: string;
   ttlSeconds?: number;
+  idempotencyKey?: string;
 }
 
 export interface ListStationVerificationsOptions {
@@ -530,7 +531,6 @@ export interface GetStationDisplayOptions {
 export interface GetStationVerificationDisclosureOptions {
   stationId: string;
   verificationId: string;
-  displayToken: string;
   grantToken: string;
 }
 
@@ -1521,6 +1521,11 @@ class StationsApi {
         ...(options.ticketValidUntil !== undefined
           ? { ticket_valid_until: options.ticketValidUntil }
           : {}),
+      },
+      {
+        headers: options.idempotencyKey
+          ? { "Idempotency-Key": options.idempotencyKey }
+          : undefined,
       }
     );
     return parseApiResponse(StationSchema, response, mapStation);
@@ -1596,6 +1601,11 @@ class StationsApi {
         ...(options.ttlSeconds !== undefined
           ? { ttl_seconds: options.ttlSeconds }
           : {}),
+      },
+      {
+        headers: options.idempotencyKey
+          ? { "Idempotency-Key": options.idempotencyKey }
+          : undefined,
       }
     );
     return parseApiResponse(
@@ -1729,7 +1739,6 @@ class StationsApi {
   ): Promise<StationVerificationDisclosure> {
     assertNonEmpty(options.stationId, "stationId");
     assertNonEmpty(options.verificationId, "verificationId");
-    assertNonEmpty(options.displayToken, "displayToken");
     assertNonEmpty(options.grantToken, "grantToken");
     const response = await this.client.request<unknown>(
       "GET",
@@ -1738,7 +1747,6 @@ class StationsApi {
       {
         includeApiKey: false,
         headers: {
-          [STATION_DISPLAY_TOKEN_HEADER]: options.displayToken,
           [STATION_OPERATOR_GRANT_TOKEN_HEADER]: options.grantToken,
         },
       }

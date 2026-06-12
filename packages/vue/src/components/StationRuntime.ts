@@ -82,7 +82,6 @@ function booleanLabel(value: unknown): string {
 }
 
 function disclosureCacheKey(params: {
-  displayToken: string;
   grantToken?: string;
   stationId: string;
   verificationId?: string;
@@ -90,12 +89,9 @@ function disclosureCacheKey(params: {
   if (!(params.grantToken && params.verificationId)) {
     return null;
   }
-  return [
-    params.stationId,
-    params.displayToken,
-    params.grantToken,
-    params.verificationId,
-  ].join("\u0000");
+  return [params.stationId, params.grantToken, params.verificationId].join(
+    "\u0000"
+  );
 }
 
 function disclosureIsActive(
@@ -115,7 +111,6 @@ export const StationOperatorConsole = defineComponent({
     runtimeBaseUrl: String,
     runtimeMode: String as PropType<StationRuntimeMode>,
     stationId: { type: String, required: true },
-    displayToken: { type: String, required: true },
     grantToken: String,
   },
   setup(props) {
@@ -129,7 +124,6 @@ export const StationOperatorConsole = defineComponent({
     );
     const selectedDisclosureKey = computed(() =>
       disclosureCacheKey({
-        displayToken: props.displayToken,
         grantToken: props.grantToken,
         stationId: props.stationId,
         verificationId: selectedVerification.value?.verification_id,
@@ -156,14 +150,11 @@ export const StationOperatorConsole = defineComponent({
       { immediate: true }
     );
 
-    watch(
-      [() => props.stationId, () => props.displayToken, () => props.grantToken],
-      () => {
-        disclosures.value = {};
-        disclosureError.value = null;
-        isDisclosureLoading.value = false;
-      }
-    );
+    watch([() => props.stationId, () => props.grantToken], () => {
+      disclosures.value = {};
+      disclosureError.value = null;
+      isDisclosureLoading.value = false;
+    });
 
     watch(
       [selectedVerification, selectedDisclosureKey],

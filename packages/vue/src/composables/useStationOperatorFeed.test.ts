@@ -60,7 +60,7 @@ describe("useStationOperatorFeed", () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, _init?: RequestInit) => {
         const url = new URL(String(input));
-        if (url.pathname.endsWith("/display")) {
+        if (url.pathname.endsWith("/operator")) {
           return Response.json({
             object: "station_display",
             station,
@@ -129,12 +129,16 @@ describe("useStationOperatorFeed", () => {
       birth_date: "2001-08-12",
     });
     expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
-      "https://api.authbound.test/v1/stations/public/stn_123/display?token=display_123",
+      "https://api.authbound.test/v1/stations/public/stn_123/operator",
       "https://api.authbound.test/v1/stations/public/stn_123/verifications/vrf_123/disclosure",
     ]);
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      headers: {
+        "X-Authbound-Station-Operator-Grant-Token": "grant_123",
+      },
+    });
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
       headers: {
-        "X-Authbound-Station-Display-Token": "display_123",
         "X-Authbound-Station-Operator-Grant-Token": "grant_123",
       },
     });

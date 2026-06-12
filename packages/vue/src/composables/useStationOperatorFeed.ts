@@ -2,7 +2,8 @@ import {
   buildStationDisclosureUrl,
   buildStationDisplayEventsUrl,
   buildStationDisplayUrl,
-  STATION_DISPLAY_TOKEN_HEADER,
+  buildStationOperatorEventsUrl,
+  buildStationOperatorUrl,
   STATION_OPERATOR_GRANT_TOKEN_HEADER,
   type StationDisplay,
   StationDisplaySchema,
@@ -37,7 +38,7 @@ export interface UseStationOperatorFeedOptions {
   runtimeBaseUrl?: string;
   runtimeMode?: StationRuntimeMode;
   stationId: string;
-  displayToken: string;
+  displayToken?: string;
   grantToken?: string;
   connectEvents?: boolean;
   refreshEntryToken?: boolean;
@@ -210,15 +211,33 @@ export function useStationOperatorFeed(
     isLoading.value = true;
     error.value = null;
     try {
-      const url = buildStationDisplayUrl({
-        baseUrl: runtimeBaseUrl,
-        mode: options.runtimeMode,
-        stationId: options.stationId,
-        token: options.displayToken,
-        refreshEntryToken: options.refreshEntryToken,
-      });
+      const usesDisplayToken = options.refreshEntryToken || !options.grantToken;
+      if (usesDisplayToken && !options.displayToken) {
+        throw new Error("displayToken is required");
+      }
+      const url = usesDisplayToken
+        ? buildStationDisplayUrl({
+            baseUrl: runtimeBaseUrl,
+            mode: options.runtimeMode,
+            stationId: options.stationId,
+            token: options.displayToken ?? "",
+            refreshEntryToken: options.refreshEntryToken,
+          })
+        : buildStationOperatorUrl({
+            baseUrl: runtimeBaseUrl,
+            mode: options.runtimeMode,
+            stationId: options.stationId,
+          });
+      const fetchOptions =
+        usesDisplayToken || !options.grantToken
+          ? undefined
+          : {
+              headers: {
+                [STATION_OPERATOR_GRANT_TOKEN_HEADER]: options.grantToken,
+              },
+            };
       const parsed = StationDisplaySchema.parse(
-        await readJson(await fetch(url))
+        await readJson(await fetch(url, fetchOptions))
       );
       const merged = mergePendingVerifications(parsed, pendingEvents);
       pendingEvents = [];
@@ -245,14 +264,12 @@ export function useStationOperatorFeed(
       mode: options.runtimeMode,
       stationId: options.stationId,
       verificationId,
-      displayToken: options.displayToken,
       grantToken: options.grantToken,
     });
     return StationVerificationDisclosureSchema.parse(
       await readJson(
         await fetch(url, {
           headers: {
-            [STATION_DISPLAY_TOKEN_HEADER]: options.displayToken,
             [STATION_OPERATOR_GRANT_TOKEN_HEADER]: options.grantToken,
           },
         })
@@ -265,12 +282,24 @@ export function useStationOperatorFeed(
       return;
     }
     eventSource?.close();
-    const url = buildStationDisplayEventsUrl({
-      baseUrl: runtimeBaseUrl,
-      mode: options.runtimeMode,
-      stationId: options.stationId,
-      token: options.displayToken,
-    });
+    const usesDisplayToken = options.refreshEntryToken || !options.grantToken;
+    if (usesDisplayToken && !options.displayToken) {
+      return;
+    }
+    const grantToken = options.grantToken;
+    const url = usesDisplayToken
+      ? buildStationDisplayEventsUrl({
+          baseUrl: runtimeBaseUrl,
+          mode: options.runtimeMode,
+          stationId: options.stationId,
+          token: options.displayToken ?? "",
+        })
+      : buildStationOperatorEventsUrl({
+          baseUrl: runtimeBaseUrl,
+          mode: options.runtimeMode,
+          stationId: options.stationId,
+          grantToken: grantToken ?? "",
+        });
     eventSource = new EventSource(url);
     for (const eventName of [
       "station.verification.created",

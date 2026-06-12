@@ -39,6 +39,34 @@ export function queryToken(event: H3Event, ...names: string[]): string {
   });
 }
 
+export function stationHeader(event: H3Event, name: string) {
+  const h3Header =
+    getHeader(event, name) ?? getHeader(event, name.toLowerCase());
+  if (h3Header) {
+    return h3Header;
+  }
+
+  const headers = event.node.req.headers;
+  const targetName = name.toLowerCase();
+  for (const [headerName, headerValue] of Object.entries(headers)) {
+    if (headerName.toLowerCase() !== targetName) {
+      continue;
+    }
+    return Array.isArray(headerValue) ? headerValue[0] : headerValue;
+  }
+}
+
+export function requiredStationHeader(event: H3Event, name: string) {
+  const value = stationHeader(event, name);
+  if (value) {
+    return value;
+  }
+  throw createError({
+    statusCode: 400,
+    message: `${name} is required`,
+  });
+}
+
 export function stationEventCursor(event: H3Event): {
   after?: string;
   lastEventId?: string;

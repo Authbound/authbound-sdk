@@ -174,11 +174,11 @@ describe("StationOperatorConsole", () => {
     app.unmount();
   });
 
-  it("reads protected disclosure when a grant token arrives after selection", async () => {
+  it("reads protected disclosure with an operator grant token", async () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, _init?: RequestInit) => {
         const url = new URL(String(input));
-        if (url.pathname.endsWith("/display")) {
+        if (url.pathname.endsWith("/operator")) {
           return Response.json({
             object: "station_display",
             station,
@@ -225,20 +225,13 @@ describe("StationOperatorConsole", () => {
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("EventSource", undefined);
 
-    let setGrantToken: ((value: string) => void) | undefined;
     const Host = defineComponent({
-      name: "StationOperatorConsoleGrantHost",
+      name: "StationOperatorConsoleHost",
       setup() {
-        const grantToken = ref<string>();
-        setGrantToken = (value: string) => {
-          grantToken.value = value;
-        };
-
         return () =>
           h(StationOperatorConsole, {
-            displayToken: "display_123",
             gatewayBaseUrl: "https://api.authbound.test",
-            grantToken: grantToken.value,
+            grantToken: "grant_123",
             stationId: "stn_123",
           });
       },
@@ -249,20 +242,11 @@ describe("StationOperatorConsole", () => {
     app.mount(host);
 
     await waitForExpectation(() => {
-      expect(host.textContent).toContain(
-        "Protected identity details require an operator device grant."
-      );
-    });
-    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
-      "https://api.authbound.test/v1/stations/public/stn_123/display?token=display_123",
-    ]);
-
-    setGrantToken?.("grant_123");
-    await nextTick();
-
-    await waitForExpectation(() => {
       expect(host.textContent).toContain("Erika");
     });
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toContain(
+      "https://api.authbound.test/v1/stations/public/stn_123/operator"
+    );
     expect(fetchMock.mock.calls.map(([input]) => String(input))).toContain(
       "https://api.authbound.test/v1/stations/public/stn_123/verifications/vrf_123/disclosure"
     );
@@ -271,7 +255,6 @@ describe("StationOperatorConsole", () => {
     );
     expect(disclosureCall?.[1]).toMatchObject({
       headers: {
-        "X-Authbound-Station-Display-Token": "display_123",
         "X-Authbound-Station-Operator-Grant-Token": "grant_123",
       },
     });
@@ -283,7 +266,7 @@ describe("StationOperatorConsole", () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, _init?: RequestInit) => {
         const url = new URL(String(input));
-        if (url.pathname.endsWith("/display")) {
+        if (url.pathname.endsWith("/operator")) {
           return Response.json({
             object: "station_display",
             station,
@@ -341,7 +324,6 @@ describe("StationOperatorConsole", () => {
 
         return () =>
           h(StationOperatorConsole, {
-            displayToken: "display_123",
             gatewayBaseUrl: "https://api.authbound.test",
             grantToken: grantToken.value,
             stationId: "stn_123",

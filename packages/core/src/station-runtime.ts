@@ -17,8 +17,12 @@ interface StationDisplayUrlOptions extends StationTokenUrlOptions {
   refreshEntryToken?: boolean;
 }
 
+interface StationOperatorEventsUrlOptions extends StationRuntimeUrlOptions {
+  grantToken: string;
+}
+
 interface StationDisclosureUrlOptions extends StationRuntimeUrlOptions {
-  displayToken: string;
+  displayToken?: string;
   grantToken: string;
   verificationId: string;
 }
@@ -48,7 +52,9 @@ export function buildStationEntryUrl(options: StationTokenUrlOptions): string {
   const path =
     mode === "proxy"
       ? `/api/authbound/stations/${encodeURIComponent(options.stationId)}/entry`
-      : `/v1/stations/public/${encodeURIComponent(options.stationId)}/verifications`;
+      : `/v1/stations/public/${encodeURIComponent(
+          options.stationId
+        )}/verifications`;
   return buildUrl(
     appendQuery(path, { token: options.token }),
     options.baseUrl ?? defaultBaseUrl(mode)
@@ -61,7 +67,9 @@ export function buildStationDisplayUrl(
   const mode = runtimeMode(options.mode);
   const path =
     mode === "proxy"
-      ? `/api/authbound/stations/${encodeURIComponent(options.stationId)}/display`
+      ? `/api/authbound/stations/${encodeURIComponent(
+          options.stationId
+        )}/display`
       : `/v1/stations/public/${encodeURIComponent(options.stationId)}/display`;
   const params: Record<string, string> = { token: options.token };
   if (options.refreshEntryToken) {
@@ -79,10 +87,45 @@ export function buildStationDisplayEventsUrl(
   const mode = runtimeMode(options.mode);
   const path =
     mode === "proxy"
-      ? `/api/authbound/stations/${encodeURIComponent(options.stationId)}/display/events/sse`
-      : `/v1/stations/public/${encodeURIComponent(options.stationId)}/display/events/sse`;
+      ? `/api/authbound/stations/${encodeURIComponent(
+          options.stationId
+        )}/display/events/sse`
+      : `/v1/stations/public/${encodeURIComponent(
+          options.stationId
+        )}/display/events/sse`;
   return buildUrl(
     appendQuery(path, { token: options.token }),
+    options.baseUrl ?? defaultBaseUrl(mode)
+  );
+}
+
+export function buildStationOperatorUrl(
+  options: StationRuntimeUrlOptions
+): string {
+  const mode = runtimeMode(options.mode);
+  const path =
+    mode === "proxy"
+      ? `/api/authbound/stations/${encodeURIComponent(
+          options.stationId
+        )}/operator`
+      : `/v1/stations/public/${encodeURIComponent(options.stationId)}/operator`;
+  return buildUrl(path, options.baseUrl ?? defaultBaseUrl(mode));
+}
+
+export function buildStationOperatorEventsUrl(
+  options: StationOperatorEventsUrlOptions
+): string {
+  const mode = runtimeMode(options.mode);
+  const path =
+    mode === "proxy"
+      ? `/api/authbound/stations/${encodeURIComponent(
+          options.stationId
+        )}/operator/events/sse`
+      : `/v1/stations/public/${encodeURIComponent(
+          options.stationId
+        )}/operator/events/sse`;
+  return buildUrl(
+    appendQuery(path, { grant_token: options.grantToken }),
     options.baseUrl ?? defaultBaseUrl(mode)
   );
 }
@@ -93,7 +136,15 @@ export function buildStationDisclosureUrl(
   const mode = runtimeMode(options.mode);
   const path =
     mode === "proxy"
-      ? `/api/authbound/stations/${encodeURIComponent(options.stationId)}/verifications/${encodeURIComponent(options.verificationId)}/disclosure`
-      : `/v1/stations/public/${encodeURIComponent(options.stationId)}/verifications/${encodeURIComponent(options.verificationId)}/disclosure`;
+      ? `/api/authbound/stations/${encodeURIComponent(
+          options.stationId
+        )}/verifications/${encodeURIComponent(
+          options.verificationId
+        )}/disclosure`
+      : `/v1/stations/public/${encodeURIComponent(
+          options.stationId
+        )}/verifications/${encodeURIComponent(
+          options.verificationId
+        )}/disclosure`;
   return buildUrl(path, options.baseUrl ?? defaultBaseUrl(mode));
 }

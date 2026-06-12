@@ -15,6 +15,8 @@ import stationDisclosureHandler from "../runtime/server/api/station-disclosure";
 import stationDisplayHandler from "../runtime/server/api/station-display";
 import stationDisplayEventsHandler from "../runtime/server/api/station-display-events";
 import stationEntryHandler from "../runtime/server/api/station-entry";
+import stationOperatorHandler from "../runtime/server/api/station-operator";
+import stationOperatorEventsHandler from "../runtime/server/api/station-operator-events";
 
 function createEvent(options: {
   method: string;
@@ -106,9 +108,14 @@ describe("Nuxt station runtime routes", () => {
     );
   });
 
-  it("proxies display and disclosure reads", async () => {
+  it("proxies display, operator, and disclosure reads", async () => {
     const fetchMock = vi
       .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ object: "station_display" }),
+      })
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -134,12 +141,20 @@ describe("Nuxt station runtime routes", () => {
       path: "/api/authbound/stations/stn_demo/verifications/vrf_demo/disclosure",
       params: { stationId: "stn_demo", verificationId: "vrf_demo" },
       headers: {
-        "X-Authbound-Station-Display-Token": "display_token",
+        "X-Authbound-Station-Operator-Grant-Token": "grant_token",
+      },
+    });
+    const operatorEvent = createEvent({
+      method: "GET",
+      path: "/api/authbound/stations/stn_demo/operator",
+      params: { stationId: "stn_demo" },
+      headers: {
         "X-Authbound-Station-Operator-Grant-Token": "grant_token",
       },
     });
 
     await stationDisplayHandler(displayEvent as never);
+    await stationOperatorHandler(operatorEvent as never);
     await stationDisclosureHandler(disclosureEvent as never);
 
     expect(displayEvent.responseHeaders.get("cache-control")).toBe("no-store");
@@ -165,11 +180,20 @@ describe("Nuxt station runtime routes", () => {
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
+      "https://api.authbound.test/v1/stations/public/stn_demo/operator",
+      {
+        method: "GET",
+        headers: {
+          "X-Authbound-Station-Operator-Grant-Token": "grant_token",
+        },
+      }
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
       "https://api.authbound.test/v1/stations/public/stn_demo/verifications/vrf_demo/disclosure",
       {
         method: "GET",
         headers: {
-          "X-Authbound-Station-Display-Token": "display_token",
           "X-Authbound-Station-Operator-Grant-Token": "grant_token",
         },
       }
@@ -252,7 +276,7 @@ describe("Nuxt station runtime routes", () => {
       )
     ).rejects.toMatchObject({
       statusCode: 400,
-      message: "X-Authbound-Station-Display-Token is required",
+      message: "X-Authbound-Station-Operator-Grant-Token is required",
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -286,6 +310,36 @@ describe("Nuxt station runtime routes", () => {
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.authbound.test/v1/stations/public/stn_demo/display/events/sse?token=display_token",
+      { method: "GET" }
+    );
+  });
+
+  it("proxies station operator event streams", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: new ReadableStream(),
+      headers: new Headers({
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-store",
+      }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await stationOperatorEventsHandler(
+      createEvent({
+        method: "GET",
+        path: "/api/authbound/stations/stn_demo/operator/events/sse?grant_token=grant_token",
+        params: { stationId: "stn_demo" },
+      }) as never
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe(
+      "text/event-stream; charset=utf-8"
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.authbound.test/v1/stations/public/stn_demo/operator/events/sse?grant_token=grant_token",
       { method: "GET" }
     );
   });
