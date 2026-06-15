@@ -1,6 +1,6 @@
 {
   "name": "@authbound/core",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Authbound core SDK: framework-agnostic verification flows and protocol logic (OIDC4VP, SD-JWT VC).",
   "type": "module",
   "sideEffects": false,

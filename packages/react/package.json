@@ -1,6 +1,6 @@
 {
   "name": "@authbound/react",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Authbound React 18 bindings (hooks + headless components) for verification flows.",
   "type": "module",
   "sideEffects": [
