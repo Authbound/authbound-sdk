@@ -485,6 +485,7 @@ describe("useStationOperatorFeed", () => {
               given_name: "Erika",
               family_name: "Mustermann",
               birth_date: "2001-08-12",
+              portrait: "_9j_2wBD",
             },
             granted_at: "2026-06-07T12:03:00.000Z",
             expires_at: "2999-06-08T00:00:00.000Z",
@@ -509,6 +510,9 @@ describe("useStationOperatorFeed", () => {
     await waitFor(() => {
       expect(screen.getByText("Erika")).toBeTruthy();
     });
+    expect(screen.getByAltText("Verified portrait").getAttribute("src")).toBe(
+      "data:image/jpeg;base64,/9j/2wBD"
+    );
     expect(fetchMock.mock.calls.map(([input]) => String(input))).toContain(
       "https://app.test/api/authbound/stations/stn_123/verifications/vrf_123/disclosure"
     );

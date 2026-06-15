@@ -81,6 +81,13 @@ function booleanLabel(value: unknown): string {
   return typeof value === "boolean" ? (value ? "Yes" : "No") : "--";
 }
 
+function portraitImageSrc(portrait: string | null | undefined): string | null {
+  const trimmed = portrait?.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("data:")) return trimmed;
+  return `data:image/jpeg;base64,${trimmed.replace(/-/g, "+").replace(/_/g, "/")}`;
+}
+
 function disclosureCacheKey(params: {
   grantToken?: string;
   stationId: string;
@@ -138,6 +145,9 @@ export const StationOperatorConsole = defineComponent({
       disclosureIsActive(selectedCachedDisclosure.value)
         ? selectedCachedDisclosure.value
         : undefined
+    );
+    const selectedPortraitSrc = computed(() =>
+      portraitImageSrc(selectedDisclosure.value?.fields.portrait)
     );
 
     watch(
@@ -257,10 +267,10 @@ export const StationOperatorConsole = defineComponent({
               ]),
               selectedDisclosure.value
                 ? h("div", { "data-authbound-station-disclosure": "" }, [
-                    selectedDisclosure.value.fields.portrait
+                    selectedPortraitSrc.value
                       ? h("img", {
                           alt: "Verified portrait",
-                          src: selectedDisclosure.value.fields.portrait,
+                          src: selectedPortraitSrc.value,
                         })
                       : null,
                     h("dl", [
