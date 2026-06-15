@@ -114,6 +114,13 @@ function booleanLabel(value: unknown): string {
   return typeof value === "boolean" ? (value ? "Yes" : "No") : "--";
 }
 
+function portraitImageSrc(portrait: string | null | undefined): string | null {
+  const trimmed = portrait?.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("data:")) return trimmed;
+  return `data:image/jpeg;base64,${trimmed.replace(/-/g, "+").replace(/_/g, "/")}`;
+}
+
 function disclosureCacheKey(params: {
   grantToken?: string;
   stationId: string;
@@ -177,6 +184,7 @@ export function StationOperatorConsole({
   const selectedDisclosure = disclosureIsActive(selectedCachedDisclosure)
     ? selectedCachedDisclosure
     : undefined;
+  const portraitSrc = portraitImageSrc(selectedDisclosure?.fields.portrait);
 
   useEffect(() => {
     if (!(selectedVerification && selectedId === null)) {
@@ -282,11 +290,11 @@ export function StationOperatorConsole({
           </dl>
           {selectedDisclosure ? (
             <div data-authbound-station-disclosure>
-              {selectedDisclosure.fields.portrait ? (
+              {portraitSrc ? (
                 <img
                   alt="Verified portrait"
                   height={96}
-                  src={selectedDisclosure.fields.portrait}
+                  src={portraitSrc}
                   width={96}
                 />
               ) : null}

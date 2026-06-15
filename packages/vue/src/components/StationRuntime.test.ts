@@ -213,6 +213,7 @@ describe("StationOperatorConsole", () => {
               given_name: "Erika",
               family_name: "Mustermann",
               birth_date: "2001-08-12",
+              portrait: "_9j_2wBD",
             },
             granted_at: "2026-06-07T12:03:00.000Z",
             expires_at: "2999-06-08T00:00:00.000Z",
@@ -244,6 +245,9 @@ describe("StationOperatorConsole", () => {
     await waitForExpectation(() => {
       expect(host.textContent).toContain("Erika");
     });
+    expect(host.querySelector("img")?.getAttribute("src")).toBe(
+      "data:image/jpeg;base64,/9j/2wBD"
+    );
     expect(fetchMock.mock.calls.map(([input]) => String(input))).toContain(
       "https://api.authbound.test/v1/stations/public/stn_123/operator"
     );
