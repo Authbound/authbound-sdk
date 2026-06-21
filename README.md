@@ -206,6 +206,27 @@ if (offer.status === "offer_created") {
 }
 ```
 
+## Verification Policies
+
+Create project-scoped verification policies with `authbound.policies`, then use the returned policy ID when creating verifications. Policy creation requires a secret key with `policies:write`; list and get require `policies:read`.
+
+```ts
+const policy = await authbound.policies.create({
+  name: "Pension eligibility",
+  purpose: "Pension benefit enrollment",
+  credentialDefinitionId: "pension_credential_v1",
+  requestedClaims: ["Pension.startDate", "Pension.provider"],
+  returnAttrs: ["Pension.startDate"],
+  idempotencyKey: "policy:pension-eligibility:v1",
+});
+
+const verification = await authbound.verifications.create({
+  policyId: policy.id,
+  customerUserRef: "user_123",
+  idempotencyKey: "verify_user_123",
+});
+```
+
 ## Verifications
 
 Create verifications through `authbound.verifications`. Public metadata is returned for reconciliation; do not put secrets or unnecessary PII in metadata.

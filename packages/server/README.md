@@ -70,6 +70,28 @@ console.log(offer.offerUri);
 
 Credential definition metadata is public issuer metadata for wallet discovery. Do not put secrets or personal data in definition titles, aliases, labels, rendering, or metadata.
 
+## Verification Policies
+
+Use `AuthboundClient` on your server to create immutable project-scoped verification policies. The same policy ID works with test and live keys for the project, and can be passed to `verifications.create`.
+
+```typescript
+const policy = await authbound.policies.create({
+  name: "Employee badge check",
+  description: "Verify an issued employee badge before granting workspace access.",
+  purpose: "Workspace access",
+  credentialDefinitionId: "employee_badge_v1",
+  requestedClaims: ["Employee.employee_number", "Employee.department"],
+  returnAttrs: ["Employee.employee_number"],
+  idempotencyKey: "policy:employee-badge-check:v1",
+});
+
+const verification = await authbound.verifications.create({
+  policyId: policy.id,
+  customerUserRef: "employee_1001",
+  idempotencyKey: "verification:employee_1001:badge",
+});
+```
+
 ## Quick Start
 
 ### 1. Configure Authbound

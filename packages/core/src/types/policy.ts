@@ -3,6 +3,11 @@
  *
  * Policies define what credentials and claims are required for verification.
  * Public presets use concrete seeded `pol_*_vN` IDs.
+ *
+ * Public policy authoring now lives on `@authbound/server`
+ * `AuthboundClient.policies` and the `/v1/policies` API. The types in this
+ * file remain for seeded preset constants and backwards-compatible references
+ * to concrete policy IDs.
  */
 
 import { z } from "zod";
