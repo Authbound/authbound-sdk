@@ -129,6 +129,7 @@ export {
   type PolicyId,
   // Policy presets
   PolicyPresets,
+  type ProviderPreference,
   type PublishableKey,
   type Station,
   type StationDisplay,
@@ -138,6 +139,7 @@ export {
   type StatusEvent,
   type VerificationClaims,
   type VerificationId,
+  type VerificationProviderOptions,
   type VerificationSuccess,
   type VerificationUiStatus,
 } from "@authbound/core";

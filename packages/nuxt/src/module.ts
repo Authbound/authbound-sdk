@@ -20,6 +20,7 @@ import type {
   PolicyId,
   ProviderPreference,
   PublishableKey,
+  VerificationProviderOptions,
 } from "@authbound/core";
 import {
   addComponent,
@@ -31,6 +32,10 @@ import {
 } from "@nuxt/kit";
 
 export { asPolicyId } from "@authbound/core";
+export type {
+  ProviderPreference,
+  VerificationProviderOptions,
+} from "@authbound/core";
 
 // ============================================================================
 // Module Options
@@ -103,6 +108,11 @@ export interface ModuleOptions {
    * Provider to use for verification creation.
    */
   provider?: ProviderPreference;
+
+  /**
+   * Provider-specific verification options.
+   */
+  providerOptions?: VerificationProviderOptions;
 
   /**
    * Path to redirect for verification.
@@ -181,6 +191,7 @@ export default defineNuxtModule<ModuleOptions>({
     allowedOrigins: undefined,
     trustProxy: false,
     provider: undefined,
+    providerOptions: undefined,
     verifyPath: "/verify",
     cookieName: "__authbound",
     webhookSecret: undefined,
@@ -209,6 +220,7 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.options.runtimeConfig.authbound = {
       policyId: options.policyId,
       provider: options.provider,
+      providerOptions: options.providerOptions,
       apiKey: options.apiKey ?? process.env.AUTHBOUND_SECRET_KEY,
       sessionSecret:
         options.sessionSecret ?? process.env.AUTHBOUND_SESSION_SECRET,
@@ -352,6 +364,7 @@ declare module "@nuxt/schema" {
     authbound: {
       policyId?: PolicyId | string;
       provider?: ProviderPreference;
+      providerOptions?: VerificationProviderOptions;
       apiKey?: string;
       sessionSecret?: string;
       allowedOrigins?: string | string[];
