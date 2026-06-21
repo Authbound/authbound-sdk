@@ -188,7 +188,7 @@ describe("Next.js server debug logging", () => {
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ provider: "eudiplo" }),
+          body: JSON.stringify({ provider: "reverify" }),
         }
       ) as never
     );
