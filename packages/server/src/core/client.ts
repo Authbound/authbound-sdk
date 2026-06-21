@@ -1249,7 +1249,7 @@ function assertProviderPreference(
   const parsed = ProviderPreferenceSchema.safeParse(value);
   if (!parsed.success) {
     throw new AuthboundClientError(
-      'provider must be one of "auto", "vcs", "eudi", or "eudiplo"',
+      'provider must be one of "auto", "vcs", or "eudi"',
       "VALIDATION_ERROR",
       400,
       parsed.error.format()
