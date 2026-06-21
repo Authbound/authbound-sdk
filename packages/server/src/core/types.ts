@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AUTHBOUND_API_VERSION } from "../generated/api-contract";
 
 export const VerificationStatusSchema = z.enum([
   "VERIFIED",
@@ -137,7 +138,8 @@ export const WebhookEventTypeSchema = z.enum([
 export type WebhookEvent = {
   id: string;
   object: "event";
-  api_version: string;
+  api_version: typeof AUTHBOUND_API_VERSION;
+  contract_revision: string;
   created: number;
   livemode: boolean;
   type: WebhookEventType;
@@ -150,7 +152,8 @@ export const WebhookEventSchema = z
   .object({
     id: z.string(),
     object: z.literal("event"),
-    api_version: z.string(),
+    api_version: z.literal(AUTHBOUND_API_VERSION),
+    contract_revision: z.string(),
     created: z.number(),
     livemode: z.boolean(),
     type: WebhookEventTypeSchema,

@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import {
+  AUTHBOUND_API_VERSION,
+  AUTHBOUND_CONTRACT_REVISION,
+} from "../generated/api-contract";
 import { AuthboundClientError } from "./client";
 import {
   createVerificationHandlerKernel,
@@ -320,7 +324,8 @@ describe("framework handler kernel", () => {
     const event: WebhookEvent = {
       id: "evt_123",
       object: "event",
-      api_version: "2026-04-01",
+      api_version: AUTHBOUND_API_VERSION,
+      contract_revision: AUTHBOUND_CONTRACT_REVISION,
       created: Math.floor(Date.now() / 1000),
       livemode: false,
       type: "verification.completed",
@@ -363,7 +368,8 @@ describe("framework handler kernel", () => {
     const event: WebhookEvent = {
       id: "evt_123",
       object: "event",
-      api_version: "2026-04-01",
+      api_version: AUTHBOUND_API_VERSION,
+      contract_revision: AUTHBOUND_CONTRACT_REVISION,
       created: Math.floor(Date.now() / 1000),
       livemode: false,
       type: "verification.completed",
@@ -410,7 +416,8 @@ describe("framework handler kernel", () => {
     const event: WebhookEvent = {
       id: "evt_123",
       object: "event",
-      api_version: "2026-04-01",
+      api_version: AUTHBOUND_API_VERSION,
+      contract_revision: AUTHBOUND_CONTRACT_REVISION,
       created: Math.floor(Date.now() / 1000),
       livemode: false,
       type: "verification.failed",
@@ -449,7 +456,8 @@ describe("framework handler kernel", () => {
     const event: WebhookEvent = {
       id: "evt_123",
       object: "event",
-      api_version: "2026-04-01",
+      api_version: AUTHBOUND_API_VERSION,
+      contract_revision: AUTHBOUND_CONTRACT_REVISION,
       created: Math.floor(Date.now() / 1000),
       livemode: false,
       type: "verification.completed",

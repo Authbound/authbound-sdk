@@ -50,6 +50,12 @@ import {
   PublicVerificationStatusSnapshotSchema as VerificationStatusSchema,
 } from "@authbound/core";
 import { z } from "zod";
+import {
+  AUTHBOUND_API_VERSION,
+  AUTHBOUND_API_VERSION_HEADER,
+  AUTHBOUND_CONTRACT_REVISION,
+  AUTHBOUND_CONTRACT_REVISION_HEADER,
+} from "../generated/api-contract";
 import { redactSensitiveText } from "./error-utils";
 import { verifyWebhookSignature } from "./webhooks";
 
@@ -1080,6 +1086,8 @@ export class AuthboundClient {
       method,
       headers: {
         "Content-Type": "application/json",
+        [AUTHBOUND_API_VERSION_HEADER]: AUTHBOUND_API_VERSION,
+        [AUTHBOUND_CONTRACT_REVISION_HEADER]: AUTHBOUND_CONTRACT_REVISION,
         ...(options?.includeApiKey === false
           ? {}
           : { "X-Authbound-Key": this.apiKey }),
