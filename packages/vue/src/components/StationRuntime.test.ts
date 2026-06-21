@@ -2,7 +2,11 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp, defineComponent, h, nextTick, ref } from "vue";
-import { StationEntryDisplay, StationOperatorConsole } from "./StationRuntime";
+import {
+  StationEntry,
+  StationEntryDisplay,
+  StationOperatorConsole,
+} from "./StationRuntime";
 
 const station = {
   object: "station",
@@ -39,6 +43,39 @@ describe("StationOperatorConsole", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("does not render opaque dc_api station handoffs as links", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        object: "station_spawn",
+        station_id: "stn_123",
+        verification_id: "vrf_123",
+        client_action: {
+          kind: "dc_api",
+          data: "{\"request_uri\":\"https://verifier.example/request.jwt/req_dc_api\"}",
+          expires_at: "2026-06-07T12:10:00.000Z",
+        },
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const host = document.createElement("div");
+    const app = createApp(StationEntry, {
+      entryToken: "entry_123",
+      gatewayBaseUrl: "https://api.authbound.test",
+      stationId: "stn_123",
+    });
+    app.mount(host);
+
+    host.querySelector("button")?.dispatchEvent(new MouseEvent("click"));
+
+    await waitForExpectation(() => {
+      expect(fetchMock).toHaveBeenCalled();
+      expect(host.querySelector("a")).toBeNull();
+    });
+
+    app.unmount();
   });
 
   it("requests entry token refresh only for StationEntryDisplay", async () => {

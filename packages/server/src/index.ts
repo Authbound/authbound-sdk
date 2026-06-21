@@ -180,6 +180,8 @@ export {
   EudiVerificationOptionsSchema,
   type EudiVerifierAttestation,
   EudiVerifierAttestationSchema,
+  type ProviderPreference,
+  type SelectedVerificationProvider,
   type VerificationProviderOptions,
   VerificationProviderOptionsSchema,
 } from "@authbound/core";

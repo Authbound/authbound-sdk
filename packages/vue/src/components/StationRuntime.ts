@@ -22,11 +22,15 @@ export const StationEntry = defineComponent({
     return () =>
       h("div", { "data-authbound-station-entry": "" }, [
         entry.spawn.value?.client_action
-          ? h(
-              "a",
-              { href: entry.spawn.value.client_action.data },
-              "Open wallet"
-            )
+          ? entry.spawn.value.client_action.kind === "link"
+            ? h(
+                "a",
+                { href: entry.spawn.value.client_action.data },
+                "Open wallet"
+              )
+            : entry.spawn.value.client_action.kind === "qr"
+              ? h(QRCode, { value: entry.spawn.value.client_action.data })
+              : null
           : h(
               "button",
               { disabled: entry.isLoading.value, onClick: () => entry.start() },

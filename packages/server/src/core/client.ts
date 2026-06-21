@@ -29,6 +29,7 @@ import {
   OperatorDeviceGrantSchema,
   type ProviderPreference,
   ProviderPreferenceSchema,
+  type SelectedVerificationProvider,
   STATION_OPERATOR_GRANT_TOKEN_HEADER,
   StationDisplaySchema,
   type StationDisplayStationSchema,
@@ -414,7 +415,7 @@ export interface Verification {
   status: PublicVerificationStatus;
   policyId?: string;
   policyHash?: string;
-  provider?: string;
+  provider?: SelectedVerificationProvider;
   envMode?: "test" | "live";
   createdAt?: string;
   expiresAt?: string;

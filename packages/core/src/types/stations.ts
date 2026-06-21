@@ -148,7 +148,7 @@ export const StationSpawnSchema = z
     verification_id: z.string(),
     client_action: z
       .object({
-        kind: z.enum(["qr", "link", "request_blob"]),
+        kind: z.enum(["qr", "link", "request_blob", "dc_api"]),
         data: z.string(),
         expires_at: z.string().optional(),
       })

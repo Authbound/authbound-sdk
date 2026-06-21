@@ -114,6 +114,93 @@ describe("Next.js server debug logging", () => {
     });
   });
 
+  it("sends provider options from createVerificationRoute to the Gateway", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        object: "verification",
+        id: "vrf_1234567890abcdef",
+        client_token: "client_token_secret_value",
+        client_action: {
+          kind: "dc_api",
+          data: "{\"request_uri\":\"https://api.authbound.io/request.jwt/req_123\"}",
+          expires_at: "2026-03-09T12:00:00.000Z",
+        },
+        expires_at: "2026-03-09T12:00:00.000Z",
+      }),
+    });
+    global.fetch = fetchMock as typeof fetch;
+
+    const handler = createVerificationRoute({
+      policyId: "pol_age_over_18_authbound_v1" as PolicyId,
+      gatewayUrl: "https://api.authbound.io",
+      secret: "sk_test_secret",
+    });
+
+    await handler(
+      new Request(
+        "https://playground.authbound.io/api/authbound/verification",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            provider: "eudi",
+            providerOptions: {
+              eudi: {
+                responseMode: "dc_api.jwt",
+                expectedOrigins: ["https://merchant.example"],
+              },
+            },
+          }),
+        }
+      ) as never
+    );
+
+    const [, request] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(JSON.parse(request.body as string)).toEqual({
+      policy_id: "pol_age_over_18_authbound_v1",
+      provider: "eudi",
+      provider_options: {
+        eudi: {
+          response_mode: "dc_api.jwt",
+          expected_origins: ["https://merchant.example"],
+        },
+      },
+    });
+  });
+
+  it("rejects invalid createVerificationRoute provider values before Gateway proxying", async () => {
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as typeof fetch;
+
+    const handler = createVerificationRoute({
+      policyId: "pol_age_over_18_authbound_v1" as PolicyId,
+      gatewayUrl: "https://api.authbound.io",
+      secret: "sk_test_secret",
+    });
+
+    const response = await handler(
+      new Request(
+        "https://playground.authbound.io/api/authbound/verification",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ provider: "eudiplo" }),
+        }
+      ) as never
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Invalid provider",
+      code: "VALIDATION_ERROR",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("returns request-blob handoff kind from createVerification gateway responses", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

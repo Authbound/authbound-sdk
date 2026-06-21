@@ -20,7 +20,9 @@ import {
   originForStatusProxy,
   type PolicyId,
   type ProviderPreference,
+  ProviderPreferenceSchema,
   PublicVerificationStatusSnapshotSchema,
+  type SelectedVerificationProvider,
   STATION_OPERATOR_GRANT_TOKEN_HEADER,
   type VerificationProviderOptions,
   VerificationProviderOptionsSchema,
@@ -41,6 +43,12 @@ import {
   WebhookEventSchema,
 } from "@authbound/server";
 import { NextResponse } from "next/server.js";
+
+export type {
+  ProviderPreference,
+  SelectedVerificationProvider,
+  VerificationProviderOptions,
+} from "@authbound/core";
 
 // ============================================================================
 // Types
@@ -650,6 +658,16 @@ export function createVerificationRoute(
           { status: 400 }
         );
       }
+      const provider = ProviderPreferenceSchema.safeParse(body.provider);
+      if (body.provider !== undefined && !provider.success) {
+        return NextResponse.json(
+          {
+            error: "Invalid provider",
+            code: "VALIDATION_ERROR",
+          },
+          { status: 400 }
+        );
+      }
 
       const mappedProviderOptions = mapVerificationProviderOptions(
         providerOptions.success ? providerOptions.data : undefined
@@ -658,7 +676,7 @@ export function createVerificationRoute(
         customer_user_ref: body.customerUserRef,
         policy_id: body.policyId,
         metadata: body.metadata,
-        provider: body.provider,
+        provider: provider.success ? provider.data : undefined,
         ...(mappedProviderOptions && {
           provider_options: mappedProviderOptions,
         }),
