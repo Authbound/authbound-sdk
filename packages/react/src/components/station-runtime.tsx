@@ -117,8 +117,7 @@ function booleanLabel(value: unknown): string {
 function portraitImageSrc(portrait: string | null | undefined): string | null {
   const trimmed = portrait?.trim();
   if (!trimmed) return null;
-  if (trimmed.startsWith("data:image/jpeg;base64,")) return trimmed;
-  if (trimmed.startsWith("data:")) return null;
+  if (trimmed.startsWith("data:")) return trimmed;
   return `data:image/jpeg;base64,${trimmed.replace(/-/g, "+").replace(/_/g, "/")}`;
 }
 
