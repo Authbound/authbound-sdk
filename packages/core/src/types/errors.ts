@@ -434,6 +434,9 @@ function isRetryableCode(code: AuthboundErrorCode): boolean {
  */
 const GATEWAY_CODE_MAP: Record<string, AuthboundErrorCode> = {
   CROSS_ORIGIN_FORBIDDEN: "session_origin_forbidden",
+  invalid_token: "token_invalid",
+  not_found: "verification_not_found",
+  origin_not_allowed: "session_origin_forbidden",
   invalid_policy: "policy_not_found",
   validation_error: "policy_invalid",
 };

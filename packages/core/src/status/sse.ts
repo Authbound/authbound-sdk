@@ -6,6 +6,7 @@
  */
 
 import type { ResolvedConfig } from "../client/config";
+import { authboundContractHeaders } from "../contract-headers";
 import type { ClientToken, VerificationId } from "../types/branded";
 import { AuthboundError } from "../types/errors";
 import type { StatusEvent } from "../types/verification";
@@ -208,6 +209,7 @@ async function fetchLatestStatus(
   const response = await fetch(url.toString(), {
     method: "GET",
     headers: {
+      ...authboundContractHeaders(),
       Accept: "application/json",
       Authorization: `Bearer ${clientToken}`,
       "x-authbound-publishable-key": config.publishableKey,
@@ -294,6 +296,7 @@ export function createStatusSubscription(
 
     // Build headers - include Last-Event-ID for reconnection replay
     const headers: Record<string, string> = {
+      ...authboundContractHeaders(),
       Accept: "text/event-stream",
       Authorization: `Bearer ${clientToken}`,
       "x-authbound-publishable-key": config.publishableKey,

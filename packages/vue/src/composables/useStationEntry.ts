@@ -1,4 +1,5 @@
 import {
+  authboundContractHeaders,
   buildStationEntryUrl,
   type StationRuntimeMode,
   type StationSpawn,
@@ -51,7 +52,10 @@ export function useStationEntry(options: UseStationEntryOptions) {
         await readJson(
           await fetch(url, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              ...authboundContractHeaders(),
+              "Content-Type": "application/json",
+            },
             body: JSON.stringify({
               client_ref: options.clientRef ?? generateClientRef(),
               transport: options.transport ?? "link",

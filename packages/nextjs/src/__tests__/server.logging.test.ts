@@ -1,4 +1,8 @@
-import type { PolicyId } from "@authbound/core";
+import {
+  AUTHBOUND_API_VERSION,
+  AUTHBOUND_CONTRACT_REVISION,
+  type PolicyId,
+} from "@authbound/core";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import {
   createSessionRoute,
@@ -800,6 +804,8 @@ describe("Next.js server debug logging", () => {
       "https://api.authbound.io/v1/verifications/vrf_123/status",
       {
         headers: {
+          "Authbound-Api-Version": "v1",
+          "Authbound-Contract-Revision": "v1.2026-06-18.1",
           Authorization: "Bearer client_token_123",
           Origin: "https://playground.authbound.io",
           "X-Authbound-Publishable-Key": "pk_test_configured",
@@ -881,6 +887,8 @@ describe("Next.js server debug logging", () => {
         "https://api.authbound.io/v1/verifications/vrf_123/status",
         {
           headers: {
+            "Authbound-Api-Version": "v1",
+            "Authbound-Contract-Revision": "v1.2026-06-18.1",
             Authorization: "Bearer client_token_123",
             Origin: "https://playground.authbound.io",
             "X-Authbound-Publishable-Key": "pk_test_runtime",
@@ -1424,7 +1432,8 @@ describe("Next.js server debug logging", () => {
     const eventPayload = JSON.stringify({
       id: "evt_1234567890abcdef",
       object: "event",
-      api_version: "2026-05-23",
+      api_version: AUTHBOUND_API_VERSION,
+      contract_revision: AUTHBOUND_CONTRACT_REVISION,
       type: "verification.completed",
       created: 1_741_510_400,
       livemode: false,

@@ -695,10 +695,14 @@ export interface CreateCredentialDefinitionOptions {
   aliases?: string[];
   rendering?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+  idempotencyKey?: string;
 }
 
 export type UpdateCredentialDefinitionOptions = Partial<
-  Omit<CreateCredentialDefinitionOptions, "credentialDefinitionId">
+  Omit<
+    CreateCredentialDefinitionOptions,
+    "credentialDefinitionId" | "idempotencyKey"
+  >
 >;
 
 export interface ListOpenId4VcIssuanceOptions {
@@ -1416,10 +1420,16 @@ class CredentialDefinitionsApi {
     assertNonEmpty(options.vct, "vct");
     assertNonEmpty(options.title, "title");
     assertCredentialDefinitionAuthoringFormat(options.format);
+    const { idempotencyKey, ...body } = options;
     const response = await this.client.request<unknown>(
       "POST",
       "/v1/issuer/credential-definitions",
-      options
+      body,
+      {
+        headers: idempotencyKey
+          ? { "Idempotency-Key": idempotencyKey }
+          : undefined,
+      }
     );
     return parseApiResponse(CredentialDefinitionSchema, response);
   }

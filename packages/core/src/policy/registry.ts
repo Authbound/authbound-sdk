@@ -8,6 +8,7 @@
  * - LocalStorage cache: 5 minutes TTL (for browser)
  */
 
+import { authboundContractHeaders } from "../contract-headers";
 import { isPolicyId, type PolicyId } from "../types/branded";
 import { PolicyPresets, PRESET_POLICIES } from "../types/policy";
 
@@ -145,6 +146,7 @@ export async function fetchPresetRegistry(
   const response = await fetchFn(url.toString(), {
     method: "GET",
     headers: {
+      ...authboundContractHeaders(),
       Accept: "application/json",
     },
   });

@@ -218,7 +218,7 @@ describe("AuthboundClient stations API", () => {
       deviceRef: "door-ipad-1",
       operatorRef: "staff-1",
       ttlSeconds: 3600,
-      idempotencyKey: "grant-create-key",
+      idempotencyKey: "operator-grant-key",
     });
     const revoked = await client.stations.revokeOperatorGrant(
       stationId,
@@ -254,7 +254,7 @@ describe("AuthboundClient stations API", () => {
       ttl_seconds: 3600,
     });
     expect(fetchMock.mock.calls[2]?.[1].headers).toMatchObject({
-      "Idempotency-Key": "grant-create-key",
+      "Idempotency-Key": "operator-grant-key",
     });
   });
 
