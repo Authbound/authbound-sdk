@@ -234,6 +234,39 @@ const CredentialDefinitionListSchema = z.object({
   data: z.array(CredentialDefinitionSchema),
 });
 
+const PolicyTargetTypeSchema = z.enum([
+  "attestation",
+  "credential_definition",
+  "vct",
+]);
+
+const PolicyStatusSchema = z.enum(["active", "archived"]);
+
+const PolicySchema = z.object({
+  object: z.literal("policy"),
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  purpose: z.string().nullable(),
+  target_type: PolicyTargetTypeSchema.nullable(),
+  attestation_type: z.string().nullable(),
+  credential_definition_id: z.string().nullable(),
+  vct: z.string().nullable(),
+  ecosystem: z.string().nullable(),
+  format: z.enum(["dc+sd-jwt", "mso_mdoc"]).nullable(),
+  requested_claims: z.array(z.string()),
+  return_attrs: z.array(z.string()),
+  status: PolicyStatusSchema,
+  verification_config_id: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+const PolicyListSchema = z.object({
+  object: z.literal("list"),
+  data: z.array(PolicySchema),
+});
+
 const OpenId4VcIssuanceStatusSchema = z.enum([
   "offer_created",
   "ready_to_issue",
@@ -309,6 +342,45 @@ export interface ListVerificationsOptions {
   limit?: number;
   startingAfter?: string;
   endingBefore?: string;
+}
+
+export interface CreatePolicyOptions {
+  name: string;
+  description?: string;
+  purpose?: string;
+  requestedClaims: string[];
+  returnAttrs: string[];
+  attestationType?: string;
+  credentialDefinitionId?: string;
+  vct?: string;
+  ecosystem?: string;
+  format?: "dc+sd-jwt" | "mso_mdoc";
+  idempotencyKey?: string;
+}
+
+export interface Policy {
+  object: "policy";
+  id: string;
+  name: string;
+  description?: string;
+  purpose?: string;
+  targetType?: "attestation" | "credential_definition" | "vct";
+  attestationType?: string;
+  credentialDefinitionId?: string;
+  vct?: string;
+  ecosystem?: string;
+  format?: "dc+sd-jwt" | "mso_mdoc";
+  requestedClaims: string[];
+  returnAttrs: string[];
+  status: "active" | "archived";
+  verificationConfigId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PolicyList {
+  object: "list";
+  data: Policy[];
 }
 
 export interface CancelVerificationOptions {
@@ -725,6 +797,28 @@ function mapCreateVerification(
   };
 }
 
+function mapPolicy(raw: z.infer<typeof PolicySchema>): Policy {
+  return {
+    object: raw.object,
+    id: raw.id,
+    name: raw.name,
+    description: raw.description ?? undefined,
+    purpose: raw.purpose ?? undefined,
+    targetType: raw.target_type ?? undefined,
+    attestationType: raw.attestation_type ?? undefined,
+    credentialDefinitionId: raw.credential_definition_id ?? undefined,
+    vct: raw.vct ?? undefined,
+    ecosystem: raw.ecosystem ?? undefined,
+    format: raw.format ?? undefined,
+    requestedClaims: raw.requested_claims,
+    returnAttrs: raw.return_attrs,
+    status: raw.status,
+    verificationConfigId: raw.verification_config_id ?? undefined,
+    createdAt: raw.created_at,
+    updatedAt: raw.updated_at,
+  };
+}
+
 function mapVerificationStatus(
   raw: z.infer<typeof VerificationStatusSchema>
 ): VerificationStatus {
@@ -900,6 +994,11 @@ export class AuthboundClient {
   readonly verifications: VerificationsApi;
 
   /**
+   * Verification Policy APIs.
+   */
+  readonly policies: PoliciesApi;
+
+  /**
    * Verification Station APIs.
    */
   readonly stations: StationsApi;
@@ -938,6 +1037,7 @@ export class AuthboundClient {
 
     // Initialize sub-APIs
     this.verifications = new VerificationsApi(this);
+    this.policies = new PoliciesApi(this);
     this.stations = new StationsApi(this);
     this.webhooks = new WebhooksApi();
     this.issuer = new IssuerApi(this);
@@ -1152,6 +1252,41 @@ function assertProviderPreference(
   return parsed.data;
 }
 
+function assertCreatePolicyTarget(options: CreatePolicyOptions): void {
+  const targetCount = [
+    options.attestationType,
+    options.credentialDefinitionId,
+    options.vct,
+  ].filter(Boolean).length;
+  if (targetCount !== 1) {
+    throw new AuthboundClientError(
+      "Exactly one of attestationType, credentialDefinitionId, or vct is required",
+      "VALIDATION_ERROR",
+      400
+    );
+  }
+
+  if (options.attestationType && !(options.ecosystem && options.format)) {
+    throw new AuthboundClientError(
+      "Built-in attestation policies require ecosystem and format",
+      "VALIDATION_ERROR",
+      400
+    );
+  }
+
+  if (
+    !options.attestationType &&
+    options.format &&
+    options.format !== "dc+sd-jwt"
+  ) {
+    throw new AuthboundClientError(
+      "Custom credential policies only support dc+sd-jwt",
+      "VALIDATION_ERROR",
+      400
+    );
+  }
+}
+
 function assertCredentialDefinitionAuthoringFormat(format: string): void {
   if (!CredentialDefinitionAuthoringFormatSchema.safeParse(format).success) {
     throw new AuthboundClientError(
@@ -1333,6 +1468,74 @@ class OpenId4VcIssuanceApi {
 // ============================================================================
 // Verifications API
 // ============================================================================
+
+class PoliciesApi {
+  constructor(private readonly client: AuthboundClient) {}
+
+  async create(options: CreatePolicyOptions): Promise<Policy> {
+    assertNonEmpty(options.name, "name");
+    assertCreatePolicyTarget(options);
+
+    const requestBody = {
+      name: options.name,
+      ...(options.description ? { description: options.description } : {}),
+      ...(options.purpose ? { purpose: options.purpose } : {}),
+      requested_claims: options.requestedClaims,
+      return_attrs: options.returnAttrs,
+      ...(options.attestationType
+        ? {
+            attestation_type: options.attestationType,
+            ecosystem: options.ecosystem,
+            format: options.format,
+          }
+        : {}),
+      ...(options.credentialDefinitionId
+        ? { credential_definition_id: options.credentialDefinitionId }
+        : {}),
+      ...(options.vct ? { vct: options.vct } : {}),
+    };
+
+    const response = await this.client.request<unknown>(
+      "POST",
+      "/v1/policies",
+      requestBody,
+      {
+        headers: options.idempotencyKey
+          ? { "Idempotency-Key": options.idempotencyKey }
+          : undefined,
+      }
+    );
+
+    return parseApiResponse(PolicySchema, response, mapPolicy);
+  }
+
+  async list(): Promise<PolicyList> {
+    const response = await this.client.request<unknown>("GET", "/v1/policies");
+    const parsed = parseApiResponse(PolicyListSchema, response);
+    return {
+      object: "list",
+      data: parsed.data.map(mapPolicy),
+    };
+  }
+
+  async get(policyId: string): Promise<Policy> {
+    assertNonEmpty(policyId, "policyId");
+    const response = await this.client.request<unknown>(
+      "GET",
+      `/v1/policies/${encodePathSegment(policyId)}`
+    );
+    return parseApiResponse(PolicySchema, response, mapPolicy);
+  }
+
+  async archive(policyId: string): Promise<Policy> {
+    assertNonEmpty(policyId, "policyId");
+    const response = await this.client.request<unknown>(
+      "POST",
+      `/v1/policies/${encodePathSegment(policyId)}/archive`
+    );
+    return parseApiResponse(PolicySchema, response, mapPolicy);
+  }
+}
 
 class VerificationsApi {
   constructor(private readonly client: AuthboundClient) {}
