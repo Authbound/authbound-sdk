@@ -1274,7 +1274,11 @@ function assertCreatePolicyTarget(options: CreatePolicyOptions): void {
     );
   }
 
-  if (!options.attestationType && options.format && options.format !== "dc+sd-jwt") {
+  if (
+    !options.attestationType &&
+    options.format &&
+    options.format !== "dc+sd-jwt"
+  ) {
     throw new AuthboundClientError(
       "Custom credential policies only support dc+sd-jwt",
       "VALIDATION_ERROR",

@@ -64,6 +64,29 @@ const issuerSdkContract = [
   },
 ] as const;
 
+const policySdkContract = [
+  {
+    method: "post",
+    path: "/v1/policies",
+    operationId: "createPolicy",
+  },
+  {
+    method: "get",
+    path: "/v1/policies",
+    operationId: "listPolicies",
+  },
+  {
+    method: "get",
+    path: "/v1/policies/{id}",
+    operationId: "getPolicy",
+  },
+  {
+    method: "post",
+    path: "/v1/policies/{id}/archive",
+    operationId: "archivePolicy",
+  },
+] as const;
+
 describe("public issuer SDK/OpenAPI contract", () => {
   function readRootOpenApiText(): string {
     return readFileSync(
@@ -87,11 +110,52 @@ describe("public issuer SDK/OpenAPI contract", () => {
   it("keeps documented issuer paths aligned with SDK method paths", () => {
     const openApi = readRootOpenApiText();
 
-    for (const route of issuerSdkContract) {
+    for (const route of [...issuerSdkContract, ...policySdkContract]) {
       expect(openApi).toContain(`  ${route.path}:`);
       expect(openApi).toContain(`      operationId: ${route.operationId}`);
       expect(openApi).toContain(`    ${route.method}:`);
     }
+  });
+
+  it("documents verification policy authoring shapes used by the SDK", () => {
+    const openApi = readRootOpenApi();
+    const createPolicyRequest = getSchema(openApi, "CreatePolicyRequest");
+    const policy = getSchema(openApi, "Policy");
+    const createPolicyProperties = createPolicyRequest.properties as
+      | Record<string, OpenApiSchema>
+      | undefined;
+    const policyProperties = policy.properties as
+      | Record<string, OpenApiSchema>
+      | undefined;
+
+    expect(createPolicyRequest.required).toEqual([
+      "name",
+      "requested_claims",
+      "return_attrs",
+    ]);
+    expect(createPolicyProperties?.credential_definition_id).toMatchObject({
+      type: "string",
+    });
+    expect(createPolicyProperties?.requested_claims).toMatchObject({
+      type: "array",
+    });
+    expect(policy.required).toContain("verification_config_id");
+    expect(policyProperties?.object).toMatchObject({
+      enum: ["policy"],
+      type: "string",
+    });
+    expect(policyProperties?.target_type).toMatchObject({
+      oneOf: [
+        { $ref: "#/components/schemas/PolicyTargetType" },
+        { type: "null" },
+      ],
+    });
+    expect(policyProperties?.format).toMatchObject({
+      oneOf: [
+        { $ref: "#/components/schemas/PolicyCredentialFormat" },
+        { type: "null" },
+      ],
+    });
   });
 
   it("documents nullable public verification fields accepted by the SDK parser", () => {

@@ -94,9 +94,13 @@ describe("AuthboundClient policies API", () => {
   it("lists, gets, and archives policies", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ object: "list", data: [policyResponse] }))
+      .mockResolvedValueOnce(
+        jsonResponse({ object: "list", data: [policyResponse] })
+      )
       .mockResolvedValueOnce(jsonResponse(policyResponse))
-      .mockResolvedValueOnce(jsonResponse({ ...policyResponse, status: "archived" }));
+      .mockResolvedValueOnce(
+        jsonResponse({ ...policyResponse, status: "archived" })
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const client = createClient();
@@ -108,7 +112,10 @@ describe("AuthboundClient policies API", () => {
     expect(policy.id).toBe("pol_pension_a1b2c3d4_v1");
     expect(archived.status).toBe("archived");
     expect(
-      fetchMock.mock.calls.map(([url, init]) => [url, (init as RequestInit).method])
+      fetchMock.mock.calls.map(([url, init]) => [
+        url,
+        (init as RequestInit).method,
+      ])
     ).toEqual([
       [`${apiUrl}/v1/policies`, "GET"],
       [`${apiUrl}/v1/policies/pol_pension_a1b2c3d4_v1`, "GET"],
