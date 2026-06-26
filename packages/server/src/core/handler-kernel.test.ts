@@ -129,12 +129,18 @@ describe("framework handler kernel", () => {
       client,
     });
 
-    const [createOptions] = client.verifications.create.mock.calls[0] ?? [];
-    expect(createOptions).toMatchObject({
-      policyId: "pol_authbound_pension_v1",
-      provider: "eudi",
-    });
-    expect(createOptions).not.toHaveProperty("providerOptions");
+    expect(client.verifications.create).toHaveBeenCalledTimes(1);
+    expect(client.verifications.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        policyId: "pol_authbound_pension_v1",
+        provider: "eudi",
+      })
+    );
+    expect(client.verifications.create).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        providerOptions: expect.anything(),
+      })
+    );
   });
 
   it("accepts arbitrary JSON metadata in framework create requests", async () => {

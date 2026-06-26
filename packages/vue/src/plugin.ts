@@ -285,6 +285,7 @@ export const AuthboundPlugin = {
         verification.value = toVerificationState(flowState);
       },
     });
+    app.onUnmount(() => flow.dispose());
 
     const resetVerification = () => {
       flow.reset();

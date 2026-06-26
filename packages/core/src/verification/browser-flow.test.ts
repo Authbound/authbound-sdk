@@ -1,11 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthboundClient } from "../client/factory";
-import type { AuthboundError } from "../types/errors";
+import { AuthboundError } from "../types/errors";
+import type { CreateVerificationResponse } from "../types/verification";
 import { createBrowserVerificationFlow } from "./browser-flow";
 
 function createClientStub() {
   let statusHandler:
     | Parameters<AuthboundClient["subscribeToStatus"]>[2]
+    | null = null;
+  let statusErrorHandler:
+    | NonNullable<
+        NonNullable<Parameters<AuthboundClient["subscribeToStatus"]>[3]>["onError"]
+      >
     | null = null;
   const cleanup = vi.fn();
 
@@ -17,8 +23,9 @@ function createClientStub() {
       clientToken: "client_token_123",
       expiresAt: "2026-05-15T12:01:00.000Z",
     }),
-    subscribeToStatus: vi.fn((_, __, handler) => {
+    subscribeToStatus: vi.fn((_, __, handler, options) => {
       statusHandler = handler;
+      statusErrorHandler = options?.onError ?? null;
       return cleanup;
     }),
     finalizeVerification: vi.fn().mockResolvedValue({
@@ -41,6 +48,12 @@ function createClientStub() {
         throw new Error("No status handler registered");
       }
       statusHandler(event);
+    },
+    emitStatusError: (error: AuthboundError) => {
+      if (!statusErrorHandler) {
+        throw new Error("No status error handler registered");
+      }
+      statusErrorHandler(error);
     },
   };
 }
@@ -145,6 +158,55 @@ describe("createBrowserVerificationFlow", () => {
 
     expect(cleanup).toHaveBeenCalledTimes(1);
     expect(flow.getState()).toEqual({ status: "idle" });
+  });
+
+  it("does not subscribe after disposal while start is in flight", async () => {
+    const { client } = createClientStub();
+    let resolveStart: (response: CreateVerificationResponse) => void = () => {};
+    client.startVerification = vi.fn(
+      () =>
+        new Promise<CreateVerificationResponse>((resolve) => {
+          resolveStart = resolve;
+        })
+    );
+    const flow = createBrowserVerificationFlow({
+      client,
+      sessionMode: "manual",
+    });
+
+    const startPromise = flow.start({
+      policyId: "pol_age_over_18_authbound_v1" as never,
+    });
+    flow.dispose();
+    resolveStart({
+      verificationId: "vrf_test123" as never,
+      authorizationRequestUrl: "openid4vp://authorize",
+      clientToken: "client_token_123" as never,
+      expiresAt: "2026-05-15T12:01:00.000Z",
+    });
+    await startPromise;
+
+    expect(client.subscribeToStatus).not.toHaveBeenCalled();
+    expect(flow.getState()).toEqual({ status: "idle" });
+  });
+
+  it("ignores subscription errors after disposal", async () => {
+    const { client, cleanup, emitStatusError } = createClientStub();
+    const states: string[] = [];
+    const flow = createBrowserVerificationFlow({
+      client,
+      sessionMode: "manual",
+      onStateChange: (state) => states.push(state.status),
+    });
+
+    await flow.start({ policyId: "pol_age_over_18_authbound_v1" as never });
+    flow.dispose();
+    const statesBeforeError = [...states];
+    emitStatusError(new AuthboundError("network_error", "disconnected"));
+
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(flow.getState()).toMatchObject({ status: "pending" });
+    expect(states).toEqual(statesBeforeError);
   });
 
   it("does not synthesize deep links for request_blob QR payloads", async () => {
