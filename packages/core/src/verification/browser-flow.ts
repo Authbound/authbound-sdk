@@ -3,7 +3,6 @@ import { AuthboundError, type AuthboundErrorCode } from "../types/errors";
 import type {
   CreateVerificationResponse,
   StatusEvent,
-  VerificationProviderOptions,
   WalletHandoffKind,
 } from "../types/verification";
 import { isTerminalStatus } from "../types/verification";
@@ -17,7 +16,6 @@ export interface BrowserVerificationFlowStartOptions {
   customerUserRef?: string;
   metadata?: Record<string, unknown>;
   provider?: ProviderPreference;
-  providerOptions?: VerificationProviderOptions;
 }
 
 export interface BrowserVerificationFlowState {
@@ -165,6 +163,7 @@ export function createBrowserVerificationFlow(
   let statusCleanup: (() => void) | null = null;
   let expiryTimeout: ReturnType<typeof setTimeout> | null = null;
   let countdownInterval: ReturnType<typeof setInterval> | null = null;
+  let disposed = false;
   const finalizedVerificationIds = new Set<string>();
 
   function emit(nextState: BrowserVerificationFlowState): void {
@@ -194,6 +193,9 @@ export function createBrowserVerificationFlow(
   }
 
   function updateTimeRemaining(): void {
+    if (disposed) {
+      return;
+    }
     if (!state.expiresAt || isTerminalStatus(state.status)) {
       return;
     }
@@ -206,6 +208,9 @@ export function createBrowserVerificationFlow(
   }
 
   function markTimedOut(): void {
+    if (disposed) {
+      return;
+    }
     if (isTerminalStatus(state.status)) {
       return;
     }
@@ -262,6 +267,9 @@ export function createBrowserVerificationFlow(
     verificationId: VerificationId,
     clientToken: ClientToken
   ): Promise<void> {
+    if (disposed) {
+      return;
+    }
     if (state.verificationId !== verificationId) {
       return;
     }
@@ -313,6 +321,9 @@ export function createBrowserVerificationFlow(
   async function start(
     startOptions: BrowserVerificationFlowStartOptions = {}
   ): Promise<void> {
+    if (disposed) {
+      return;
+    }
     cleanup();
 
     try {
@@ -321,8 +332,10 @@ export function createBrowserVerificationFlow(
         customerUserRef: startOptions.customerUserRef,
         metadata: startOptions.metadata,
         provider: startOptions.provider,
-        providerOptions: startOptions.providerOptions,
       });
+      if (disposed) {
+        return;
+      }
       finalizedVerificationIds.delete(response.verificationId);
 
       const nextState = stateFromResponse(client, response);
@@ -343,6 +356,9 @@ export function createBrowserVerificationFlow(
         },
         {
           onError: (error) => {
+            if (disposed) {
+              return;
+            }
             if (state.verificationId !== verificationId) {
               return;
             }
@@ -356,6 +372,9 @@ export function createBrowserVerificationFlow(
         }
       );
     } catch (error) {
+      if (disposed) {
+        return;
+      }
       const authboundError = AuthboundError.from(error);
       cleanup();
       emit({
@@ -370,6 +389,9 @@ export function createBrowserVerificationFlow(
     getState: () => state,
     start,
     reset,
-    dispose: cleanup,
+    dispose: () => {
+      disposed = true;
+      cleanup();
+    },
   };
 }

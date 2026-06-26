@@ -241,8 +241,6 @@ export interface CreateVerificationOptions {
   metadata?: Record<string, unknown>;
   /** Optional provider override */
   provider?: ProviderPreference;
-  /** Provider-specific protocol options */
-  providerOptions?: VerificationProviderOptions;
   /** Override default timeout (seconds) */
   timeoutSeconds?: number;
 }
@@ -252,7 +250,6 @@ export const CreateVerificationOptionsSchema = z.object({
   customerUserRef: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   provider: ProviderPreferenceSchema.optional(),
-  providerOptions: VerificationProviderOptionsSchema.optional(),
   timeoutSeconds: z.number().int().positive().max(600).optional(),
 });
 

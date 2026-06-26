@@ -29,7 +29,6 @@ import type {
   CreateVerificationResponse,
   FinalizeVerificationResponse,
   StatusEvent,
-  VerificationProviderOptions,
   VerificationStatusResponse,
 } from "../types/verification";
 import {
@@ -98,7 +97,6 @@ export interface AuthboundClient {
     customerUserRef?: string;
     metadata?: Record<string, unknown>;
     provider?: ProviderPreference;
-    providerOptions?: VerificationProviderOptions;
   }): Promise<CreateVerificationResponse>;
 
   /**
@@ -206,7 +204,6 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
         customerUserRef: options.customerUserRef,
         metadata: options.metadata,
         provider: options.provider,
-        providerOptions: options.providerOptions,
       });
 
       // Validate response

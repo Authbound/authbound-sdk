@@ -100,15 +100,19 @@ describe("StationOperatorConsole", () => {
       runtimeMode: "proxy",
       stationId: "stn_123",
     });
-    app.mount(host);
+    try {
+      app.mount(host);
 
-    await waitForExpectation(() => {
-      expect(fetchMock).toHaveBeenCalled();
-    });
+      await waitForExpectation(() => {
+        expect(fetchMock).toHaveBeenCalled();
+      });
 
-    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
-      "https://app.test/api/authbound/stations/stn_123/display?token=display_123&refresh_entry_token=true"
-    );
+      expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+        "https://app.test/api/authbound/stations/stn_123/display?token=display_123&refresh_entry_token=true"
+      );
+    } finally {
+      app.unmount();
+    }
   });
 
   it("refreshes StationEntryDisplay before the entry token expires", async () => {

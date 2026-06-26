@@ -7,7 +7,6 @@
 import type {
   PolicyId,
   ProviderPreference,
-  VerificationProviderOptions,
 } from "@authbound/core";
 import {
   AuthboundClient,
@@ -24,7 +23,6 @@ type CreateVerificationRequest = {
   customerUserRef?: string;
   metadata?: Record<string, unknown>;
   provider?: ProviderPreference;
-  providerOptions?: VerificationProviderOptions;
 };
 
 export default defineEventHandler(async (event) => {
@@ -90,10 +88,10 @@ export default defineEventHandler(async (event) => {
         customerUserRef: body?.customerUserRef,
         metadata: body?.metadata,
         provider: provider ?? body?.provider,
-        providerOptions: providerOptions ?? body?.providerOptions,
       },
       config: { debug: config.public.authbound?.debug },
       client,
+      providerOptions,
       idempotencyKey: getHeader(event, "idempotency-key") ?? undefined,
     });
 

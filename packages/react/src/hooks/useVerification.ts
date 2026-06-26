@@ -8,7 +8,6 @@ import type {
   PolicyId,
   ProviderPreference,
   VerificationId,
-  VerificationProviderOptions,
   VerificationSuccess,
   VerificationUiStatus,
   WalletHandoffKind,
@@ -32,8 +31,6 @@ export interface UseVerificationOptions {
   metadata?: Record<string, unknown>;
   /** Optional provider override */
   provider?: ProviderPreference;
-  /** Provider-specific verification options */
-  providerOptions?: VerificationProviderOptions;
   /** Callback when verification succeeds */
   onVerified?: (verification: VerificationSuccess) => void;
   /** Callback when verification fails */
@@ -154,7 +151,6 @@ export function useVerification(
     customerUserRef,
     metadata,
     provider,
-    providerOptions,
     onVerified,
     onFailed,
     onStatusChange,
@@ -202,7 +198,6 @@ export function useVerification(
         customerUserRef,
         metadata,
         provider,
-        providerOptions,
       });
     } catch (err) {
       // Error is already reflected in verification state
@@ -217,7 +212,6 @@ export function useVerification(
     customerUserRef,
     metadata,
     provider,
-    providerOptions,
     onFailed,
     isStarting,
   ]);

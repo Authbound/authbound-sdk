@@ -15,7 +15,6 @@ import {
   type ProviderPreference,
   type PublishableKey,
   type VerificationId,
-  type VerificationProviderOptions,
   type VerificationUiStatus,
   type WalletHandoffKind,
 } from "@authbound/core";
@@ -115,7 +114,6 @@ export interface AuthboundContextValue {
     customerUserRef?: string;
     metadata?: Record<string, unknown>;
     provider?: ProviderPreference;
-    providerOptions?: VerificationProviderOptions;
   }) => Promise<void>;
 
   /** Reset current verification */
@@ -315,7 +313,6 @@ export function AuthboundProvider({
       customerUserRef?: string;
       metadata?: Record<string, unknown>;
       provider?: ProviderPreference;
-      providerOptions?: VerificationProviderOptions;
     }) => {
       try {
         await flow.start({
@@ -323,7 +320,6 @@ export function AuthboundProvider({
           customerUserRef: options?.customerUserRef,
           metadata: options?.metadata,
           provider: options?.provider,
-          providerOptions: options?.providerOptions,
         });
       } catch (error) {
         throw AuthboundError.from(error);

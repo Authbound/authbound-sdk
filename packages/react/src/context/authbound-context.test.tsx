@@ -64,12 +64,6 @@ function AutoStartVerificationHook({
 function AutoStartEudiVerificationHook() {
   const { startVerification } = useVerification({
     provider: "eudi",
-    providerOptions: {
-      eudi: {
-        expectedOrigins: ["https://merchant.example"],
-        responseMode: "dc_api.jwt",
-      },
-    },
   });
   const didStartRef = useRef(false);
 
@@ -305,7 +299,7 @@ describe("AuthboundProvider session finalization", () => {
     expect(screen.queryByRole("button", { name: "Open in Wallet" })).toBeNull();
   });
 
-  it("forwards EUDI provider options from the hook to the verification endpoint", async () => {
+  it("does not forward browser provider options from the hook to the verification endpoint", async () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, _init?: RequestInit) => {
         const url = String(input);
@@ -360,12 +354,7 @@ describe("AuthboundProvider session finalization", () => {
 
     expect(body).toMatchObject({
       provider: "eudi",
-      providerOptions: {
-        eudi: {
-          expectedOrigins: ["https://merchant.example"],
-          responseMode: "dc_api.jwt",
-        },
-      },
     });
+    expect(body).not.toHaveProperty("providerOptions");
   });
 });

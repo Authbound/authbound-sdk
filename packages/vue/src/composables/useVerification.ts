@@ -8,7 +8,6 @@ import type {
   PolicyId,
   ProviderPreference,
   VerificationId,
-  VerificationProviderOptions,
   VerificationSuccess,
   VerificationUiStatus,
   WalletHandoffKind,
@@ -32,8 +31,6 @@ export interface UseVerificationOptions {
   metadata?: Record<string, unknown>;
   /** Optional provider override */
   provider?: ProviderPreference;
-  /** Provider-specific verification options */
-  providerOptions?: VerificationProviderOptions;
   /** Callback when verified */
   onVerified?: (verification: VerificationSuccess) => void;
   /** Callback when failed */
@@ -208,7 +205,6 @@ export function useVerification(
       customerUserRef: options.customerUserRef,
       metadata: options.metadata,
       provider: options.provider,
-      providerOptions: options.providerOptions,
     });
   };
 

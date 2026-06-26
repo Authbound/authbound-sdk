@@ -8,16 +8,12 @@ import { useVerification } from "./useVerification";
 
 function createSseStream(payload: string): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
-  let sent = false;
 
   return new ReadableStream({
-    pull(controller) {
-      if (sent) {
-        controller.close();
-        return;
+    start(controller) {
+      if (payload) {
+        controller.enqueue(encoder.encode(payload));
       }
-      sent = true;
-      controller.enqueue(encoder.encode(payload));
     },
   });
 }
@@ -85,12 +81,6 @@ const EudiProviderOptionsVerification = defineComponent({
   setup() {
     const verification = useVerification({
       provider: "eudi",
-      providerOptions: {
-        eudi: {
-          expectedOrigins: ["https://merchant.example"],
-          responseMode: "dc_api.jwt",
-        },
-      },
     });
     const didStart = ref(false);
 
@@ -156,7 +146,72 @@ describe("useVerification", () => {
     vi.unstubAllGlobals();
   });
 
-  it("forwards EUDI provider options to the verification endpoint", async () => {
+  it("disposes active status subscription on app unmount", async () => {
+    let sseSignal: AbortSignal | undefined;
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url === "/api/authbound/verification") {
+          return new Response(
+            JSON.stringify({
+              verificationId: "vrf_cleanup123",
+              authorizationRequestUrl:
+                "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.test%2Frequest%2Fcleanup",
+              clientToken: "client_token_123",
+              expiresAt: "2026-04-21T10:10:00.000Z",
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        if (
+          url ===
+          "https://api.authbound.test/v1/verifications/vrf_cleanup123/events/sse"
+        ) {
+          sseSignal = init?.signal ?? undefined;
+          return new Response(createSseStream(": connected\n\n"), {
+            status: 200,
+            headers: { "Content-Type": "text/event-stream" },
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const host = document.createElement("div");
+    const app = createApp(RequestBlobDeepLink);
+    app.use(AuthboundPlugin, {
+      gatewayUrl: "https://api.authbound.test",
+      policyId: "pol_authbound_pension_v1" as never,
+      publishableKey: "pk_test_public123",
+      sessionMode: "manual",
+    });
+
+    let mounted = false;
+    try {
+      app.mount(host);
+      mounted = true;
+
+      await waitForExpectation(() => {
+        expect(sseSignal).toBeDefined();
+        expect(sseSignal?.aborted).toBe(false);
+      });
+
+      app.unmount();
+      mounted = false;
+
+      await waitForExpectation(() => {
+        expect(sseSignal?.aborted).toBe(true);
+      });
+    } finally {
+      if (mounted) {
+        app.unmount();
+      }
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("does not forward browser provider options to the verification endpoint", async () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, _init?: RequestInit) => {
         const url = String(input);
@@ -210,12 +265,16 @@ describe("useVerification", () => {
 
     expect(body).toMatchObject({
       provider: "eudi",
-      providerOptions: {
-        eudi: {
-          expectedOrigins: ["https://merchant.example"],
-          responseMode: "dc_api.jwt",
-        },
-      },
+    });
+    expect(body).not.toHaveProperty("providerOptions");
+    await waitForExpectation(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([input]) =>
+            String(input) ===
+            "https://api.authbound.test/v1/verifications/vrf_eudi_options123/events/sse"
+        )
+      ).toBe(true);
     });
 
     app.unmount();

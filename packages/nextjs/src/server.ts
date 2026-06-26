@@ -79,6 +79,11 @@ export interface VerificationRouteOptions {
   debug?: boolean;
 
   /**
+   * Provider-specific protocol options. Server-owned only; request bodies cannot override this.
+   */
+  providerOptions?: VerificationProviderOptions;
+
+  /**
    * Custom request transformer.
    * Allows adding metadata or modifying the request before sending to gateway.
    */
@@ -615,6 +620,7 @@ export function createVerificationRoute(
     gatewayUrl = getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io"),
     secret = getSecretKey(),
     debug = false,
+    providerOptions,
     transformRequest,
     transformResponse,
     sessionMode = "sdk",
@@ -622,6 +628,9 @@ export function createVerificationRoute(
     cookieName = "__authbound",
     pendingCookieMaxAge = 600,
   } = options;
+  const routeProviderOptions = providerOptions
+    ? VerificationProviderOptionsSchema.parse(providerOptions)
+    : undefined;
 
   return async (request: Request): Promise<Response> => {
     try {
@@ -646,18 +655,6 @@ export function createVerificationRoute(
         );
       }
 
-      const providerOptions = VerificationProviderOptionsSchema.safeParse(
-        body.providerOptions
-      );
-      if (body.providerOptions !== undefined && !providerOptions.success) {
-        return NextResponse.json(
-          {
-            error: "Invalid providerOptions",
-            code: "VALIDATION_ERROR",
-          },
-          { status: 400 }
-        );
-      }
       const provider = ProviderPreferenceSchema.safeParse(body.provider);
       if (body.provider !== undefined && !provider.success) {
         return NextResponse.json(
@@ -670,7 +667,7 @@ export function createVerificationRoute(
       }
 
       const mappedProviderOptions = mapVerificationProviderOptions(
-        providerOptions.success ? providerOptions.data : undefined
+        routeProviderOptions
       );
       const gatewayBody = {
         customer_user_ref: body.customerUserRef,

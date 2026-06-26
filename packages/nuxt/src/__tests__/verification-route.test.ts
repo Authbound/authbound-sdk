@@ -123,6 +123,19 @@ describe("Nuxt verification route", () => {
   });
 
   it("delegates create behavior to the server handler kernel and applies pending-cookie effects", async () => {
+    runtimeConfig.current = {
+      ...runtimeConfig.current,
+      authbound: {
+        ...runtimeConfig.current.authbound,
+        providerOptions: {
+          eudi: {
+            expectedOrigins: ["https://merchant.example"],
+            responseMode: "dc_api.jwt",
+          },
+        },
+      },
+    };
+
     const event = createEvent(
       { "idempotency-key": "idem_123" },
       {
@@ -131,8 +144,8 @@ describe("Nuxt verification route", () => {
         provider: "eudi",
         providerOptions: {
           eudi: {
-            expectedOrigins: ["https://merchant.example"],
-            responseMode: "dc_api.jwt",
+            expectedOrigins: ["https://attacker.example"],
+            responseMode: "direct_post.jwt",
           },
         },
       }
@@ -159,11 +172,11 @@ describe("Nuxt verification route", () => {
           metadata: { flow: "age_gate" },
           policyId: "pol_age_over_18_authbound_v1",
           provider: "eudi",
-          providerOptions: {
-            eudi: {
-              expectedOrigins: ["https://merchant.example"],
-              responseMode: "dc_api.jwt",
-            },
+        },
+        providerOptions: {
+          eudi: {
+            expectedOrigins: ["https://merchant.example"],
+            responseMode: "dc_api.jwt",
           },
         },
       })

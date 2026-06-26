@@ -3,7 +3,6 @@ import {
   type ProviderPreference,
   ProviderPreferenceSchema,
   type VerificationProviderOptions,
-  VerificationProviderOptionsSchema,
 } from "@authbound/core";
 import { z } from "zod";
 import {
@@ -95,7 +94,6 @@ const CreateVerificationRequestSchema = z.object({
   customerUserRef: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   provider: ProviderPreferenceSchema.optional(),
-  providerOptions: VerificationProviderOptionsSchema.optional(),
 });
 
 const FinalizeVerificationRequestSchema = z.object({
@@ -107,6 +105,7 @@ export type CreateVerificationHandlerKernelOptions = {
   requestBody: unknown;
   config: HandlerKernelConfig;
   client: CreateVerificationClient;
+  providerOptions?: VerificationProviderOptions;
   idempotencyKey?: string;
   getUserRef?: () => string | Promise<string>;
   onVerificationCreated?: (
@@ -118,6 +117,7 @@ export async function createVerificationHandlerKernel({
   requestBody,
   config,
   client,
+  providerOptions,
   idempotencyKey,
   getUserRef,
   onVerificationCreated,
@@ -133,7 +133,7 @@ export async function createVerificationHandlerKernel({
       customerUserRef: userRef,
       metadata: body.metadata,
       provider: body.provider,
-      providerOptions: body.providerOptions,
+      ...(providerOptions ? { providerOptions } : {}),
       idempotencyKey,
     });
 
