@@ -7,7 +7,6 @@ import type {
   PolicyId,
   ProviderPreference,
   VerificationId,
-  VerificationProviderOptions,
   VerificationSuccess,
   VerificationUiStatus,
 } from "@authbound/core";
@@ -37,8 +36,6 @@ export interface UseVerificationOptions {
   metadata?: Record<string, unknown>;
   /** Optional provider override. The Nuxt server route may restrict this. */
   provider?: ProviderPreference;
-  /** Provider-specific verification options */
-  providerOptions?: VerificationProviderOptions;
   /** Redirect on success */
   redirectOnSuccess?: string;
   /** Callback when verified */
@@ -131,7 +128,6 @@ export function useVerification(options: UseVerificationOptions = {}) {
         customerUserRef?: string;
         metadata?: Record<string, unknown>;
         provider?: ProviderPreference;
-        providerOptions?: VerificationProviderOptions;
       } = {}
     ) => {
       const body: Record<string, unknown> = {};
@@ -146,9 +142,6 @@ export function useVerification(options: UseVerificationOptions = {}) {
       }
       if (startOptions.provider) {
         body.provider = startOptions.provider;
-      }
-      if (startOptions.providerOptions) {
-        body.providerOptions = startOptions.providerOptions;
       }
 
       return await $fetch<{
@@ -230,7 +223,6 @@ export function useVerification(options: UseVerificationOptions = {}) {
         customerUserRef: options.customerUserRef,
         metadata: options.metadata,
         provider: options.provider,
-        providerOptions: options.providerOptions,
       });
     } catch (err) {
       throw AuthboundError.from(err);

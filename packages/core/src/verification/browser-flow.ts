@@ -3,7 +3,6 @@ import { AuthboundError, type AuthboundErrorCode } from "../types/errors";
 import type {
   CreateVerificationResponse,
   StatusEvent,
-  VerificationProviderOptions,
   WalletHandoffKind,
 } from "../types/verification";
 import { isTerminalStatus } from "../types/verification";
@@ -17,7 +16,6 @@ export interface BrowserVerificationFlowStartOptions {
   customerUserRef?: string;
   metadata?: Record<string, unknown>;
   provider?: ProviderPreference;
-  providerOptions?: VerificationProviderOptions;
 }
 
 export interface BrowserVerificationFlowState {
@@ -321,7 +319,6 @@ export function createBrowserVerificationFlow(
         customerUserRef: startOptions.customerUserRef,
         metadata: startOptions.metadata,
         provider: startOptions.provider,
-        providerOptions: startOptions.providerOptions,
       });
       finalizedVerificationIds.delete(response.verificationId);
 

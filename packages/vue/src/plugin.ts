@@ -15,7 +15,6 @@ import {
   type ProviderPreference,
   type PublishableKey,
   type VerificationId,
-  type VerificationProviderOptions,
   type VerificationUiStatus,
   type WalletHandoffKind,
 } from "@authbound/core";
@@ -115,7 +114,6 @@ export interface AuthboundContext {
     customerUserRef?: string;
     metadata?: Record<string, unknown>;
     provider?: ProviderPreference;
-    providerOptions?: VerificationProviderOptions;
   }) => Promise<void>;
 
   /** Reset current verification */
@@ -297,7 +295,6 @@ export const AuthboundPlugin = {
       customerUserRef?: string;
       metadata?: Record<string, unknown>;
       provider?: ProviderPreference;
-      providerOptions?: VerificationProviderOptions;
     }) => {
       try {
         await flow.start({
@@ -305,7 +302,6 @@ export const AuthboundPlugin = {
           customerUserRef: verifyOptions?.customerUserRef,
           metadata: verifyOptions?.metadata,
           provider: verifyOptions?.provider,
-          providerOptions: verifyOptions?.providerOptions,
         });
       } catch (error) {
         throw AuthboundError.from(error);

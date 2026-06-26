@@ -85,12 +85,6 @@ const EudiProviderOptionsVerification = defineComponent({
   setup() {
     const verification = useVerification({
       provider: "eudi",
-      providerOptions: {
-        eudi: {
-          expectedOrigins: ["https://merchant.example"],
-          responseMode: "dc_api.jwt",
-        },
-      },
     });
     const didStart = ref(false);
 
@@ -156,7 +150,7 @@ describe("useVerification", () => {
     vi.unstubAllGlobals();
   });
 
-  it("forwards EUDI provider options to the verification endpoint", async () => {
+  it("does not forward browser provider options to the verification endpoint", async () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, _init?: RequestInit) => {
         const url = String(input);
@@ -210,13 +204,8 @@ describe("useVerification", () => {
 
     expect(body).toMatchObject({
       provider: "eudi",
-      providerOptions: {
-        eudi: {
-          expectedOrigins: ["https://merchant.example"],
-          responseMode: "dc_api.jwt",
-        },
-      },
     });
+    expect(body).not.toHaveProperty("providerOptions");
 
     app.unmount();
     vi.unstubAllGlobals();

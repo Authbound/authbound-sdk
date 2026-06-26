@@ -296,7 +296,7 @@ describe("createClient", () => {
     );
   });
 
-  it("sends provider options through the configured verification endpoint", async () => {
+  it("does not send provider options through the configured browser verification endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -328,7 +328,7 @@ describe("createClient", () => {
           requestUriMethod: "post",
         },
       },
-    });
+    } as never);
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/authbound/verification",
@@ -337,13 +337,6 @@ describe("createClient", () => {
         body: JSON.stringify({
           policyId: "pol_authbound_pension_v1",
           provider: "eudi",
-          providerOptions: {
-            eudi: {
-              responseMode: "dc_api.jwt",
-              expectedOrigins: ["https://merchant.example"],
-              requestUriMethod: "post",
-            },
-          },
         }),
       })
     );

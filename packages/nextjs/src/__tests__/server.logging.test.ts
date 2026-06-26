@@ -114,7 +114,7 @@ describe("Next.js server debug logging", () => {
     });
   });
 
-  it("sends provider options from createVerificationRoute to the Gateway", async () => {
+  it("sends only server-owned provider options from createVerificationRoute to the Gateway", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -135,6 +135,12 @@ describe("Next.js server debug logging", () => {
       policyId: "pol_age_over_18_authbound_v1" as PolicyId,
       gatewayUrl: "https://api.authbound.io",
       secret: "sk_test_secret",
+      providerOptions: {
+        eudi: {
+          responseMode: "dc_api.jwt",
+          expectedOrigins: ["https://merchant.example"],
+        },
+      },
     });
 
     await handler(
@@ -147,8 +153,7 @@ describe("Next.js server debug logging", () => {
             provider: "eudi",
             providerOptions: {
               eudi: {
-                responseMode: "dc_api.jwt",
-                expectedOrigins: ["https://merchant.example"],
+                responseMode: "direct_post.jwt",
               },
             },
           }),

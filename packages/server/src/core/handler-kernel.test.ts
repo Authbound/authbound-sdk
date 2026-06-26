@@ -50,16 +50,16 @@ describe("framework handler kernel", () => {
         customerUserRef: "user_123",
         metadata: { flow: "age_gate" },
         provider: "eudi",
-        providerOptions: {
-          eudi: {
-            responseMode: "dc_api.jwt",
-            expectedOrigins: ["https://merchant.example"],
-            requestUriMethod: "post",
-          },
-        },
       },
       config,
       client,
+      providerOptions: {
+        eudi: {
+          responseMode: "dc_api.jwt",
+          expectedOrigins: ["https://merchant.example"],
+          requestUriMethod: "post",
+        },
+      },
       idempotencyKey: "idem_123",
       onVerificationCreated,
     });
@@ -95,6 +95,46 @@ describe("framework handler kernel", () => {
       idempotencyKey: "idem_123",
     });
     expect(onVerificationCreated).toHaveBeenCalledWith(result.body);
+  });
+
+  it("ignores browser-supplied provider options in framework create requests", async () => {
+    const client = {
+      verifications: {
+        create: vi.fn(async () => ({
+          id: "vrf_test123",
+          clientToken: "client_token_123",
+          verificationUrl: "https://app.authbound.test/v/vrf_test123",
+          clientAction: {
+            kind: "link" as const,
+            data: "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.test%2Frequest%2F123",
+            expiresAt: "2026-04-21T10:10:00.000Z",
+          },
+          expiresAt: "2026-04-21T10:10:00.000Z",
+        })),
+      },
+    };
+
+    await createVerificationHandlerKernel({
+      requestBody: {
+        policyId: "pol_authbound_pension_v1",
+        provider: "eudi",
+        providerOptions: {
+          eudi: {
+            responseMode: "dc_api.jwt",
+            expectedOrigins: ["https://attacker.example"],
+          },
+        },
+      } as never,
+      config,
+      client,
+    });
+
+    const [createOptions] = client.verifications.create.mock.calls[0] ?? [];
+    expect(createOptions).toMatchObject({
+      policyId: "pol_authbound_pension_v1",
+      provider: "eudi",
+    });
+    expect(createOptions).not.toHaveProperty("providerOptions");
   });
 
   it("accepts arbitrary JSON metadata in framework create requests", async () => {
