@@ -109,6 +109,125 @@ describe("AuthboundClient verifications API", () => {
     });
   });
 
+  it("maps EUDI provider options to the public REST contract", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(verificationResponse, 201));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createClient().verifications.create({
+      policyId: "pol_authbound_pension_v1",
+      provider: "eudi",
+      providerOptions: {
+        eudi: {
+          responseMode: "dc_api.jwt",
+          expectedOrigins: ["https://merchant.example"],
+          requestUriMethod: "post",
+          verifierAttestations: [
+            { format: "jwt", data: "registration-certificate-jwt" },
+          ],
+        },
+      },
+    });
+
+    const [, request] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(JSON.parse(request.body as string)).toEqual({
+      policy_id: "pol_authbound_pension_v1",
+      provider: "eudi",
+      provider_options: {
+        eudi: {
+          response_mode: "dc_api.jwt",
+          expected_origins: ["https://merchant.example"],
+          request_uri_method: "post",
+          verifier_attestations: [
+            { format: "jwt", data: "registration-certificate-jwt" },
+          ],
+        },
+      },
+    });
+  });
+
+  it("rejects unknown EUDI provider option keys before calling the API", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(verificationResponse, 201));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      createClient().verifications.create({
+        policyId: "pol_authbound_pension_v1",
+        providerOptions: {
+          eudi: {
+            responseMode: "direct_post.jwt",
+            request_uri_method: "post",
+          },
+        } as never,
+      })
+    ).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid EUDI provider option values before calling the API", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(verificationResponse, 201));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createClient();
+
+    await expect(
+      client.verifications.create({
+        policyId: "pol_authbound_pension_v1",
+        providerOptions: {
+          eudi: {
+            verifierAttestations: [{ format: "jwt", data: "   " }],
+          },
+        },
+      })
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    await expect(
+      client.verifications.create({
+        policyId: "pol_authbound_pension_v1",
+        providerOptions: {
+          eudi: {
+            authorizationRequestScheme: "not a scheme",
+          },
+        },
+      })
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    await expect(
+      client.verifications.create({
+        policyId: "pol_authbound_pension_v1",
+        providerOptions: {
+          eudi: {
+            authorizationRequestScheme: "javascript",
+          },
+        },
+      })
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    await expect(
+      client.verifications.create({
+        policyId: "pol_authbound_pension_v1",
+        providerOptions: {
+          eudi: {
+            authorizationRequestUri:
+              "haip-vp://?request_uri=https%3A%2F%2Fverifier.example%2Frequest.jwt",
+          },
+        },
+      })
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    await expect(
+      client.verifications.create({
+        policyId: "pol_authbound_pension_v1",
+        providerOptions: {
+          eudi: {
+            authorizationRequestUri: "data:text/plain,hi",
+          },
+        },
+      })
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("preserves non-JSON API error responses without double-reading the body", async () => {
     vi.stubGlobal(
       "fetch",

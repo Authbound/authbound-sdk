@@ -20,7 +20,7 @@ export type WalletAuthorizationRequestResolution = {
 };
 
 export type WalletHandoffResolution = {
-  kind?: "qr" | "link" | "request_blob";
+  kind?: "qr" | "link" | "request_blob" | "dc_api";
   walletInvocationUrl?: string;
   qrPayload?: string;
   deepLink?: string;
@@ -85,7 +85,10 @@ function getRequestBlobPayload(
   clientAction: WalletClientAction | undefined
 ): string | undefined {
   const data = getString(clientAction?.data);
-  if (clientAction?.kind !== "request_blob" || !data) {
+  if (
+    !(clientAction?.kind === "request_blob" || clientAction?.kind === "dc_api") ||
+    !data
+  ) {
     return;
   }
 
@@ -97,7 +100,8 @@ function getClientActionKind(
 ): WalletHandoffResolution["kind"] | undefined {
   return clientAction?.kind === "qr" ||
     clientAction?.kind === "link" ||
-    clientAction?.kind === "request_blob"
+    clientAction?.kind === "request_blob" ||
+    clientAction?.kind === "dc_api"
     ? clientAction.kind
     : undefined;
 }

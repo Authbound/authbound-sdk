@@ -147,10 +147,13 @@ export {
   isTerminalStatus,
   type PolicyId,
   PolicyPresets,
+  type ProviderPreference,
   type PublishableKey,
+  type SelectedVerificationProvider,
   type StatusEvent,
   type VerificationClaims,
   type VerificationId,
+  type VerificationProviderOptions,
   type VerificationSuccess,
   type VerificationUiStatus,
 } from "@authbound/core";

@@ -13,8 +13,8 @@ describe("useStationEntry", () => {
         station_id: "stn_123",
         verification_id: "vrf_123",
         client_action: {
-          kind: "link",
-          data: "openid4vp://authorize",
+          kind: "dc_api",
+          data: "{\"request_uri\":\"https://verifier.example/request.jwt/req_dc_api\"}",
           expires_at: "2026-06-07T12:10:00.000Z",
         },
       })
@@ -32,6 +32,7 @@ describe("useStationEntry", () => {
     const spawn = await entry.start();
 
     expect(spawn.verification_id).toBe("vrf_123");
+    expect(spawn.client_action?.kind).toBe("dc_api");
     expect(entry.spawn.value?.verification_id).toBe("vrf_123");
     const [url, init] = fetchMock.mock.calls[0] as unknown as [
       URL,

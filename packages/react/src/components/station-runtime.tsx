@@ -37,9 +37,11 @@ export function StationEntry({
   return (
     <div data-authbound-station-entry>
       {children}
-      {action ? (
+      {action?.kind === "link" ? (
         <a href={action.data}>Open wallet</a>
-      ) : (
+      ) : action?.kind === "qr" ? (
+        <QRCode value={action.data} />
+      ) : action ? null : (
         <button
           disabled={entry.isLoading}
           onClick={() => entry.start()}

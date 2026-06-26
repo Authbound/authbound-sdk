@@ -9,6 +9,7 @@ import {
   StationDisplaySchema,
   StationSafeAssertionsSchema,
   StationSchema,
+  StationSpawnSchema,
   StationVerificationDisclosureSchema,
 } from "../../index";
 
@@ -168,6 +169,23 @@ describe("station contracts", () => {
       given_name: "Ada",
       birth_date: "1815-12-10",
     });
+  });
+
+  it("accepts dc_api station spawn handoffs", () => {
+    const parsed = StationSpawnSchema.parse({
+      object: "station_spawn",
+      station_id: station.id,
+      verification_id: "vrf_dc_api",
+      client_action: {
+        kind: "dc_api",
+        data: JSON.stringify({
+          request_uri: "https://verifier.example/request.jwt/req_dc_api",
+        }),
+        expires_at: "2026-06-07T12:10:00.000Z",
+      },
+    });
+
+    expect(parsed.client_action?.kind).toBe("dc_api");
   });
 
   it("builds direct and proxy station runtime URLs", () => {

@@ -3,6 +3,7 @@ import { AuthboundError, type AuthboundErrorCode } from "../types/errors";
 import type {
   CreateVerificationResponse,
   StatusEvent,
+  VerificationProviderOptions,
   WalletHandoffKind,
 } from "../types/verification";
 import { isTerminalStatus } from "../types/verification";
@@ -16,6 +17,7 @@ export interface BrowserVerificationFlowStartOptions {
   customerUserRef?: string;
   metadata?: Record<string, unknown>;
   provider?: ProviderPreference;
+  providerOptions?: VerificationProviderOptions;
 }
 
 export interface BrowserVerificationFlowState {
@@ -94,7 +96,10 @@ function isFailureStatus(status: VerificationUiStatus): boolean {
 function shouldSynthesizeDeepLink(
   response: CreateVerificationResponse
 ): boolean {
-  if (response.walletHandoffKind === "request_blob") {
+  if (
+    response.walletHandoffKind === "request_blob" ||
+    response.walletHandoffKind === "dc_api"
+  ) {
     return false;
   }
 
@@ -316,6 +321,7 @@ export function createBrowserVerificationFlow(
         customerUserRef: startOptions.customerUserRef,
         metadata: startOptions.metadata,
         provider: startOptions.provider,
+        providerOptions: startOptions.providerOptions,
       });
       finalizedVerificationIds.delete(response.verificationId);
 

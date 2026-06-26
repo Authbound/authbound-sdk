@@ -4,7 +4,11 @@
  * Creates verifications by proxying to the Authbound API.
  */
 
-import type { PolicyId, ProviderPreference } from "@authbound/core";
+import type {
+  PolicyId,
+  ProviderPreference,
+  VerificationProviderOptions,
+} from "@authbound/core";
 import {
   AuthboundClient,
   type CreateVerificationResponse,
@@ -20,6 +24,7 @@ type CreateVerificationRequest = {
   customerUserRef?: string;
   metadata?: Record<string, unknown>;
   provider?: ProviderPreference;
+  providerOptions?: VerificationProviderOptions;
 };
 
 export default defineEventHandler(async (event) => {
@@ -61,6 +66,7 @@ export default defineEventHandler(async (event) => {
       message: "Requested provider is not allowed",
     });
   }
+  const providerOptions = config.authbound?.providerOptions;
 
   try {
     const sessionSecret =
@@ -84,6 +90,7 @@ export default defineEventHandler(async (event) => {
         customerUserRef: body?.customerUserRef,
         metadata: body?.metadata,
         provider: provider ?? body?.provider,
+        providerOptions: providerOptions ?? body?.providerOptions,
       },
       config: { debug: config.public.authbound?.debug },
       client,

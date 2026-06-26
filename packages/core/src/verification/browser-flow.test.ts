@@ -171,6 +171,32 @@ describe("createBrowserVerificationFlow", () => {
     expect(flow.getState().deepLink).toBeUndefined();
   });
 
+  it("does not synthesize deep links for dc api browser handoff payloads", async () => {
+    const { client } = createClientStub();
+    client.startVerification = vi.fn().mockResolvedValue({
+      verificationId: "vrf_test123",
+      authorizationRequestUrl: JSON.stringify({
+        protocol: "openid4vp-v1-unsigned",
+        request_uri: "https://verifier.example/request.jwt",
+      }),
+      clientToken: "client_token_123",
+      expiresAt: "2026-05-15T12:01:00.000Z",
+      walletHandoffKind: "dc_api",
+    });
+    const flow = createBrowserVerificationFlow({
+      client,
+      sessionMode: "manual",
+    });
+
+    await flow.start({ policyId: "pol_age_over_18_authbound_v1" as never });
+
+    expect(client.getDeepLink).not.toHaveBeenCalled();
+    expect(flow.getState()).toMatchObject({
+      walletHandoffKind: "dc_api",
+    });
+    expect(flow.getState().deepLink).toBeUndefined();
+  });
+
   it("synthesizes deep links for plain HTTPS request URLs", async () => {
     const { client } = createClientStub();
     client.startVerification = vi.fn().mockResolvedValue({

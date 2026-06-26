@@ -61,6 +61,29 @@ function AutoStartVerificationHook({
   return null;
 }
 
+function AutoStartEudiVerificationHook() {
+  const { startVerification } = useVerification({
+    provider: "eudi",
+    providerOptions: {
+      eudi: {
+        expectedOrigins: ["https://merchant.example"],
+        responseMode: "dc_api.jwt",
+      },
+    },
+  });
+  const didStartRef = useRef(false);
+
+  useEffect(() => {
+    if (didStartRef.current) {
+      return;
+    }
+    didStartRef.current = true;
+    startVerification();
+  }, [startVerification]);
+
+  return null;
+}
+
 function AutoStartRequestBlobDeepLink() {
   const verification = useVerification();
   const didStartRef = useRef(false);
@@ -280,5 +303,69 @@ describe("AuthboundProvider session finalization", () => {
       );
     });
     expect(screen.queryByRole("button", { name: "Open in Wallet" })).toBeNull();
+  });
+
+  it("forwards EUDI provider options from the hook to the verification endpoint", async () => {
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = String(input);
+        if (url === "/api/authbound/verification") {
+          return new Response(
+            JSON.stringify({
+              verificationId: "vrf_eudi_options123",
+              authorizationRequestUrl:
+                "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.test%2Frequest%2F123",
+              clientToken: "client_token_123",
+              expiresAt: "2026-04-21T10:10:00.000Z",
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        if (
+          url ===
+          "https://api.authbound.test/v1/verifications/vrf_eudi_options123/events/sse"
+        ) {
+          return new Response(createSseStream(""), {
+            status: 200,
+            headers: { "Content-Type": "text/event-stream" },
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <AuthboundProvider
+        gatewayUrl="https://api.authbound.test"
+        policyId={"pol_authbound_pension_v1" as never}
+        publishableKey="pk_test_public123"
+        sessionMode="manual"
+      >
+        <AutoStartEudiVerificationHook />
+      </AuthboundProvider>
+    );
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([input]) => String(input) === "/api/authbound/verification"
+        )
+      ).toBe(true);
+    });
+    const verificationCall = fetchMock.mock.calls.find(
+      ([input]) => String(input) === "/api/authbound/verification"
+    );
+    const body = JSON.parse(String(verificationCall?.[1]?.body));
+
+    expect(body).toMatchObject({
+      provider: "eudi",
+      providerOptions: {
+        eudi: {
+          expectedOrigins: ["https://merchant.example"],
+          responseMode: "dc_api.jwt",
+        },
+      },
+    });
   });
 });

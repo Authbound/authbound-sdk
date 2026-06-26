@@ -30,7 +30,7 @@ export interface DeepLinkButtonProps
 
   /**
    * Wallet handoff payload kind returned by Authbound.
-   * Request blobs are QR-only unless Authbound also provides a deep link.
+   * Opaque browser handoffs are not wallet deep links unless one is provided.
    */
   walletHandoffKind?: WalletHandoffKind;
 
@@ -134,7 +134,10 @@ export function DeepLinkButton({
     return null;
   }
 
-  if (walletHandoffKind === "request_blob" && !providedDeepLink) {
+  if (
+    (walletHandoffKind === "request_blob" || walletHandoffKind === "dc_api") &&
+    !providedDeepLink
+  ) {
     return null;
   }
 

@@ -128,7 +128,13 @@ describe("Nuxt verification route", () => {
       {
         customerUserRef: "user_123",
         metadata: { flow: "age_gate" },
-        provider: "vcs",
+        provider: "eudi",
+        providerOptions: {
+          eudi: {
+            expectedOrigins: ["https://merchant.example"],
+            responseMode: "dc_api.jwt",
+          },
+        },
       }
     );
 
@@ -152,7 +158,13 @@ describe("Nuxt verification route", () => {
           customerUserRef: "user_123",
           metadata: { flow: "age_gate" },
           policyId: "pol_age_over_18_authbound_v1",
-          provider: "vcs",
+          provider: "eudi",
+          providerOptions: {
+            eudi: {
+              expectedOrigins: ["https://merchant.example"],
+              responseMode: "dc_api.jwt",
+            },
+          },
         },
       })
     );

@@ -66,6 +66,166 @@ export const VerificationClaimsSchema = z
   .strict();
 
 // ============================================================================
+// Provider Options
+// ============================================================================
+
+const EudiExpectedOriginSchema = z.string().url().refine(
+  (value) => {
+    try {
+      const url = new URL(value);
+      return (
+        url.protocol === "https:" &&
+        url.hostname.length > 0 &&
+        url.username === "" &&
+        url.password === "" &&
+        (url.pathname === "" || url.pathname === "/") &&
+        url.search === "" &&
+        url.hash === ""
+      );
+    } catch {
+      return false;
+    }
+  },
+  {
+    message:
+      "expectedOrigins entries must be HTTPS origins without userinfo, path, query, or fragment",
+  }
+);
+
+const AUTHORIZATION_REQUEST_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*$/;
+const DISALLOWED_AUTHORIZATION_REQUEST_SCHEMES = new Set([
+  "about",
+  "blob",
+  "data",
+  "file",
+  "javascript",
+  "vbscript",
+]);
+const RESERVED_AUTHORIZATION_REQUEST_URI_PARAMS = new Set([
+  "client_id",
+  "request",
+  "request_uri",
+  "request_uri_method",
+]);
+
+function isDisallowedAuthorizationRequestScheme(scheme: string): boolean {
+  return DISALLOWED_AUTHORIZATION_REQUEST_SCHEMES.has(
+    scheme.toLowerCase().replace(/:$/, "")
+  );
+}
+
+function hasReservedAuthorizationRequestUriParam(value: string): boolean {
+  try {
+    const url = new URL(value);
+    let hasReservedParam = false;
+    url.searchParams.forEach((_paramValue, key) => {
+      if (RESERVED_AUTHORIZATION_REQUEST_URI_PARAMS.has(key)) {
+        hasReservedParam = true;
+      }
+    });
+    return hasReservedParam;
+  } catch {
+    return true;
+  }
+}
+
+function hasDisallowedAuthorizationRequestUriScheme(value: string): boolean {
+  try {
+    return isDisallowedAuthorizationRequestScheme(new URL(value).protocol);
+  } catch {
+    return true;
+  }
+}
+
+const AuthorizationRequestUriSchema = z
+  .string()
+  .url()
+  .refine((value) => !hasDisallowedAuthorizationRequestUriScheme(value), {
+    message:
+      "authorizationRequestUri must not use a browser-executable or local file scheme",
+  })
+  .refine((value) => !hasReservedAuthorizationRequestUriParam(value), {
+    message:
+      "authorizationRequestUri must not contain client_id, request, request_uri, or request_uri_method query parameters",
+  });
+
+export const EudiVerifierAttestationSchema = z
+  .object({
+    format: z.literal("jwt"),
+    data: z.string().refine((value) => value.trim().length > 0, {
+      message: "Verifier attestation data cannot be blank",
+    }),
+  })
+  .strict();
+
+export type EudiVerifierAttestation = z.infer<
+  typeof EudiVerifierAttestationSchema
+>;
+
+export const EudiVerificationOptionsSchema = z
+  .object({
+    responseMode: z
+      .enum(["direct_post", "direct_post.jwt", "dc_api.jwt"])
+      .optional(),
+    expectedOrigins: z.array(EudiExpectedOriginSchema).min(1).optional(),
+    jarMode: z.enum(["by_value", "by_reference"]).optional(),
+    requestUriMethod: z.enum(["get", "post"]).optional(),
+    authorizationRequestScheme: z
+      .string()
+      .regex(
+        AUTHORIZATION_REQUEST_SCHEME_PATTERN,
+        "authorizationRequestScheme must be a valid URI scheme"
+      )
+      .refine((value) => !isDisallowedAuthorizationRequestScheme(value), {
+        message:
+          "authorizationRequestScheme must not be a browser-executable or local file scheme",
+      })
+      .optional(),
+    authorizationRequestUri: AuthorizationRequestUriSchema.optional(),
+    stripTrustedAuthoritiesForWallet: z.boolean().optional(),
+    verifierAttestations: z
+      .array(EudiVerifierAttestationSchema)
+      .min(1)
+      .optional(),
+    profile: z.enum(["openid4vp", "haip"]).optional(),
+  })
+  .strict()
+  .superRefine((options, context) => {
+    if (
+      options.responseMode === "dc_api.jwt" &&
+      !options.expectedOrigins?.length
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["expectedOrigins"],
+        message: "expectedOrigins is required when responseMode is dc_api.jwt",
+      });
+    }
+    if (options.authorizationRequestScheme && options.authorizationRequestUri) {
+      context.addIssue({
+        code: "custom",
+        path: ["authorizationRequestUri"],
+        message:
+          "authorizationRequestScheme and authorizationRequestUri are mutually exclusive",
+      });
+    }
+  });
+
+export type EudiVerificationOptions = z.infer<
+  typeof EudiVerificationOptionsSchema
+>;
+
+export const VerificationProviderOptionsSchema = z
+  .object({
+    eudi: EudiVerificationOptionsSchema.optional(),
+  })
+  .strict();
+
+export type VerificationProviderOptions = z.infer<
+  typeof VerificationProviderOptionsSchema
+>;
+
+// ============================================================================
 // Verification Request/Response Types
 // ============================================================================
 
@@ -81,6 +241,8 @@ export interface CreateVerificationOptions {
   metadata?: Record<string, unknown>;
   /** Optional provider override */
   provider?: ProviderPreference;
+  /** Provider-specific protocol options */
+  providerOptions?: VerificationProviderOptions;
   /** Override default timeout (seconds) */
   timeoutSeconds?: number;
 }
@@ -90,12 +252,18 @@ export const CreateVerificationOptionsSchema = z.object({
   customerUserRef: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   provider: ProviderPreferenceSchema.optional(),
+  providerOptions: VerificationProviderOptionsSchema.optional(),
   timeoutSeconds: z.number().int().positive().max(600).optional(),
 });
 
-export type WalletHandoffKind = "qr" | "link" | "request_blob";
+export type WalletHandoffKind = "qr" | "link" | "request_blob" | "dc_api";
 
-export const WalletHandoffKindSchema = z.enum(["qr", "link", "request_blob"]);
+export const WalletHandoffKindSchema = z.enum([
+  "qr",
+  "link",
+  "request_blob",
+  "dc_api",
+]);
 
 /**
  * Verification creation response from your server route.

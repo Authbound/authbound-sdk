@@ -1,6 +1,9 @@
 import {
   isSameOriginSessionRequest,
+  type ProviderPreference,
   ProviderPreferenceSchema,
+  type VerificationProviderOptions,
+  VerificationProviderOptionsSchema,
 } from "@authbound/core";
 import { z } from "zod";
 import {
@@ -74,7 +77,8 @@ type CreateVerificationClient = {
       policyId: string;
       customerUserRef?: string;
       metadata?: Record<string, unknown>;
-      provider?: "auto" | "vcs" | "eudi" | "eudiplo";
+      provider?: ProviderPreference;
+      providerOptions?: VerificationProviderOptions;
       idempotencyKey?: string;
     }): Promise<BrowserVerificationSource>;
   };
@@ -91,6 +95,7 @@ const CreateVerificationRequestSchema = z.object({
   customerUserRef: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   provider: ProviderPreferenceSchema.optional(),
+  providerOptions: VerificationProviderOptionsSchema.optional(),
 });
 
 const FinalizeVerificationRequestSchema = z.object({
@@ -128,6 +133,7 @@ export async function createVerificationHandlerKernel({
       customerUserRef: userRef,
       metadata: body.metadata,
       provider: body.provider,
+      providerOptions: body.providerOptions,
       idempotencyKey,
     });
 

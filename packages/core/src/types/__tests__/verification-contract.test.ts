@@ -114,6 +114,22 @@ describe("public verification contract security invariants", () => {
     ).toBe(true);
   });
 
+  it("accepts browser-native DC API client actions", () => {
+    expect(
+      PublicVerificationSchema.safeParse({
+        ...activeVerification,
+        client_action: {
+          kind: "dc_api",
+          data: JSON.stringify({
+            client_id: "x509_hash:Verifier",
+            request_uri: "https://verifier.example/request.jwt/req_dc_api",
+          }),
+          expires_at: "2026-04-21T10:10:00.000Z",
+        },
+      }).success
+    ).toBe(true);
+  });
+
   it("rejects public verification metadata that smuggles private verification material", () => {
     for (const unsafeKey of [
       "client_token",
