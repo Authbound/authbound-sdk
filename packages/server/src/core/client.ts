@@ -600,7 +600,6 @@ export interface CreateOperatorDeviceGrantOptions {
   deviceRef?: string;
   operatorRef?: string;
   ttlSeconds?: number;
-  idempotencyKey?: string;
 }
 
 export interface ListStationVerificationsOptions {
@@ -1625,7 +1624,9 @@ class VerificationsApi {
    */
   async create(options: CreateVerificationOptions): Promise<Verification> {
     const provider = assertProviderPreference(options.provider);
-    const providerOptions = mapVerificationProviderOptions(options.providerOptions);
+    const providerOptions = mapVerificationProviderOptions(
+      options.providerOptions
+    );
     const requestBody = {
       policy_id: options.policyId,
       ...(options.customerUserRef && {
@@ -1886,11 +1887,6 @@ class StationsApi {
         ...(options.ttlSeconds !== undefined
           ? { ttl_seconds: options.ttlSeconds }
           : {}),
-      },
-      {
-        headers: options.idempotencyKey
-          ? { "Idempotency-Key": options.idempotencyKey }
-          : undefined,
       }
     );
     return parseApiResponse(

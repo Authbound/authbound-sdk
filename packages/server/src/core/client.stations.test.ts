@@ -218,7 +218,6 @@ describe("AuthboundClient stations API", () => {
       deviceRef: "door-ipad-1",
       operatorRef: "staff-1",
       ttlSeconds: 3600,
-      idempotencyKey: "operator-grant-key",
     });
     const revoked = await client.stations.revokeOperatorGrant(
       stationId,
@@ -253,9 +252,9 @@ describe("AuthboundClient stations API", () => {
       operator_ref: "staff-1",
       ttl_seconds: 3600,
     });
-    expect(fetchMock.mock.calls[2]?.[1].headers).toMatchObject({
-      "Idempotency-Key": "operator-grant-key",
-    });
+    expect(fetchMock.mock.calls[2]?.[1].headers).not.toHaveProperty(
+      "Idempotency-Key"
+    );
   });
 
   it("lists station events with cursor pagination", async () => {
