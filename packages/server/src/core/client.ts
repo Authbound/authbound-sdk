@@ -2153,6 +2153,8 @@ export async function getVerificationStatus(options: {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        [AUTHBOUND_API_VERSION_HEADER]: AUTHBOUND_API_VERSION,
+        [AUTHBOUND_CONTRACT_REVISION_HEADER]: AUTHBOUND_CONTRACT_REVISION,
         Authorization: `Bearer ${clientToken}`,
         "X-Authbound-Publishable-Key": publishableKey,
       },
