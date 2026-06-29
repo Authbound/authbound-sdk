@@ -86,8 +86,11 @@ function getRequestBlobPayload(
 ): string | undefined {
   const data = getString(clientAction?.data);
   if (
-    !(clientAction?.kind === "request_blob" || clientAction?.kind === "dc_api") ||
-    !data
+    !(
+      (clientAction?.kind === "request_blob" ||
+        clientAction?.kind === "dc_api") &&
+      data
+    )
   ) {
     return;
   }

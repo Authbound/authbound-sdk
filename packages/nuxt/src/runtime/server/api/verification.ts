@@ -4,10 +4,7 @@
  * Creates verifications by proxying to the Authbound API.
  */
 
-import type {
-  PolicyId,
-  ProviderPreference,
-} from "@authbound/core";
+import type { PolicyId, ProviderPreference } from "@authbound/core";
 import {
   AuthboundClient,
   type CreateVerificationResponse,

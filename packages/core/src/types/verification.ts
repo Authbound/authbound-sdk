@@ -69,28 +69,31 @@ export const VerificationClaimsSchema = z
 // Provider Options
 // ============================================================================
 
-const EudiExpectedOriginSchema = z.string().url().refine(
-  (value) => {
-    try {
-      const url = new URL(value);
-      return (
-        url.protocol === "https:" &&
-        url.hostname.length > 0 &&
-        url.username === "" &&
-        url.password === "" &&
-        (url.pathname === "" || url.pathname === "/") &&
-        url.search === "" &&
-        url.hash === ""
-      );
-    } catch {
-      return false;
+const EudiExpectedOriginSchema = z
+  .string()
+  .url()
+  .refine(
+    (value) => {
+      try {
+        const url = new URL(value);
+        return (
+          url.protocol === "https:" &&
+          url.hostname.length > 0 &&
+          url.username === "" &&
+          url.password === "" &&
+          (url.pathname === "" || url.pathname === "/") &&
+          url.search === "" &&
+          url.hash === ""
+        );
+      } catch {
+        return false;
+      }
+    },
+    {
+      message:
+        "expectedOrigins entries must be HTTPS origins without userinfo, path, query, or fragment",
     }
-  },
-  {
-    message:
-      "expectedOrigins entries must be HTTPS origins without userinfo, path, query, or fragment",
-  }
-);
+  );
 
 const AUTHORIZATION_REQUEST_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*$/;
 const DISALLOWED_AUTHORIZATION_REQUEST_SCHEMES = new Set([

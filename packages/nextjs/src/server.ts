@@ -23,7 +23,6 @@ import {
   type ProviderPreference,
   ProviderPreferenceSchema,
   PublicVerificationStatusSnapshotSchema,
-  type SelectedVerificationProvider,
   STATION_OPERATOR_GRANT_TOKEN_HEADER,
   type VerificationProviderOptions,
   VerificationProviderOptionsSchema,
@@ -671,9 +670,8 @@ export function createVerificationRoute(
         );
       }
 
-      const mappedProviderOptions = mapVerificationProviderOptions(
-        routeProviderOptions
-      );
+      const mappedProviderOptions =
+        mapVerificationProviderOptions(routeProviderOptions);
       const gatewayBody = {
         customer_user_ref: body.customerUserRef,
         policy_id: body.policyId,

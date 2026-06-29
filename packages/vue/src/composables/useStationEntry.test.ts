@@ -14,7 +14,7 @@ describe("useStationEntry", () => {
         verification_id: "vrf_123",
         client_action: {
           kind: "dc_api",
-          data: "{\"request_uri\":\"https://verifier.example/request.jwt/req_dc_api\"}",
+          data: '{"request_uri":"https://verifier.example/request.jwt/req_dc_api"}',
           expires_at: "2026-06-07T12:10:00.000Z",
         },
       })

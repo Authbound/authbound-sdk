@@ -8,11 +8,9 @@ function createClientStub() {
   let statusHandler:
     | Parameters<AuthboundClient["subscribeToStatus"]>[2]
     | null = null;
-  let statusErrorHandler:
-    | NonNullable<
-        NonNullable<Parameters<AuthboundClient["subscribeToStatus"]>[3]>["onError"]
-      >
-    | null = null;
+  let statusErrorHandler: NonNullable<
+    NonNullable<Parameters<AuthboundClient["subscribeToStatus"]>[3]>["onError"]
+  > | null = null;
   const cleanup = vi.fn();
 
   const client = {

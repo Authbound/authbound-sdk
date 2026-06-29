@@ -127,7 +127,7 @@ describe("Next.js server debug logging", () => {
         client_token: "client_token_secret_value",
         client_action: {
           kind: "dc_api",
-          data: "{\"request_uri\":\"https://api.authbound.io/request.jwt/req_123\"}",
+          data: '{"request_uri":"https://api.authbound.io/request.jwt/req_123"}',
           expires_at: "2026-03-09T12:00:00.000Z",
         },
         expires_at: "2026-03-09T12:00:00.000Z",
