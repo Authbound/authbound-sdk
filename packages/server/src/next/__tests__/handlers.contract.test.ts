@@ -1,6 +1,10 @@
 import crypto from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AuthboundConfig } from "../../core/types";
+import {
+  AUTHBOUND_API_VERSION,
+  AUTHBOUND_CONTRACT_REVISION,
+} from "../../generated/api-contract";
 import { createAuthboundHandlers } from "../handlers";
 
 const apiKey = `sk_test_${"x".repeat(32)}`;
@@ -414,7 +418,8 @@ describe("createAuthboundHandlers browser verification contract", () => {
     const payload = JSON.stringify({
       id: "evt_123",
       object: "event",
-      api_version: "2026-04-01",
+      api_version: AUTHBOUND_API_VERSION,
+      contract_revision: AUTHBOUND_CONTRACT_REVISION,
       created: Math.floor(Date.now() / 1000),
       livemode: false,
       type: "verification.completed",

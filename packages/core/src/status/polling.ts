@@ -5,6 +5,7 @@
  */
 
 import type { ResolvedConfig } from "../client/config";
+import { authboundContractHeaders } from "../contract-headers";
 import type { ClientToken, VerificationId } from "../types/branded";
 import { AuthboundError } from "../types/errors";
 import type { StatusEvent } from "../types/verification";
@@ -124,6 +125,7 @@ export function createPollingSubscription(
     try {
       const response = await fetch(url.toString(), {
         headers: {
+          ...authboundContractHeaders(),
           Authorization: `Bearer ${clientToken}`,
           Accept: "application/json",
           "x-authbound-publishable-key": config.publishableKey,
@@ -134,7 +136,7 @@ export function createPollingSubscription(
       clearTimeout(requestTimeoutId);
 
       if (!response.ok) {
-        throw AuthboundError.fromResponse(response);
+        throw await createPollingResponseError(response);
       }
 
       const data = (await response.json()) as {
@@ -277,6 +279,7 @@ export async function pollOnce(
 
   const response = await fetch(url.toString(), {
     headers: {
+      ...authboundContractHeaders(),
       Authorization: `Bearer ${clientToken}`,
       Accept: "application/json",
       "x-authbound-publishable-key": config.publishableKey,
@@ -284,7 +287,7 @@ export async function pollOnce(
   });
 
   if (!response.ok) {
-    throw AuthboundError.fromResponse(response);
+    throw await createPollingResponseError(response);
   }
 
   const data = (await response.json()) as {
@@ -301,4 +304,36 @@ export async function pollOnce(
       ? { timeRemaining: data.timeRemaining }
       : {}),
   };
+}
+
+async function createPollingResponseError(
+  response: Response
+): Promise<AuthboundError> {
+  return AuthboundError.fromResponse(response, await readErrorBody(response));
+}
+
+async function readErrorBody(response: Response): Promise<
+  | {
+      code?: string;
+      message?: string;
+      error?: string;
+      details?: Record<string, unknown>;
+      [key: string]: unknown;
+    }
+  | undefined
+> {
+  try {
+    const body = (await response.json()) as unknown;
+    return body && typeof body === "object" && !Array.isArray(body)
+      ? (body as {
+          code?: string;
+          message?: string;
+          error?: string;
+          details?: Record<string, unknown>;
+          [key: string]: unknown;
+        })
+      : undefined;
+  } catch {
+    return;
+  }
 }

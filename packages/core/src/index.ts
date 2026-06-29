@@ -49,6 +49,15 @@ export {
 // ============================================================================
 
 export {
+  AUTHBOUND_API_VERSION,
+  AUTHBOUND_API_VERSION_HEADER,
+  AUTHBOUND_CONTRACT_REVISION,
+  AUTHBOUND_CONTRACT_REVISION_HEADER,
+  authboundContractHeaders,
+  withAuthboundContractHeaders,
+} from "./contract-headers";
+
+export {
   buildStationDisclosureUrl,
   buildStationDisplayEventsUrl,
   buildStationDisplayUrl,

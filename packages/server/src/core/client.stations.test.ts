@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  AUTHBOUND_API_VERSION,
+  AUTHBOUND_CONTRACT_REVISION,
+} from "../generated/api-contract";
 import { AuthboundClient } from "./client";
 
 const apiKey = `sk_test_${"x".repeat(32)}`;
@@ -254,6 +258,8 @@ describe("AuthboundClient stations API", () => {
       ttl_seconds: 3600,
     });
     expect(fetchMock.mock.calls[2]?.[1].headers).toMatchObject({
+      "Authbound-Api-Version": AUTHBOUND_API_VERSION,
+      "Authbound-Contract-Revision": AUTHBOUND_CONTRACT_REVISION,
       "Idempotency-Key": "grant-create-key",
     });
   });

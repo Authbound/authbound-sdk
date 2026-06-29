@@ -1,3 +1,4 @@
+import { withAuthboundContractHeaders } from "@authbound/core";
 import { redactSensitiveText } from "@authbound/server";
 import {
   createError,
@@ -125,7 +126,10 @@ export async function forwardStationRequest<TBody>(
   init: RequestInit
 ): Promise<TBody> {
   const config = useRuntimeConfig();
-  const response = await fetch(`${gatewayUrl()}${path}`, init);
+  const response = await fetch(`${gatewayUrl()}${path}`, {
+    ...init,
+    headers: withAuthboundContractHeaders(init.headers),
+  });
   const body = await response.json().catch(() => ({
     error: response.statusText,
   }));
@@ -164,7 +168,7 @@ export async function forwardStationStream(
     : undefined;
   const response = await fetch(`${gatewayUrl()}${path}`, {
     method: "GET",
-    ...(requestHeaders ? { headers: requestHeaders } : {}),
+    headers: withAuthboundContractHeaders(requestHeaders),
   });
   const responseHeaders = new Headers();
   for (const name of [

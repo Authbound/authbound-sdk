@@ -3,6 +3,10 @@ import express, { type Request } from "express";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AuthboundConfig } from "../../core/types";
 import { generateWebhookSignature } from "../../core/webhooks";
+import {
+  AUTHBOUND_API_VERSION,
+  AUTHBOUND_CONTRACT_REVISION,
+} from "../../generated/api-contract";
 import { createAuthboundRouter } from "../handlers";
 
 const config: AuthboundConfig = {
@@ -373,7 +377,8 @@ describe("Express Authbound router contract", () => {
     const payload = JSON.stringify({
       id: "evt_123",
       object: "event",
-      api_version: "2026-04-01",
+      api_version: AUTHBOUND_API_VERSION,
+      contract_revision: AUTHBOUND_CONTRACT_REVISION,
       created: Math.floor(Date.now() / 1000),
       livemode: false,
       type: "verification.completed",
@@ -449,7 +454,8 @@ describe("Express Authbound router contract", () => {
     const payload = {
       id: "evt_123",
       object: "event",
-      api_version: "2026-04-01",
+      api_version: AUTHBOUND_API_VERSION,
+      contract_revision: AUTHBOUND_CONTRACT_REVISION,
       created: Math.floor(Date.now() / 1000),
       livemode: false,
       type: "verification.completed",

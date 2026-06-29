@@ -110,7 +110,9 @@ describe("AuthboundClient verifications API", () => {
   });
 
   it("maps EUDI provider options to the public REST contract", async () => {
-    const fetchMock = vi.fn(async () => jsonResponse(verificationResponse, 201));
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(verificationResponse, 201)
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     await createClient().verifications.create({
@@ -149,7 +151,9 @@ describe("AuthboundClient verifications API", () => {
   });
 
   it("rejects unknown EUDI provider option keys before calling the API", async () => {
-    const fetchMock = vi.fn(async () => jsonResponse(verificationResponse, 201));
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(verificationResponse, 201)
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
@@ -169,7 +173,9 @@ describe("AuthboundClient verifications API", () => {
   });
 
   it("rejects invalid EUDI provider option values before calling the API", async () => {
-    const fetchMock = vi.fn(async () => jsonResponse(verificationResponse, 201));
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(verificationResponse, 201)
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     const client = createClient();

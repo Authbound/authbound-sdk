@@ -9,8 +9,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResolvedConfig } from "../../client/config";
 import { asClientToken, asVerificationId } from "../../types/branded";
+import type { AuthboundError } from "../../types/errors";
 import type { StatusEvent } from "../../types/verification";
-import { createPollingSubscription } from "../polling";
+import { createPollingSubscription, pollOnce } from "../polling";
 
 // Test fixtures
 const TEST_CONFIG: ResolvedConfig = {
@@ -376,6 +377,68 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
         })
       );
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("Public Error Mapping", () => {
+    it("uses public error bodies when emitting polling errors", async () => {
+      const errors: AuthboundError[] = [];
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        headers: new Headers(),
+        json: () =>
+          Promise.resolve({
+            object: "error",
+            code: "origin_not_allowed",
+            message: "Origin not allowed",
+          }),
+      });
+
+      cleanup = createPollingSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          onError: (error) => errors.push(error),
+          pollingConfig: { initialInterval: 100 },
+        }
+      );
+
+      await vi.advanceTimersByTimeAsync(100);
+
+      expect(errors[0]?.code).toBe("session_origin_forbidden");
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          error: expect.objectContaining({
+            code: "session_origin_forbidden",
+            message: "Origin not allowed",
+          }),
+        })
+      );
+    });
+
+    it("uses public error bodies in manual polling failures", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        headers: new Headers(),
+        json: () =>
+          Promise.resolve({
+            object: "error",
+            code: "not_found",
+            message: "Verification not found",
+          }),
+      });
+
+      await expect(
+        pollOnce(TEST_CONFIG, TEST_VERIFICATION_ID, TEST_CLIENT_TOKEN)
+      ).rejects.toMatchObject({
+        code: "verification_not_found",
+        message: "Verification not found",
+      });
     });
   });
 

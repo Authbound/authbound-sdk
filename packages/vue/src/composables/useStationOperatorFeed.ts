@@ -1,4 +1,5 @@
 import {
+  authboundContractHeaders,
   buildStationDisclosureUrl,
   buildStationDisplayEventsUrl,
   buildStationDisplayUrl,
@@ -230,9 +231,10 @@ export function useStationOperatorFeed(
           });
       const fetchOptions =
         usesDisplayToken || !options.grantToken
-          ? undefined
+          ? { headers: authboundContractHeaders() }
           : {
               headers: {
+                ...authboundContractHeaders(),
                 [STATION_OPERATOR_GRANT_TOKEN_HEADER]: options.grantToken,
               },
             };
@@ -270,6 +272,7 @@ export function useStationOperatorFeed(
       await readJson(
         await fetch(url, {
           headers: {
+            ...authboundContractHeaders(),
             [STATION_OPERATOR_GRANT_TOKEN_HEADER]: options.grantToken,
           },
         })

@@ -8,6 +8,30 @@ import {
   createStationOperatorRoute,
 } from "../server";
 
+const CONTRACT_HEADERS = {
+  "Authbound-Api-Version": "v1",
+  "Authbound-Contract-Revision": "v1.2026-06-18.1",
+};
+
+function fetchCall(index: number): [string, RequestInit] {
+  return (
+    global.fetch as unknown as { mock: { calls: [string, RequestInit][] } }
+  ).mock.calls[index];
+}
+
+function gatewayHeaderValues(
+  headers: HeadersInit | undefined,
+  extraNames: string[] = []
+) {
+  const actual = new Headers(headers);
+  return Object.fromEntries(
+    [...Object.keys(CONTRACT_HEADERS), ...extraNames].map((name) => [
+      name,
+      actual.get(name),
+    ])
+  );
+}
+
 describe("Next.js station runtime routes", () => {
   const originalFetch = global.fetch;
 
@@ -49,15 +73,19 @@ describe("Next.js station runtime routes", () => {
     expect(response.status).toBe(201);
     expect(global.fetch).toHaveBeenCalledWith(
       "https://api.authbound.test/v1/stations/public/stn_demo/verifications?token=entry_token",
-      {
+      expect.objectContaining({
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ client_ref: "client_ref_123", transport: "qr" }),
-      }
+      })
     );
-    expect(fetchMock.mock.calls[0]?.[1]?.headers).not.toHaveProperty(
-      "X-Authbound-Key"
-    );
+    const headers = new Headers(fetchCall(0)[1].headers);
+    expect(
+      gatewayHeaderValues(fetchCall(0)[1].headers, ["Content-Type"])
+    ).toEqual({
+      ...CONTRACT_HEADERS,
+      "Content-Type": "application/json",
+    });
+    expect(headers.has("X-Authbound-Key")).toBe(false);
   });
 
   it("proxies display feed, operator feed, and grant-protected disclosure reads", async () => {
@@ -131,31 +159,37 @@ describe("Next.js station runtime routes", () => {
     expect(disclosureResponse.headers.get("x-content-type-options")).toBe(
       "nosniff"
     );
-    expect(global.fetch).toHaveBeenNthCalledWith(
-      1,
-      "https://api.authbound.test/v1/stations/public/stn_demo/display?token=display_token",
-      { method: "GET" }
+    expect(fetchCall(0)[0]).toBe(
+      "https://api.authbound.test/v1/stations/public/stn_demo/display?token=display_token"
     );
-    expect(global.fetch).toHaveBeenNthCalledWith(
-      2,
-      "https://api.authbound.test/v1/stations/public/stn_demo/operator",
-      {
-        method: "GET",
-        headers: {
-          "X-Authbound-Station-Operator-Grant-Token": "grant_token",
-        },
-      }
+    expect(fetchCall(0)[1].method).toBe("GET");
+    expect(gatewayHeaderValues(fetchCall(0)[1].headers)).toEqual(
+      CONTRACT_HEADERS
     );
-    expect(global.fetch).toHaveBeenNthCalledWith(
-      3,
-      "https://api.authbound.test/v1/stations/public/stn_demo/verifications/vrf_demo/disclosure",
-      {
-        method: "GET",
-        headers: {
-          "X-Authbound-Station-Operator-Grant-Token": "grant_token",
-        },
-      }
+    expect(fetchCall(1)[0]).toBe(
+      "https://api.authbound.test/v1/stations/public/stn_demo/operator"
     );
+    expect(fetchCall(1)[1].method).toBe("GET");
+    expect(
+      gatewayHeaderValues(fetchCall(1)[1].headers, [
+        "X-Authbound-Station-Operator-Grant-Token",
+      ])
+    ).toEqual({
+      ...CONTRACT_HEADERS,
+      "X-Authbound-Station-Operator-Grant-Token": "grant_token",
+    });
+    expect(fetchCall(2)[0]).toBe(
+      "https://api.authbound.test/v1/stations/public/stn_demo/verifications/vrf_demo/disclosure"
+    );
+    expect(fetchCall(2)[1].method).toBe("GET");
+    expect(
+      gatewayHeaderValues(fetchCall(2)[1].headers, [
+        "X-Authbound-Station-Operator-Grant-Token",
+      ])
+    ).toEqual({
+      ...CONTRACT_HEADERS,
+      "X-Authbound-Station-Operator-Grant-Token": "grant_token",
+    });
   });
 
   it("forwards explicit station entry-token refresh requests", async () => {
@@ -178,7 +212,10 @@ describe("Next.js station runtime routes", () => {
 
     expect(global.fetch).toHaveBeenCalledWith(
       "https://api.authbound.test/v1/stations/public/stn_demo/display?token=display_token&refresh_entry_token=true",
-      { method: "GET" }
+      expect.objectContaining({ method: "GET" })
+    );
+    expect(gatewayHeaderValues(fetchCall(0)[1].headers)).toEqual(
+      CONTRACT_HEADERS
     );
   });
 
@@ -265,7 +302,10 @@ describe("Next.js station runtime routes", () => {
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(global.fetch).toHaveBeenCalledWith(
       "https://api.authbound.test/v1/stations/public/stn_demo/display/events/sse?token=display_token",
-      { method: "GET" }
+      expect.objectContaining({ method: "GET" })
+    );
+    expect(gatewayHeaderValues(fetchCall(0)[1].headers)).toEqual(
+      CONTRACT_HEADERS
     );
   });
 
@@ -296,7 +336,10 @@ describe("Next.js station runtime routes", () => {
     );
     expect(global.fetch).toHaveBeenCalledWith(
       "https://api.authbound.test/v1/stations/public/stn_demo/operator/events/sse?grant_token=grant_token",
-      { method: "GET" }
+      expect.objectContaining({ method: "GET" })
+    );
+    expect(gatewayHeaderValues(fetchCall(0)[1].headers)).toEqual(
+      CONTRACT_HEADERS
     );
   });
 
@@ -323,7 +366,13 @@ describe("Next.js station runtime routes", () => {
 
     expect(global.fetch).toHaveBeenCalledWith(
       "https://api.authbound.test/v1/stations/public/stn_demo/display/events/sse?token=display_token&after=41",
-      { method: "GET", headers: { "Last-Event-ID": "42" } }
+      expect.objectContaining({ method: "GET" })
     );
+    expect(
+      gatewayHeaderValues(fetchCall(0)[1].headers, ["Last-Event-ID"])
+    ).toEqual({
+      ...CONTRACT_HEADERS,
+      "Last-Event-ID": "42",
+    });
   });
 });

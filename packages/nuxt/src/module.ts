@@ -31,11 +31,11 @@ import {
   defineNuxtModule,
 } from "@nuxt/kit";
 
-export { asPolicyId } from "@authbound/core";
 export type {
   ProviderPreference,
   VerificationProviderOptions,
 } from "@authbound/core";
+export { asPolicyId } from "@authbound/core";
 
 // ============================================================================
 // Module Options

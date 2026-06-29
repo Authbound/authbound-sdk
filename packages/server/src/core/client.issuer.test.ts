@@ -183,6 +183,48 @@ describe("AuthboundClient issuer APIs", () => {
     ]);
   });
 
+  it("creates credential definitions with idempotency as a header", async () => {
+    const definition = {
+      object: "issuer.credential_definition",
+      id: "pension_credential_v1",
+      credentialDefinitionId: "pension_credential_v1",
+      format: "dc+sd-jwt",
+      vct: "urn:vc:authbound:pension:1.0",
+      title: "Pension Credential",
+      claims: [],
+    };
+    const fetchMock = vi.fn(async () => jsonResponse(definition, 201));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createClient().issuer.credentialDefinitions.create({
+      credentialDefinitionId: "pension_credential_v1",
+      vct: "urn:vc:authbound:pension:1.0",
+      format: "dc+sd-jwt",
+      title: "Pension Credential",
+      idempotencyKey: "idem_123",
+    });
+
+    const [, request] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${apiUrl}/v1/issuer/credential-definitions`,
+      expect.objectContaining({ method: "POST" })
+    );
+    expect(request.headers).toMatchObject({
+      "Content-Type": "application/json",
+      "X-Authbound-Key": apiKey,
+      "Idempotency-Key": "idem_123",
+    });
+    expect(JSON.parse(request.body as string)).toEqual({
+      credentialDefinitionId: "pension_credential_v1",
+      vct: "urn:vc:authbound:pension:1.0",
+      format: "dc+sd-jwt",
+      title: "Pension Credential",
+    });
+  });
+
   it("rejects unsupported mDoc credential definition authoring before sending a request", async () => {
     const fetchMock = vi.fn(async () => jsonResponse(offerResponse));
     vi.stubGlobal("fetch", fetchMock);

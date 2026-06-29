@@ -4,6 +4,7 @@
  * Uses native fetch for Edge runtime compatibility.
  */
 
+import { authboundContractHeaders } from "../contract-headers";
 import { AuthboundError } from "../types/errors";
 import type { ProviderPreference } from "../types/verification-contract";
 import type { ResolvedConfig } from "./config";
@@ -70,6 +71,7 @@ export function createHttpClient(config: ResolvedConfig) {
 
     // Build headers
     const headers: Record<string, string> = {
+      ...authboundContractHeaders(),
       "Content-Type": "application/json",
       Accept: "application/json",
       "X-Authbound-Client": "@authbound/core",

@@ -50,6 +50,12 @@ import {
   PublicVerificationStatusSnapshotSchema as VerificationStatusSchema,
 } from "@authbound/core";
 import { z } from "zod";
+import {
+  AUTHBOUND_API_VERSION,
+  AUTHBOUND_API_VERSION_HEADER,
+  AUTHBOUND_CONTRACT_REVISION,
+  AUTHBOUND_CONTRACT_REVISION_HEADER,
+} from "../generated/api-contract";
 import { redactSensitiveText } from "./error-utils";
 import { verifyWebhookSignature } from "./webhooks";
 
@@ -689,10 +695,14 @@ export interface CreateCredentialDefinitionOptions {
   aliases?: string[];
   rendering?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+  idempotencyKey?: string;
 }
 
 export type UpdateCredentialDefinitionOptions = Partial<
-  Omit<CreateCredentialDefinitionOptions, "credentialDefinitionId">
+  Omit<
+    CreateCredentialDefinitionOptions,
+    "credentialDefinitionId" | "idempotencyKey"
+  >
 >;
 
 export interface ListOpenId4VcIssuanceOptions {
@@ -1080,6 +1090,8 @@ export class AuthboundClient {
       method,
       headers: {
         "Content-Type": "application/json",
+        [AUTHBOUND_API_VERSION_HEADER]: AUTHBOUND_API_VERSION,
+        [AUTHBOUND_CONTRACT_REVISION_HEADER]: AUTHBOUND_CONTRACT_REVISION,
         ...(options?.includeApiKey === false
           ? {}
           : { "X-Authbound-Key": this.apiKey }),
@@ -1408,10 +1420,16 @@ class CredentialDefinitionsApi {
     assertNonEmpty(options.vct, "vct");
     assertNonEmpty(options.title, "title");
     assertCredentialDefinitionAuthoringFormat(options.format);
+    const { idempotencyKey, ...body } = options;
     const response = await this.client.request<unknown>(
       "POST",
       "/v1/issuer/credential-definitions",
-      options
+      body,
+      {
+        headers: idempotencyKey
+          ? { "Idempotency-Key": idempotencyKey }
+          : undefined,
+      }
     );
     return parseApiResponse(CredentialDefinitionSchema, response);
   }
@@ -1607,7 +1625,9 @@ class VerificationsApi {
    */
   async create(options: CreateVerificationOptions): Promise<Verification> {
     const provider = assertProviderPreference(options.provider);
-    const providerOptions = mapVerificationProviderOptions(options.providerOptions);
+    const providerOptions = mapVerificationProviderOptions(
+      options.providerOptions
+    );
     const requestBody = {
       policy_id: options.policyId,
       ...(options.customerUserRef && {
@@ -2139,6 +2159,8 @@ export async function getVerificationStatus(options: {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        [AUTHBOUND_API_VERSION_HEADER]: AUTHBOUND_API_VERSION,
+        [AUTHBOUND_CONTRACT_REVISION_HEADER]: AUTHBOUND_CONTRACT_REVISION,
         Authorization: `Bearer ${clientToken}`,
         "X-Authbound-Publishable-Key": publishableKey,
       },

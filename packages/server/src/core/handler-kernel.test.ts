@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import {
+  AUTHBOUND_API_VERSION,
+  AUTHBOUND_CONTRACT_REVISION,
+} from "../generated/api-contract";
 import { AuthboundClientError } from "./client";
 import {
   createVerificationHandlerKernel,
@@ -130,17 +134,15 @@ describe("framework handler kernel", () => {
     });
 
     expect(client.verifications.create).toHaveBeenCalledTimes(1);
-    expect(client.verifications.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        policyId: "pol_authbound_pension_v1",
-        provider: "eudi",
-      })
-    );
-    expect(client.verifications.create).toHaveBeenCalledWith(
-      expect.not.objectContaining({
-        providerOptions: expect.anything(),
-      })
-    );
+    const [createOptions] =
+      (client.verifications.create.mock.calls[0] as unknown as
+        | [Record<string, unknown>]
+        | undefined) ?? [];
+    expect(createOptions).toMatchObject({
+      policyId: "pol_authbound_pension_v1",
+      provider: "eudi",
+    });
+    expect(createOptions).not.toHaveProperty("providerOptions");
   });
 
   it("accepts arbitrary JSON metadata in framework create requests", async () => {
@@ -320,7 +322,8 @@ describe("framework handler kernel", () => {
     const event: WebhookEvent = {
       id: "evt_123",
       object: "event",
-      api_version: "2026-04-01",
+      api_version: AUTHBOUND_API_VERSION,
+      contract_revision: AUTHBOUND_CONTRACT_REVISION,
       created: Math.floor(Date.now() / 1000),
       livemode: false,
       type: "verification.completed",
@@ -363,7 +366,8 @@ describe("framework handler kernel", () => {
     const event: WebhookEvent = {
       id: "evt_123",
       object: "event",
-      api_version: "2026-04-01",
+      api_version: AUTHBOUND_API_VERSION,
+      contract_revision: AUTHBOUND_CONTRACT_REVISION,
       created: Math.floor(Date.now() / 1000),
       livemode: false,
       type: "verification.completed",
@@ -410,7 +414,8 @@ describe("framework handler kernel", () => {
     const event: WebhookEvent = {
       id: "evt_123",
       object: "event",
-      api_version: "2026-04-01",
+      api_version: AUTHBOUND_API_VERSION,
+      contract_revision: AUTHBOUND_CONTRACT_REVISION,
       created: Math.floor(Date.now() / 1000),
       livemode: false,
       type: "verification.failed",
@@ -449,7 +454,8 @@ describe("framework handler kernel", () => {
     const event: WebhookEvent = {
       id: "evt_123",
       object: "event",
-      api_version: "2026-04-01",
+      api_version: AUTHBOUND_API_VERSION,
+      contract_revision: AUTHBOUND_CONTRACT_REVISION,
       created: Math.floor(Date.now() / 1000),
       livemode: false,
       type: "verification.completed",

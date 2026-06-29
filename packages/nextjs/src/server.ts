@@ -16,16 +16,17 @@
  */
 
 import {
+  authboundContractHeaders,
   isSameOriginSessionRequest,
   originForStatusProxy,
   type PolicyId,
   type ProviderPreference,
   ProviderPreferenceSchema,
   PublicVerificationStatusSnapshotSchema,
-  type SelectedVerificationProvider,
   STATION_OPERATOR_GRANT_TOKEN_HEADER,
   type VerificationProviderOptions,
   VerificationProviderOptionsSchema,
+  withAuthboundContractHeaders,
 } from "@authbound/core";
 import {
   AuthboundClient,
@@ -420,7 +421,10 @@ async function forwardStationRuntimeRequest(
   path: string,
   init: RequestInit
 ): Promise<Response> {
-  const gatewayResponse = await fetch(`${gatewayUrl}${path}`, init);
+  const gatewayResponse = await fetch(`${gatewayUrl}${path}`, {
+    ...init,
+    headers: withAuthboundContractHeaders(init.headers),
+  });
   const body = await gatewayResponse.json().catch(() => ({
     error: gatewayResponse.statusText,
   }));
@@ -449,7 +453,7 @@ async function forwardStationRuntimeStream(
     : undefined;
   const gatewayResponse = await fetch(`${gatewayUrl}${path}`, {
     method: "GET",
-    ...(requestHeaders ? { headers: requestHeaders } : {}),
+    headers: withAuthboundContractHeaders(requestHeaders),
   });
   const responseHeaders = new Headers();
   for (const name of [
@@ -666,9 +670,8 @@ export function createVerificationRoute(
         );
       }
 
-      const mappedProviderOptions = mapVerificationProviderOptions(
-        routeProviderOptions
-      );
+      const mappedProviderOptions =
+        mapVerificationProviderOptions(routeProviderOptions);
       const gatewayBody = {
         customer_user_ref: body.customerUserRef,
         policy_id: body.policyId,
@@ -680,6 +683,7 @@ export function createVerificationRoute(
       };
       const idempotencyKey = request.headers.get("Idempotency-Key");
       const gatewayHeaders: Record<string, string> = {
+        ...authboundContractHeaders(),
         "Content-Type": "application/json",
         "X-Authbound-Key": secret,
       };
@@ -1380,6 +1384,7 @@ export function createStatusRoute(
 
       const publishableKey = getPublishableKey(configuredPublishableKey);
       const headers: Record<string, string> = {
+        ...authboundContractHeaders(),
         Authorization: authorization,
         "X-Authbound-Publishable-Key": publishableKey,
       };
@@ -1719,6 +1724,7 @@ export async function createVerification(options: {
   const response = await fetch(`${gatewayUrl}/v1/verifications`, {
     method: "POST",
     headers: {
+      ...authboundContractHeaders(),
       "Content-Type": "application/json",
       "X-Authbound-Key": secret,
     },
