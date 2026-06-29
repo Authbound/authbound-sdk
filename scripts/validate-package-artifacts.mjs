@@ -12,6 +12,12 @@ const expectedExportKeys = {
   vue: [".", "./styles.css"],
   nuxt: ["."],
 };
+const generatedMetadataSource =
+  "Generated from Authbound mono @authbound/api-contract by scripts/generate-api-contract-artifacts.ts";
+const generatedMetadataFiles = [
+  "packages/core/src/generated/api-contract.ts",
+  "packages/server/src/generated/api-contract.ts",
+];
 
 function preservesCssSideEffects(sideEffects) {
   return Array.isArray(sideEffects) && sideEffects.includes("**/*.css");
@@ -87,6 +93,25 @@ for (const packageName of packageNames) {
     hasFailure = true;
     console.error(
       `${manifest.name} exports CSS but does not preserve CSS side effects`
+    );
+  }
+}
+
+const [firstGeneratedMetadataPath, ...otherGeneratedMetadataPaths] =
+  generatedMetadataFiles;
+const generatedMetadata = readFileSync(firstGeneratedMetadataPath, "utf8");
+if (!generatedMetadata.includes(generatedMetadataSource)) {
+  hasFailure = true;
+  console.error(
+    `${firstGeneratedMetadataPath} is missing generated metadata provenance`
+  );
+}
+
+for (const generatedMetadataPath of otherGeneratedMetadataPaths) {
+  if (readFileSync(generatedMetadataPath, "utf8") !== generatedMetadata) {
+    hasFailure = true;
+    console.error(
+      `${generatedMetadataPath} does not match ${firstGeneratedMetadataPath}`
     );
   }
 }

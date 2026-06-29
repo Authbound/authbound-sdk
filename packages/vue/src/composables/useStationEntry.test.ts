@@ -1,3 +1,4 @@
+import { authboundContractHeaders } from "@authbound/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useStationEntry } from "./useStationEntry";
 
@@ -41,6 +42,7 @@ describe("useStationEntry", () => {
     expect(url.toString()).toBe(
       "https://api.authbound.test/v1/stations/public/stn_123/verifications?token=entry_token_123"
     );
+    expect(init.headers).toMatchObject(authboundContractHeaders());
     expect(JSON.parse(String(init.body))).toEqual({
       client_ref: "client_ref_123",
       transport: "nfc",
