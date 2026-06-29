@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  AUTHBOUND_API_VERSION,
+  AUTHBOUND_CONTRACT_REVISION,
+} from "../generated/api-contract";
 import { AuthboundClient } from "./client";
 
 const apiKey = `sk_test_${"x".repeat(32)}`;
@@ -218,6 +222,7 @@ describe("AuthboundClient stations API", () => {
       deviceRef: "door-ipad-1",
       operatorRef: "staff-1",
       ttlSeconds: 3600,
+      idempotencyKey: "grant-create-key",
     });
     const revoked = await client.stations.revokeOperatorGrant(
       stationId,
@@ -252,9 +257,11 @@ describe("AuthboundClient stations API", () => {
       operator_ref: "staff-1",
       ttl_seconds: 3600,
     });
-    expect(fetchMock.mock.calls[2]?.[1].headers).not.toHaveProperty(
-      "Idempotency-Key"
-    );
+    expect(fetchMock.mock.calls[2]?.[1].headers).toMatchObject({
+      "Authbound-Api-Version": AUTHBOUND_API_VERSION,
+      "Authbound-Contract-Revision": AUTHBOUND_CONTRACT_REVISION,
+      "Idempotency-Key": "grant-create-key",
+    });
   });
 
   it("lists station events with cursor pagination", async () => {

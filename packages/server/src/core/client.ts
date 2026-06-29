@@ -600,6 +600,7 @@ export interface CreateOperatorDeviceGrantOptions {
   deviceRef?: string;
   operatorRef?: string;
   ttlSeconds?: number;
+  idempotencyKey?: string;
 }
 
 export interface ListStationVerificationsOptions {
@@ -1887,6 +1888,11 @@ class StationsApi {
         ...(options.ttlSeconds !== undefined
           ? { ttl_seconds: options.ttlSeconds }
           : {}),
+      },
+      {
+        headers: options.idempotencyKey
+          ? { "Idempotency-Key": options.idempotencyKey }
+          : undefined,
       }
     );
     return parseApiResponse(
