@@ -12,6 +12,11 @@ Authbound publishes AI-friendly docs and an installable Agent Skill for Codex, C
 
 Agents should use the hosted docs as the source of truth, keep `sk_*` keys server-only, treat publishable keys as browser-safe identifiers only, verify webhooks server-side, and use idempotency keys for verification and issuance mutations.
 
+## Releases
+
+Use [`RELEASE.md`](./RELEASE.md) for SDK versioning, `sdk-v*` tags, release
+checks, and manual npm publishing.
+
 ## Install
 
 ```sh

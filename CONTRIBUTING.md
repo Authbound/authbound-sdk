@@ -39,34 +39,12 @@ pnpm --filter @authbound/server build
 - Add/adjust tests in the affected package.
 - Avoid introducing new examples unless they document a distinct public flow.
 - Do not add private or PII data into `credentialDefinitions` metadata or labels/aliases.
+- Use short conventional commit prefixes: `feat:`, `fix:`, `docs:`, `chore:`, or `ci:`.
 
-## Release readiness checklist
+## Releases
 
-Before publishing any package, run:
-
-1. `pnpm lint`
-2. `pnpm check-types`
-3. `pnpm build`
-4. Focused package tests/typechecks for the changed package(s)
-
-## Publishing to npm
-
-Public packages are published from `packages/public-sdk` using package-level scoped names (`@authbound/*`) and are configured for public scope access.
-
-Typical release flow:
-
-```sh
-# from packages/public-sdk
-cd packages/public-sdk
-
-# Build package locally before publish (example)
-pnpm --filter @authbound/server build
-
-# Publish one package at a time
-pnpm --filter @authbound/server publish --access public --no-git-checks
-```
-
-For a multi-package release, use the same command per package in dependency order.
+Use [`RELEASE.md`](./RELEASE.md) for SDK versioning, release tags, checks, and
+manual npm publishing. CI proves release readiness; npm publishing stays manual.
 
 ## Repository structure
 
