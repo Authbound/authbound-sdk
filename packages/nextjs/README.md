@@ -7,7 +7,7 @@ pnpm add @authbound/nextjs
 ```
 
 ```ts
-import { withAuthbound } from "@authbound/nextjs";
+import { withAuthbound } from "@authbound/nextjs/middleware";
 import { VerificationWall } from "@authbound/nextjs/client";
 import { createAuthboundHandlers } from "@authbound/nextjs/server";
 ```

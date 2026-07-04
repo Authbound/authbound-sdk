@@ -34,6 +34,18 @@ const edgeRuntimeEntrypoints = [
   "packages/nextjs/dist/middleware.cjs",
   "packages/nuxt/dist/runtime/server/middleware.js",
 ];
+const nextjsMiddlewareHelperNames = [
+  "authboundMiddleware",
+  "chainMiddleware",
+  "createMatcherConfig",
+  "withAuthbound",
+];
+const nextjsMiddlewareImportGuidanceFiles = [
+  "examples/next-example/src/middleware.ts",
+  "packages/nextjs/README.md",
+  "packages/nextjs/src/index.ts",
+  "packages/nextjs/src/middleware.ts",
+];
 const edgeRuntimeForbiddenPatterns = [
   {
     pattern:
@@ -180,6 +192,13 @@ function collectLocalJavaScriptClosure(entrypoint) {
   return [...seen];
 }
 
+function hasRootNextjsMiddlewareImport(text) {
+  return new RegExp(
+    `import\\s*\\{[^}]*\\b(?:${nextjsMiddlewareHelperNames.join("|")})\\b[^}]*\\}\\s*from\\s*["']@authbound/nextjs["']`,
+    "m"
+  ).test(text);
+}
+
 let hasFailure = false;
 let expectedVersion = null;
 
@@ -298,6 +317,25 @@ for (const entrypoint of edgeRuntimeEntrypoints) {
     }
   }
 }
+
+for (const guidanceFile of nextjsMiddlewareImportGuidanceFiles) {
+  if (hasRootNextjsMiddlewareImport(readFileSync(guidanceFile, "utf8"))) {
+    hasFailure = true;
+    console.error(
+      `${guidanceFile} imports middleware helpers from root @authbound/nextjs instead of @authbound/nextjs/middleware`
+    );
+  }
+}
+
+runNodeCheck(
+  "@authbound/nextjs root middleware export guard",
+  [
+    "--input-type=module",
+    "-e",
+    `const mod = await import("./dist/index.js"); const names = ${JSON.stringify(nextjsMiddlewareHelperNames)}; const leaked = names.filter((name) => name in mod); if (leaked.length) throw new Error("Root export leaks Edge middleware helpers: " + leaked.join(", "));`,
+  ],
+  "packages/nextjs"
+);
 
 const webhookSmoke = `
 const payload = JSON.stringify({ ok: true });

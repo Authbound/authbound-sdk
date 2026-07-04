@@ -6,7 +6,7 @@
  * This package provides everything you need to add Authbound wallet verification
  * to your Next.js application:
  *
- * - Simplified middleware (`withAuthbound`)
+ * - Edge middleware via `@authbound/nextjs/middleware`
  * - Zero-config route handlers (`createVerificationRoute`, `createWebhookRoute`)
  * - React components and hooks (Provider, VerificationWall, useVerification)
  * - Full server-side utilities
@@ -14,7 +14,7 @@
  * @example Quick Start
  * ```tsx
  * // 1. middleware.ts
- * import { withAuthbound } from '@authbound/nextjs';
+ * import { withAuthbound } from '@authbound/nextjs/middleware';
  *
  * export default withAuthbound({
  *   publicRoutes: ['/', '/about'],
@@ -45,22 +45,6 @@
  * }
  * ```
  */
-
-// ============================================================================
-// Middleware (from @authbound/nextjs/middleware)
-// ============================================================================
-
-export {
-  type AuthboundMiddleware,
-  type AuthboundNextRequest,
-  // Lower-level middleware
-  authboundMiddleware,
-  chainMiddleware,
-  createMatcherConfig,
-  type MiddlewareOptions,
-  type WithAuthboundOptions,
-  withAuthbound,
-} from "./middleware";
 
 // ============================================================================
 // Server (from @authbound/nextjs/server)

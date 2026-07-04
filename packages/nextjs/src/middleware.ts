@@ -238,7 +238,7 @@ const STATIC_EXTENSIONS =
  * @example
  * ```ts
  * // middleware.ts - 3 lines!
- * import { withAuthbound } from '@authbound/nextjs';
+ * import { withAuthbound } from '@authbound/nextjs/middleware';
  *
  * export default withAuthbound({
  *   publicRoutes: ['/', '/about', '/api/*'],
@@ -250,7 +250,7 @@ const STATIC_EXTENSIONS =
  * @example
  * ```ts
  * // With custom verification check
- * import { withAuthbound } from '@authbound/nextjs';
+ * import { withAuthbound } from '@authbound/nextjs/middleware';
  *
  * export default withAuthbound({
  *   publicRoutes: ['/', '/about'],
