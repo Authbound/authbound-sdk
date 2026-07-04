@@ -47,6 +47,24 @@
  */
 
 // ============================================================================
+// Middleware (from @authbound/nextjs/middleware)
+// ============================================================================
+
+// Kept in the root entry for 0.1.x compatibility. Middleware/proxy files should
+// prefer `@authbound/nextjs/middleware` so Edge bundles do not pull the full
+// root entry.
+export {
+  type AuthboundMiddleware,
+  type AuthboundNextRequest,
+  authboundMiddleware,
+  chainMiddleware,
+  createMatcherConfig,
+  type MiddlewareOptions,
+  type WithAuthboundOptions,
+  withAuthbound,
+} from "./middleware";
+
+// ============================================================================
 // Server (from @authbound/nextjs/server)
 // ============================================================================
 

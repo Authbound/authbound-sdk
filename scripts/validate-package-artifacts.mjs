@@ -328,11 +328,11 @@ for (const guidanceFile of nextjsMiddlewareImportGuidanceFiles) {
 }
 
 runNodeCheck(
-  "@authbound/nextjs root middleware export guard",
+  "@authbound/nextjs root middleware compatibility guard",
   [
     "--input-type=module",
     "-e",
-    `const mod = await import("./dist/index.js"); const names = ${JSON.stringify(nextjsMiddlewareHelperNames)}; const leaked = names.filter((name) => name in mod); if (leaked.length) throw new Error("Root export leaks Edge middleware helpers: " + leaked.join(", "));`,
+    `const mod = await import("./dist/index.js"); const names = ${JSON.stringify(nextjsMiddlewareHelperNames)}; const missing = names.filter((name) => !(name in mod)); if (missing.length) throw new Error("Root export is missing 0.1.x middleware helpers: " + missing.join(", "));`,
   ],
   "packages/nextjs"
 );

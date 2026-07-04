@@ -20,6 +20,8 @@ Use short conventional prefixes so release notes stay scannable:
 - `docs:` docs, examples, comments, or changelog only
 - `chore:` maintenance with no customer-facing behavior change
 - `ci:` workflow or release automation change
+- `sdk:` legacy pre-process SDK maintenance commits; prefer the typed prefixes
+  above for new release work
 
 ## Release Checklist
 
