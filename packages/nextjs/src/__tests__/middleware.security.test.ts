@@ -1,16 +1,23 @@
-import { verifyToken } from "@authbound/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type AuthboundNextRequest, withAuthbound } from "../middleware";
+import type { AuthboundNextRequest } from "../middleware";
 
-vi.mock("@authbound/server", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@authbound/server")>();
-  return {
-    ...actual,
-    verifyToken: vi.fn(),
-  };
-});
+const mockedVerifyToken = vi.hoisted(() => vi.fn());
+const mockedLogError = vi.hoisted(() =>
+  vi.fn(() => {
+    console.error("[Authbound] [redacted]:", {
+      message: "[redacted]",
+      name: "[redacted]",
+      stack: "[redacted]",
+    });
+  })
+);
 
-const mockedVerifyToken = vi.mocked(verifyToken);
+vi.mock("../server-edge", async () => ({
+  logError: mockedLogError,
+  verifyToken: mockedVerifyToken,
+}));
+
+const { withAuthbound } = await import("../middleware");
 
 const leakedValues = {
   apiKey: `sk_test_${"a".repeat(32)}`,

@@ -19,8 +19,20 @@
  */
 
 import type { PolicyId } from "@authbound/core";
-import { type AuthboundClaims, logError, verifyToken } from "@authbound/server";
 import { NextResponse } from "next/server.js";
+import {
+  type AuthboundClaims,
+  type AuthboundConfig,
+  type AuthboundVerificationContext,
+  checkRequirements,
+  getDefaultCookieOptions,
+  getVerificationFromToken,
+  logError,
+  type MiddlewareResult,
+  type ProtectedRouteConfig,
+  parseConfig,
+  verifyToken,
+} from "./server-edge";
 
 // ============================================================================
 // Types
@@ -40,6 +52,42 @@ export interface AuthboundNextRequest extends Request {
     get(name: string): { value: string } | undefined;
   };
 }
+
+export interface MiddlewareRequest extends Request {
+  nextUrl: URL;
+  cookies?: {
+    get(name: string): { value?: string } | undefined;
+  };
+}
+
+export interface MiddlewareOptions {
+  /**
+   * Custom handler for when verification requirements are not met.
+   * Return a Response to override default redirect behavior.
+   * Return undefined (or don't return) to use default redirect behavior.
+   */
+  onVerificationRequired?: (
+    request: MiddlewareRequest,
+    result: MiddlewareResult
+  ) => Response | Promise<Response | void> | void;
+
+  /**
+   * Custom handler to run after verification context validation before route matching.
+   */
+  onVerificationValidated?: (
+    request: MiddlewareRequest,
+    result: MiddlewareResult
+  ) => void | Promise<void>;
+
+  /**
+   * Skip middleware for certain paths.
+   */
+  skip?: (request: MiddlewareRequest) => boolean | Promise<boolean>;
+}
+
+export type AuthboundMiddleware = (
+  request: MiddlewareRequest
+) => Promise<Response>;
 
 /**
  * Resolve the SDK verification cookie name.
@@ -184,13 +232,13 @@ const STATIC_EXTENSIONS =
 /**
  * Create a simplified Authbound middleware for Next.js.
  *
- * This is a higher-level API than `authboundMiddleware` from `@authbound/server`.
+ * This is a higher-level API than `authboundMiddleware`.
  * It provides sensible defaults and a simpler configuration.
  *
  * @example
  * ```ts
  * // middleware.ts - 3 lines!
- * import { withAuthbound } from '@authbound/nextjs';
+ * import { withAuthbound } from '@authbound/nextjs/middleware';
  *
  * export default withAuthbound({
  *   publicRoutes: ['/', '/about', '/api/*'],
@@ -202,7 +250,7 @@ const STATIC_EXTENSIONS =
  * @example
  * ```ts
  * // With custom verification check
- * import { withAuthbound } from '@authbound/nextjs';
+ * import { withAuthbound } from '@authbound/nextjs/middleware';
  *
  * export default withAuthbound({
  *   publicRoutes: ['/', '/about'],
@@ -354,13 +402,271 @@ export function withAuthbound(
 }
 
 // ============================================================================
-// Re-exports from @authbound/server/next
+// Lower-level middleware helpers
 // ============================================================================
 
-export {
-  type AuthboundMiddleware,
-  authboundMiddleware,
-  chainMiddleware,
-  createMatcherConfig,
-  type MiddlewareOptions,
-} from "@authbound/server/next";
+const NEXTJS_STATIC_PATHS = [
+  "/favicon.ico",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/manifest.json",
+  "/sw.js",
+  "/workbox-",
+];
+
+const NEXTJS_STATIC_EXTENSIONS =
+  /\.(ico|png|jpg|jpeg|gif|svg|webp|css|js|woff|woff2|ttf|eot|json|xml|txt|pdf|zip|mp4|webm|mp3|wav|ogg)$/i;
+
+function isStaticFile(pathname: string): boolean {
+  return (
+    NEXTJS_STATIC_PATHS.some((path) => pathname.startsWith(path)) ||
+    NEXTJS_STATIC_EXTENSIONS.test(pathname)
+  );
+}
+
+function matchProtectedRoute(
+  pathname: string,
+  pattern: string | RegExp
+): boolean {
+  if (pattern instanceof RegExp) {
+    return pattern.test(pathname);
+  }
+
+  if (pattern.endsWith("*")) {
+    return pathname.startsWith(pattern.slice(0, -1));
+  }
+
+  return pathname === pattern || pathname.startsWith(`${pattern}/`);
+}
+
+function findMatchingRoute(
+  pathname: string,
+  routes: readonly ProtectedRouteConfig[]
+): ProtectedRouteConfig | undefined {
+  return routes.find((route) => matchProtectedRoute(pathname, route.path));
+}
+
+function buildVerifyUrl(
+  request: MiddlewareRequest,
+  verifyPath: string,
+  returnTo?: string
+): URL {
+  const url = new URL(verifyPath, request.url);
+  const returnPath =
+    returnTo ?? request.nextUrl.pathname + request.nextUrl.search;
+
+  if (returnPath !== verifyPath) {
+    url.searchParams.set("returnTo", returnPath);
+  }
+
+  return url;
+}
+
+function getConfigCookieName(config: AuthboundConfig): string {
+  return config.cookie?.name ?? getDefaultCookieOptions().name;
+}
+
+function getCookieHeaderValue(
+  request: Request,
+  name: string
+): string | undefined {
+  const cookieHeader = request.headers.get("cookie");
+  if (!cookieHeader) {
+    return;
+  }
+
+  for (const part of cookieHeader.split(";")) {
+    const [rawName, ...rawValue] = part.trim().split("=");
+    if (rawName === name) {
+      return rawValue.join("=");
+    }
+  }
+  return;
+}
+
+function getCookieValue(
+  request: MiddlewareRequest,
+  config: AuthboundConfig
+): string | undefined {
+  const cookieName = getConfigCookieName(config);
+  return (
+    request.cookies?.get(cookieName)?.value ??
+    getCookieHeaderValue(request, cookieName)
+  );
+}
+
+async function getMiddlewareVerification(
+  request: MiddlewareRequest,
+  config: AuthboundConfig
+): Promise<AuthboundVerificationContext | null> {
+  const token = getCookieValue(request, config);
+  if (!token) {
+    return null;
+  }
+
+  return getVerificationFromToken(token, config.secret);
+}
+
+function createRedirectResponse(url: string | URL): Response {
+  return NextResponse.redirect(url, { status: 302 });
+}
+
+/**
+ * Create an Authbound middleware for Next.js.
+ */
+export function authboundMiddleware(
+  config: AuthboundConfig,
+  options: MiddlewareOptions = {}
+): AuthboundMiddleware {
+  const validatedConfig = parseConfig(config);
+
+  return async (request: MiddlewareRequest): Promise<Response> => {
+    const { pathname } = request.nextUrl;
+
+    if (options.skip && (await options.skip(request))) {
+      return NextResponse.next();
+    }
+
+    if (
+      pathname.startsWith("/_next") ||
+      pathname.startsWith("/api/authbound") ||
+      isStaticFile(pathname)
+    ) {
+      return NextResponse.next();
+    }
+
+    if (pathname === validatedConfig.routes.verify) {
+      return NextResponse.next();
+    }
+
+    const matchingRoute = findMatchingRoute(
+      pathname,
+      validatedConfig.routes.protected
+    );
+    if (!matchingRoute) {
+      return NextResponse.next();
+    }
+
+    const verification = await getMiddlewareVerification(
+      request,
+      validatedConfig
+    );
+    const requirementsCheck = checkRequirements(
+      verification,
+      matchingRoute.requirements
+    );
+    const result: MiddlewareResult = {
+      allowed: requirementsCheck.met,
+      verification: verification ?? undefined,
+      reason: requirementsCheck.reason,
+      redirectUrl: requirementsCheck.met
+        ? undefined
+        : buildVerifyUrl(request, validatedConfig.routes.verify).toString(),
+    };
+
+    if (options.onVerificationValidated) {
+      await options.onVerificationValidated(request, result);
+    }
+
+    if (result.allowed) {
+      const response = NextResponse.next();
+
+      if (verification) {
+        response.headers.set(
+          "x-authbound-verified",
+          verification.isVerified.toString()
+        );
+        response.headers.set("x-authbound-status", verification.status);
+        response.headers.set(
+          "x-authbound-verification-id",
+          verification.verificationId
+        );
+      }
+
+      return response;
+    }
+
+    if (options.onVerificationRequired) {
+      const customResponse = await options.onVerificationRequired(
+        request,
+        result
+      );
+      if (customResponse !== undefined) {
+        return customResponse;
+      }
+    }
+
+    if (validatedConfig.debug) {
+      console.log("[Authbound] Redirecting to verification:", {
+        pathname,
+        reason: result.reason,
+        redirectUrl: result.redirectUrl,
+      });
+    }
+
+    return createRedirectResponse(
+      buildVerifyUrl(request, validatedConfig.routes.verify)
+    );
+  };
+}
+
+/**
+ * Chain multiple middlewares together.
+ */
+export function chainMiddleware(
+  ...middlewares: ((
+    request: MiddlewareRequest
+  ) => Promise<Response | void> | Response | void)[]
+): (request: MiddlewareRequest) => Promise<Response> {
+  return async (request: MiddlewareRequest): Promise<Response> => {
+    for (const middleware of middlewares) {
+      const result = await middleware(request);
+
+      if (result && !isNextResponse(result)) {
+        return result;
+      }
+
+      if (result instanceof NextResponse) {
+        const status = result.status;
+        if (status >= 300 && status < 400) {
+          return result;
+        }
+        if (status >= 400) {
+          return result;
+        }
+      }
+    }
+
+    return NextResponse.next();
+  };
+}
+
+function isNextResponse(
+  response: Response | NextResponse | void
+): response is NextResponse {
+  return response instanceof NextResponse;
+}
+
+/**
+ * Helper to create Next.js middleware matcher config from protected routes.
+ */
+export function createMatcherConfig(
+  routes: readonly ProtectedRouteConfig[]
+): string[] {
+  return routes
+    .map((route) => {
+      if (route.path instanceof RegExp) {
+        console.warn(
+          "[Authbound] RegExp routes require manual matcher configuration"
+        );
+        return "";
+      }
+
+      if (route.path.endsWith("*")) {
+        return `${route.path.slice(0, -1)}:path*`;
+      }
+
+      return `${route.path}/:path*`;
+    })
+    .filter(Boolean);
+}

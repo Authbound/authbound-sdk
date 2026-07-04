@@ -38,7 +38,8 @@
     },
     "./edge": {
       "types": "./dist/edge.d.ts",
-      "import": "./dist/edge.js"
+      "import": "./dist/edge.js",
+      "require": "./dist/edge.cjs"
     }
   },
   "main": "./dist/index.cjs",

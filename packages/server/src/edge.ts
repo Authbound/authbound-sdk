@@ -10,6 +10,7 @@
  * ```
  */
 
+export { logError } from "./core/error-utils";
 // Re-export edge-compatible JWT utilities
 export {
   type CreateTokenOptions,
@@ -25,9 +26,17 @@ export {
 export type {
   AssuranceLevel,
   AuthboundClaims,
+  AuthboundConfig,
   AuthboundVerificationContext,
+  MiddlewareResult,
+  ProtectedRouteConfig,
   VerificationStatus,
 } from "./core/types";
 
 // Re-export utilities
-export { calculateAge, checkRequirements } from "./core/types";
+export {
+  calculateAge,
+  checkRequirements,
+  getDefaultCookieOptions,
+  parseConfig,
+} from "./core/types";

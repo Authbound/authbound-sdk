@@ -7,6 +7,7 @@
     "declarationMap": false,
     "sourceMap": false,
     "paths": {
+      "@authbound/server/edge": ["../server/src/edge.ts"],
       "@authbound/server": ["../server/src/index.ts"],
       "@authbound/vue": ["../vue/src/index.ts"]
     },
