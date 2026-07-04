@@ -24,6 +24,8 @@
  * ```
  */
 
+import { createHmac, timingSafeEqual } from "node:crypto";
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -157,8 +159,6 @@ export function verifyWebhookSignature(
 export function verifyWebhookSignatureDetailed(
   options: WebhookSignatureOptions
 ): WebhookSignatureResult {
-  const crypto = require("node:crypto") as typeof import("crypto");
-
   const { payload, signature, secret, tolerance = 300 } = options;
   const clockSkewSeconds = 5;
 
@@ -236,8 +236,7 @@ export function verifyWebhookSignatureDetailed(
     typeof payload === "string" ? payload : payload.toString("utf8");
   const signedPayload = `${timestamp}.${payloadString}`;
 
-  const computedSignature = crypto
-    .createHmac("sha256", secret)
+  const computedSignature = createHmac("sha256", secret)
     .update(signedPayload)
     .digest("hex");
 
@@ -254,7 +253,7 @@ export function verifyWebhookSignatureDetailed(
       }
 
       sawSameLengthSignature = true;
-      if (crypto.timingSafeEqual(signatureBuffer, computedBuffer)) {
+      if (timingSafeEqual(signatureBuffer, computedBuffer)) {
         return { valid: true, timestamp };
       }
     }
@@ -297,8 +296,6 @@ export function generateWebhookSignature(options: {
   secret: string;
   timestamp?: number;
 }): { signature: string; timestamp: number } {
-  const crypto = require("node:crypto") as typeof import("crypto");
-
   const {
     payload,
     secret,
@@ -306,10 +303,7 @@ export function generateWebhookSignature(options: {
   } = options;
 
   const signedPayload = `${timestamp}.${payload}`;
-  const hmac = crypto
-    .createHmac("sha256", secret)
-    .update(signedPayload)
-    .digest("hex");
+  const hmac = createHmac("sha256", secret).update(signedPayload).digest("hex");
 
   return {
     signature: `t=${timestamp},v1=${hmac}`,

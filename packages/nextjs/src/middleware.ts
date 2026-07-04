@@ -19,8 +19,8 @@
  */
 
 import type { PolicyId } from "@authbound/core";
-import { type AuthboundClaims, logError, verifyToken } from "@authbound/server";
 import { NextResponse } from "next/server.js";
+import { type AuthboundClaims, logError, verifyToken } from "./server-edge";
 
 // ============================================================================
 // Types

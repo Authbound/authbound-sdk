@@ -1,5 +1,6 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, normalize } from "node:path";
 
 const packageNames = ["core", "server", "react", "nextjs", "vue", "nuxt"];
 const authboundScope = "@authbound";
@@ -18,6 +19,29 @@ const generatedMetadataFiles = [
   "packages/core/src/generated/api-contract.ts",
   "packages/server/src/generated/api-contract.ts",
 ];
+const clientDirectiveFiles = [
+  "packages/react/dist/index.js",
+  "packages/react/dist/index.cjs",
+  "packages/nextjs/dist/client.js",
+  "packages/nextjs/dist/client.cjs",
+];
+const edgeRuntimeEntrypoints = [
+  "packages/server/dist/edge.js",
+  "packages/nextjs/dist/middleware.js",
+  "packages/nextjs/dist/middleware.cjs",
+  "packages/nuxt/dist/runtime/server/middleware.js",
+];
+const edgeRuntimeForbiddenPatterns = [
+  {
+    pattern: /(?:from\s+["']|require\(["'])@authbound\/server["']/,
+    message: "imports @authbound/server instead of @authbound/server/edge",
+  },
+  {
+    pattern:
+      /node:crypto|(?:from\s+["']|require\(["']|__require\(["'])crypto["']/,
+    message: "references Node crypto",
+  },
+];
 
 function preservesCssSideEffects(sideEffects) {
   return Array.isArray(sideEffects) && sideEffects.includes("**/*.css");
@@ -35,6 +59,120 @@ function collectExportTargets(exportsField, prefix = "exports") {
   return Object.entries(exportsField).flatMap(([key, value]) =>
     collectExportTargets(value, `${prefix}.${key}`)
   );
+}
+
+function collectRuntimeExportTargets(exportsField) {
+  if (typeof exportsField === "string") {
+    return [
+      ["import", exportsField],
+      ["require", exportsField],
+    ];
+  }
+
+  if (!exportsField || typeof exportsField !== "object") {
+    return [];
+  }
+
+  return ["import", "require"]
+    .filter((condition) => typeof exportsField[condition] === "string")
+    .map((condition) => [condition, exportsField[condition]]);
+}
+
+function isJavaScriptTarget(target) {
+  return /\.(?:cjs|mjs|js)$/.test(target);
+}
+
+function runNodeCheck(label, args, cwd) {
+  const result = spawnSync(process.execPath, args, {
+    cwd,
+    encoding: "utf8",
+    env: process.env,
+  });
+
+  if (result.status === 0) {
+    return;
+  }
+
+  hasFailure = true;
+  console.error(`${label} failed`);
+  if (result.stdout) {
+    console.error(result.stdout.trim());
+  }
+  if (result.stderr) {
+    console.error(result.stderr.trim());
+  }
+}
+
+function smokeImportTarget(packageName, packageDir, condition, target) {
+  if (!isJavaScriptTarget(target)) {
+    return;
+  }
+
+  const specifier = target.startsWith("./") ? target : `./${target}`;
+  if (condition === "import") {
+    runNodeCheck(
+      `${packageName} ESM import ${target}`,
+      [
+        "--input-type=module",
+        "-e",
+        `await import(${JSON.stringify(specifier)});`,
+      ],
+      packageDir
+    );
+    return;
+  }
+
+  if (condition === "require") {
+    runNodeCheck(
+      `${packageName} CJS require ${target}`,
+      ["-e", `require(${JSON.stringify(specifier)});`],
+      packageDir
+    );
+  }
+}
+
+function hasDirectiveInPrologue(filePath, directive) {
+  const text = readFileSync(filePath, "utf8").replace(/^\uFEFF/, "");
+
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("//")) {
+      continue;
+    }
+
+    const match = /^["']([^"']+)["'];?$/.exec(trimmed);
+    if (!match) {
+      return false;
+    }
+    if (match[1] === directive) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function collectLocalJavaScriptClosure(entrypoint) {
+  const seen = new Set();
+  const stack = [entrypoint];
+
+  while (stack.length > 0) {
+    const current = normalize(stack.pop());
+    if (seen.has(current)) {
+      continue;
+    }
+    seen.add(current);
+
+    const text = readFileSync(current, "utf8");
+    const importMatches = text.matchAll(
+      /(?:from\s+["']|import\s*\(\s*["']|require\(["'])(\.\/[^"']+\.(?:js|cjs|mjs))["']/g
+    );
+    for (const match of importMatches) {
+      stack.push(join(dirname(current), match[1]));
+    }
+  }
+
+  return [...seen];
 }
 
 let hasFailure = false;
@@ -95,6 +233,14 @@ for (const packageName of packageNames) {
       `${manifest.name} exports CSS but does not preserve CSS side effects`
     );
   }
+
+  for (const exportValue of Object.values(manifest.exports ?? {})) {
+    for (const [condition, target] of collectRuntimeExportTargets(
+      exportValue
+    )) {
+      smokeImportTarget(manifest.name, packageDir, condition, target);
+    }
+  }
 }
 
 const [firstGeneratedMetadataPath, ...otherGeneratedMetadataPaths] =
@@ -115,6 +261,64 @@ for (const generatedMetadataPath of otherGeneratedMetadataPaths) {
     );
   }
 }
+
+for (const clientDirectiveFile of clientDirectiveFiles) {
+  if (!existsSync(clientDirectiveFile)) {
+    hasFailure = true;
+    console.error(`${clientDirectiveFile} is missing`);
+    continue;
+  }
+  if (!hasDirectiveInPrologue(clientDirectiveFile, "use client")) {
+    hasFailure = true;
+    console.error(
+      `${clientDirectiveFile} is missing active "use client" directive`
+    );
+  }
+}
+
+for (const entrypoint of edgeRuntimeEntrypoints) {
+  if (!existsSync(entrypoint)) {
+    hasFailure = true;
+    console.error(`${entrypoint} is missing`);
+    continue;
+  }
+
+  for (const filePath of collectLocalJavaScriptClosure(entrypoint)) {
+    const text = readFileSync(filePath, "utf8");
+    for (const { pattern, message } of edgeRuntimeForbiddenPatterns) {
+      if (pattern.test(text)) {
+        hasFailure = true;
+        console.error(`${filePath} ${message}`);
+      }
+    }
+  }
+}
+
+const webhookSmoke = `
+const payload = JSON.stringify({ ok: true });
+const secret = "whsec_test_secret";
+const { signature } = generateWebhookSignature({ payload, secret });
+if (!verifyWebhookSignature({ payload, secret, signature })) {
+  throw new Error("Webhook signature verification failed");
+}
+`;
+runNodeCheck(
+  "@authbound/server ESM webhook smoke",
+  [
+    "--input-type=module",
+    "-e",
+    `import { generateWebhookSignature, verifyWebhookSignature } from "./dist/index.js";${webhookSmoke}`,
+  ],
+  "packages/server"
+);
+runNodeCheck(
+  "@authbound/server CJS webhook smoke",
+  [
+    "-e",
+    `const { generateWebhookSignature, verifyWebhookSignature } = require("./dist/index.cjs");${webhookSmoke}`,
+  ],
+  "packages/server"
+);
 
 if (hasFailure) {
   process.exit(1);

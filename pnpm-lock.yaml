@@ -29,9 +29,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.10.1
-      changesets:
-        specifier: ^1.0.2
-        version: 1.0.2
       tsup:
         specifier: 'catalog:'
         version: 8.5.0(jiti@2.6.1)(postcss@8.5.14)(tsx@4.22.3)(typescript@5.9.2)(yaml@2.9.0)
@@ -2861,9 +2858,6 @@ packages:
   chai@6.2.1:
     resolution: {integrity: sha512-p4Z49OGG5W/WBCPSS/dH3jQ73kD6tiMmUM+bckNK6Jr5JHMG3k9bg/BvKR8lKmtVBKmOiuVaV2ws8s9oSbwysg==}
     engines: {node: '>=18'}
-
-  changesets@1.0.2:
-    resolution: {integrity: sha512-lnXvvqJEcK0z/6RtwKNLbejazl+Hxd1bocMcNgfLHWb4rGxuqkO/LdeGNzwIx3jHj+fNWZ6AGgK5AqNBwva4Xg==}
 
   chokidar@4.0.3:
     resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
@@ -7590,6 +7584,14 @@ snapshots:
       chai: 6.2.1
       tinyrainbow: 3.0.3
 
+  '@vitest/mocker@4.0.8(vite@7.3.3(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.99.0)(terser@5.44.1)(tsx@4.22.3)(yaml@2.8.2))':
+    dependencies:
+      '@vitest/spy': 4.0.8
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 7.3.3(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.99.0)(terser@5.44.1)(tsx@4.22.3)(yaml@2.8.2)
+
   '@vitest/mocker@4.0.8(vite@7.3.3(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.99.0)(terser@5.44.1)(tsx@4.22.3)(yaml@2.9.0))':
     dependencies:
       '@vitest/spy': 4.0.8
@@ -7960,8 +7962,6 @@ snapshots:
   caniuse-lite@1.0.30001792: {}
 
   chai@6.2.1: {}
-
-  changesets@1.0.2: {}
 
   chokidar@4.0.3:
     dependencies:
@@ -10966,7 +10966,7 @@ snapshots:
   vitest@4.0.8(@types/node@24.10.1)(happy-dom@20.9.0)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.99.0)(terser@5.44.1)(tsx@4.22.3)(yaml@2.8.2):
     dependencies:
       '@vitest/expect': 4.0.8
-      '@vitest/mocker': 4.0.8(vite@7.3.3(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.99.0)(terser@5.44.1)(tsx@4.22.3)(yaml@2.9.0))
+      '@vitest/mocker': 4.0.8(vite@7.3.3(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.99.0)(terser@5.44.1)(tsx@4.22.3)(yaml@2.8.2))
       '@vitest/pretty-format': 4.0.8
       '@vitest/runner': 4.0.8
       '@vitest/snapshot': 4.0.8

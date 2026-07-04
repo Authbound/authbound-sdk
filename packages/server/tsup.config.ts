@@ -37,7 +37,7 @@ export default defineConfig([
   // Edge runtime entry point
   {
     entry: ["src/edge.ts"],
-    format: ["esm"],
+    format: ["esm", "cjs"],
     dts: true,
     outDir: "dist",
     external: ["next", "next/server.js", "@authbound/core"],

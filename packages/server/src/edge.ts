@@ -10,6 +10,7 @@
  * ```
  */
 
+export { logError } from "./core/error-utils";
 // Re-export edge-compatible JWT utilities
 export {
   type CreateTokenOptions,

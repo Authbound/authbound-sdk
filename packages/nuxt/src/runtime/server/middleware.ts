@@ -4,9 +4,9 @@
  * Protects routes that require verification.
  */
 
-import { logError, verifyToken } from "@authbound/server";
 import { defineEventHandler, getCookie, getRequestURL, sendRedirect } from "h3";
 import { useRuntimeConfig } from "nitropack/runtime";
+import { logError, verifyToken } from "./edge";
 
 /**
  * Check if a path matches a route pattern.

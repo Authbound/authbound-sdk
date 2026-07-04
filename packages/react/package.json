@@ -56,8 +56,8 @@
     "vitest": "4.0.8"
   },
   "scripts": {
-    "build": "tsup src/index.tsx src/testing.tsx --dts --format esm,cjs --clean --no-config && cp styles.css dist/styles.css",
-    "dev": "tsup src/index.tsx src/testing.tsx --dts --format esm,cjs --watch --no-config",
+    "build": "tsup --config tsup.config.ts && cp styles.css dist/styles.css",
+    "dev": "tsup --config tsup.config.ts --watch",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "ultracite lint",

@@ -1,5 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const mockedVerifyToken = vi.hoisted(() => vi.fn());
+const mockedLogError = vi.hoisted(() =>
+  vi.fn(() => {
+    console.error("[Authbound] [redacted]:", {
+      message: "[redacted]",
+      name: "[redacted]",
+      stack: "[redacted]",
+    });
+  })
+);
+
 const runtimeConfig = vi.hoisted(() => ({
   current: {
     authbound: {},
@@ -11,18 +22,12 @@ vi.mock("nitropack/runtime", () => ({
   useRuntimeConfig: () => runtimeConfig.current,
 }));
 
-vi.mock("@authbound/server", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@authbound/server")>();
-  return {
-    ...actual,
-    verifyToken: vi.fn(),
-  };
-});
+vi.mock("../runtime/server/edge", async () => ({
+  logError: mockedLogError,
+  verifyToken: mockedVerifyToken,
+}));
 
-import { verifyToken } from "@authbound/server";
-import middleware from "../runtime/server/middleware";
-
-const mockedVerifyToken = vi.mocked(verifyToken);
+const { default: middleware } = await import("../runtime/server/middleware");
 
 const leakedValues = {
   apiKey: `sk_test_${"a".repeat(32)}`,
