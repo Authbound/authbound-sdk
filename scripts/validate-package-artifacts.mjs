@@ -22,19 +22,24 @@ const generatedMetadataFiles = [
 const clientDirectiveFiles = [
   "packages/react/dist/index.js",
   "packages/react/dist/index.cjs",
+  "packages/react/dist/testing.js",
+  "packages/react/dist/testing.cjs",
   "packages/nextjs/dist/client.js",
   "packages/nextjs/dist/client.cjs",
 ];
 const edgeRuntimeEntrypoints = [
   "packages/server/dist/edge.js",
+  "packages/server/dist/edge.cjs",
   "packages/nextjs/dist/middleware.js",
   "packages/nextjs/dist/middleware.cjs",
   "packages/nuxt/dist/runtime/server/middleware.js",
 ];
 const edgeRuntimeForbiddenPatterns = [
   {
-    pattern: /(?:from\s+["']|require\(["'])@authbound\/server["']/,
-    message: "imports @authbound/server instead of @authbound/server/edge",
+    pattern:
+      /(?:from\s+["']|require\(["'])@authbound\/server(?:["']|\/(?!edge(?:["']|\/))[^"']*["'])/,
+    message:
+      "imports Node-oriented @authbound/server instead of @authbound/server/edge",
   },
   {
     pattern:
