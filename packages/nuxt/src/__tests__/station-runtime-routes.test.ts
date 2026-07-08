@@ -20,7 +20,7 @@ import stationOperatorEventsHandler from "../runtime/server/api/station-operator
 
 const CONTRACT_HEADERS = {
   "Authbound-Api-Version": "v1",
-  "Authbound-Contract-Revision": "v1.2026-06-18.1",
+  "Authbound-Contract-Revision": "v1.2026-07-06.1",
 };
 
 function fetchCall(

@@ -805,7 +805,7 @@ describe("Next.js server debug logging", () => {
       {
         headers: {
           "Authbound-Api-Version": "v1",
-          "Authbound-Contract-Revision": "v1.2026-06-18.1",
+          "Authbound-Contract-Revision": "v1.2026-07-06.1",
           Authorization: "Bearer client_token_123",
           Origin: "https://playground.authbound.io",
           "X-Authbound-Publishable-Key": "pk_test_configured",
@@ -888,7 +888,7 @@ describe("Next.js server debug logging", () => {
         {
           headers: {
             "Authbound-Api-Version": "v1",
-            "Authbound-Contract-Revision": "v1.2026-06-18.1",
+            "Authbound-Contract-Revision": "v1.2026-07-06.1",
             Authorization: "Bearer client_token_123",
             Origin: "https://playground.authbound.io",
             "X-Authbound-Publishable-Key": "pk_test_runtime",
