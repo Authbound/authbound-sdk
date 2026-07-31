@@ -5,12 +5,16 @@ import { afterEach, describe, it } from "node:test";
 import type {
   ApiVerificationStatus,
   AuthboundClient,
+  CreateCredentialDefinitionOptions,
   CredentialDefinition,
   OpenId4VcIssuanceOffer,
   SignedVerificationResult,
   Verification,
 } from "@authbound/server";
-import { pensionCredentialClaims } from "./pension-flow.ts";
+import {
+  createPensionCredentialDefinition,
+  pensionCredentialClaims,
+} from "./pension-flow.ts";
 import { createApp, listCredentials } from "./server.ts";
 import { parsePensionCredential } from "./utils.ts";
 
@@ -106,6 +110,9 @@ function signedResult(verificationId: string): SignedVerificationResult {
 }
 
 function createMockClient(options: {
+  credentialDefinitions?: Partial<
+    Pick<AuthboundClient["issuer"]["credentialDefinitions"], "create" | "get">
+  >;
   verifications?: Partial<
     Pick<AuthboundClient["verifications"], "create" | "getStatus" | "getResult">
   >;
@@ -117,6 +124,7 @@ function createMockClient(options: {
           credentialDefinition(credentialDefinitionId),
         create: async ({ credentialDefinitionId }) =>
           credentialDefinition(credentialDefinitionId),
+        ...options.credentialDefinitions,
       },
     },
     openId4Vc: {
@@ -191,7 +199,35 @@ describe("issuer-agent-pension example", () => {
     );
   });
 
-  it("keeps fixture language in Authbound issuance claims", async () => {
+  it("omits JSON-LD language metadata from new credential definitions", async () => {
+    let createOptions: CreateCredentialDefinitionOptions | undefined;
+    const client = createMockClient({
+      credentialDefinitions: {
+        get: async () => {
+          throw Object.assign(new Error("not found"), {
+            code: "credential_definition_not_found",
+          });
+        },
+        create: async (options) => {
+          createOptions = options;
+          return credentialDefinition(options.credentialDefinitionId);
+        },
+      },
+    });
+
+    await createPensionCredentialDefinition(client, "pension-credential");
+
+    assert.ok(createOptions);
+    assert.equal(
+      createOptions.claims?.some(
+        ({ path }) =>
+          path.length === 2 && path[0] === "Pension" && path[1] === "@language"
+      ),
+      false
+    );
+  });
+
+  it("omits JSON-LD language metadata from Authbound issuance claims", async () => {
     const [credential] = await listCredentials();
 
     assert.deepEqual(pensionCredentialClaims(credential.credential), {
@@ -202,7 +238,6 @@ describe("issuer-agent-pension example", () => {
         personal_administrative_number: "030393-995E",
       },
       Pension: {
-        "@language": "fi_FI",
         typeCode: "KAEL",
         typeName: "Kansaneläke",
         startDate: "2024-02-01",
