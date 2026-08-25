@@ -44,6 +44,22 @@ describe("AuthboundError.fromResponse", () => {
     });
   });
 
+  it("preserves framework validation issues as structured details", () => {
+    const response = new Response(null, { status: 400 });
+    const details = {
+      issues: [{ path: "policyId", message: "is required" }],
+    };
+
+    const error = AuthboundError.fromResponse(response, {
+      code: "INVALID_REQUEST",
+      error: "Invalid request: policyId is required",
+      details,
+    });
+
+    expect(error.message).toBe("Invalid request: policyId is required");
+    expect(error.details).toEqual(details);
+  });
+
   it("maps SDK session origin rejections to a dedicated error code", () => {
     const response = new Response(null, {
       status: 403,

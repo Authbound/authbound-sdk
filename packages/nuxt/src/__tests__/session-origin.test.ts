@@ -22,7 +22,13 @@ const authboundServer = vi.hoisted(() => ({
   AuthboundClientError: class AuthboundClientError extends Error {},
   createToken: vi.fn(async () => "verified-session-token"),
   finalizeSessionHandlerKernel: vi.fn(
-    async (input: { config: { trustProxy?: boolean } }) =>
+    async (input: {
+      config: { trustProxy?: boolean };
+    }): Promise<{
+      status: number;
+      body: Record<string, unknown>;
+      cookies?: Record<string, unknown>;
+    }> =>
       input.config.trustProxy
         ? {
             status: 200,
@@ -146,6 +152,35 @@ describe("Nuxt session origin handling", () => {
       statusCode: 403,
     });
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("preserves handler validation details in the Nuxt error payload", async () => {
+    authboundServer.finalizeSessionHandlerKernel.mockResolvedValueOnce({
+      status: 400,
+      body: {
+        error: "Invalid request: clientToken is required",
+        code: "INVALID_REQUEST",
+        details: {
+          issues: [{ path: "clientToken", message: "is required" }],
+        },
+      },
+    });
+    const event = createEvent({
+      cookie: "__authbound_pending=pending-token",
+      host: "app.example.com",
+      origin: "https://app.example.com",
+      "sec-fetch-site": "same-origin",
+    });
+
+    await expect(sessionHandler(event as never)).rejects.toMatchObject({
+      data: {
+        code: "INVALID_REQUEST",
+        details: {
+          issues: [{ path: "clientToken", message: "is required" }],
+        },
+      },
+      statusCode: 400,
+    });
   });
 
   it("accepts forwarded https URLs when proxy trust is enabled", async () => {

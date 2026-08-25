@@ -102,7 +102,10 @@ export async function returnNuxtKernelResult<TBody>(
     throw createError({
       statusCode: result.status,
       message: body.error,
-      data: { code: body.code },
+      data: {
+        code: body.code,
+        ...(body.details ? { details: body.details } : {}),
+      },
     });
   }
 
@@ -115,7 +118,10 @@ export async function returnNuxtKernelResult<TBody>(
       throw createError({
         statusCode: mapped.status,
         message: body.error,
-        data: { code: body.code },
+        data: {
+          code: body.code,
+          ...(body.details ? { details: body.details } : {}),
+        },
       });
     }
   }

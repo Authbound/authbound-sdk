@@ -38,16 +38,57 @@ describe("framework handler kernel", () => {
     });
 
     expect(result.status).toBe(400);
-    const body = result.body as {
-      error: string;
-      code: string;
-      details: { path: string; message: string }[];
-    };
-    expect(body.code).toBe("INVALID_REQUEST");
-    expect(body.error).toContain("policyId is required");
-    expect(body.details).toEqual([
-      expect.objectContaining({ path: "policyId" }),
-    ]);
+    expect(result.body).toEqual({
+      error: "Invalid request: policyId is required",
+      code: "INVALID_REQUEST",
+      details: {
+        issues: [{ path: "policyId", message: "is required" }],
+      },
+    });
+  });
+
+  it.each([
+    {
+      name: "empty policy ID",
+      requestBody: { policyId: "" },
+      expectedError: "Invalid request: policyId must not be empty",
+      expectedIssue: { path: "policyId", message: "must not be empty" },
+    },
+    {
+      name: "non-string policy ID",
+      requestBody: { policyId: 42 },
+      expectedError: "Invalid request: policyId must be a string",
+      expectedIssue: { path: "policyId", message: "must be a string" },
+    },
+    {
+      name: "unsupported provider",
+      requestBody: {
+        policyId: "pol_test_v1",
+        provider: "private-provider-token",
+      },
+      expectedError: "Invalid request: provider has an unsupported value",
+      expectedIssue: { path: "provider", message: "has an unsupported value" },
+    },
+  ])("returns safe details for an invalid $name", async ({
+    requestBody,
+    expectedError,
+    expectedIssue,
+  }) => {
+    const result = await createVerificationHandlerKernel({
+      requestBody,
+      config,
+      client: { verifications: { create: vi.fn() } },
+    });
+
+    expect(result).toMatchObject({
+      status: 400,
+      body: {
+        error: expectedError,
+        code: "INVALID_REQUEST",
+        details: { issues: [expectedIssue] },
+      },
+    });
+    expect(JSON.stringify(result.body)).not.toContain("private-provider-token");
   });
 
   it("creates a browser verification and returns the pending-cookie effect", async () => {
@@ -336,6 +377,44 @@ describe("framework handler kernel", () => {
       },
     });
     expect(client.verifications.getResult).toHaveBeenCalledWith("vrf_test123");
+  });
+
+  it.each([
+    {},
+    null,
+  ])("names every missing field when session finalization receives %j", async (requestBody) => {
+    const result = await finalizeSessionHandlerKernel({
+      request: {
+        url: "https://app.example.com/api/authbound/session",
+        headers: {
+          get: (name) =>
+            name.toLowerCase() === "origin"
+              ? "https://app.example.com"
+              : name.toLowerCase() === "sec-fetch-site"
+                ? "same-origin"
+                : null,
+        },
+      },
+      requestBody,
+      pendingVerification: null,
+      config,
+      client: { verifications: { getResult: vi.fn() } },
+    });
+
+    expect(result).toEqual({
+      status: 400,
+      body: {
+        error:
+          "Invalid request: verificationId is required; clientToken is required",
+        code: "INVALID_REQUEST",
+        details: {
+          issues: [
+            { path: "verificationId", message: "is required" },
+            { path: "clientToken", message: "is required" },
+          ],
+        },
+      },
+    });
   });
 
   it("processes signed webhooks and invokes terminal callbacks consistently", async () => {

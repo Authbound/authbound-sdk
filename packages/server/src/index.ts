@@ -173,6 +173,7 @@ export {
   type VerifySignatureOptions,
 } from "./core/client";
 export {
+  createHandlerKernelInvalidRequestBody,
   createVerificationHandlerKernel,
   finalizeSessionHandlerKernel,
   getStatusHandlerKernel,
@@ -181,6 +182,8 @@ export {
   type HandlerKernelErrorBody,
   type HandlerKernelRequest,
   type HandlerKernelResponse,
+  type HandlerKernelValidationDetails,
+  type HandlerKernelValidationIssue,
   mapHandlerKernelException,
   processWebhookHandlerKernel,
   signOutHandlerKernel,
