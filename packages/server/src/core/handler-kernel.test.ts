@@ -30,6 +30,26 @@ const config: AuthboundConfig = {
 };
 
 describe("framework handler kernel", () => {
+  it("names the missing field when the create request fails validation", async () => {
+    const result = await createVerificationHandlerKernel({
+      requestBody: { customerUserRef: "user_123" },
+      config,
+      client: { verifications: { create: vi.fn() } },
+    });
+
+    expect(result.status).toBe(400);
+    const body = result.body as {
+      error: string;
+      code: string;
+      details: { path: string; message: string }[];
+    };
+    expect(body.code).toBe("INVALID_REQUEST");
+    expect(body.error).toContain("policyId is required");
+    expect(body.details).toEqual([
+      expect.objectContaining({ path: "policyId" }),
+    ]);
+  });
+
   it("creates a browser verification and returns the pending-cookie effect", async () => {
     const onVerificationCreated = vi.fn();
     const client = {

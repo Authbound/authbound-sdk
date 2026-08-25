@@ -45,6 +45,7 @@ export type HandlerKernelConfig = Pick<
 export type HandlerKernelErrorBody = {
   error: string;
   code: string;
+  details?: { path: string; message: string }[];
 };
 
 export type HandlerKernelResponse<TBody = unknown> = {
@@ -100,6 +101,30 @@ const FinalizeVerificationRequestSchema = z.object({
   verificationId: z.string().min(1),
   clientToken: z.string().min(1),
 });
+
+function invalidRequestResponse(
+  error: z.ZodError
+): HandlerKernelResponse<HandlerKernelErrorBody> {
+  const details = error.issues.map((issue) => ({
+    path: issue.path.length > 0 ? issue.path.join(".") : "request body",
+    message: issue.message,
+  }));
+  const summary = details
+    .map(({ path, message }) =>
+      message.includes("received undefined")
+        ? `${path} is required`
+        : `${path}: ${message}`
+    )
+    .join("; ");
+  return {
+    status: 400,
+    body: {
+      error: `Invalid request: ${summary}`,
+      code: "INVALID_REQUEST",
+      details,
+    },
+  };
+}
 
 export type CreateVerificationHandlerKernelOptions = {
   requestBody: unknown;
@@ -159,7 +184,7 @@ export async function createVerificationHandlerKernel({
     };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return errorResponse("Invalid request", 400, "INVALID_REQUEST");
+      return invalidRequestResponse(error);
     }
     if (error instanceof BrowserWalletUrlError) {
       return errorResponse(error.message, 502, "BROWSER_WALLET_URL_MISSING");
@@ -219,7 +244,7 @@ export async function finalizeSessionHandlerKernel({
 
     const parsed = FinalizeVerificationRequestSchema.safeParse(requestBody);
     if (!parsed.success) {
-      return errorResponse("Invalid request", 400, "INVALID_REQUEST");
+      return invalidRequestResponse(parsed.error);
     }
 
     const { verificationId } = parsed.data;

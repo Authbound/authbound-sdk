@@ -1572,7 +1572,11 @@ export function createSessionRoute(
 
       if (!(verificationId && clientToken)) {
         return NextResponse.json(
-          { error: "Invalid request", code: "INVALID_REQUEST" },
+          {
+            error:
+              "Session finalization requires a verificationId and the clientToken returned with it",
+            code: "INVALID_REQUEST",
+          },
           { status: 400 }
         );
       }
