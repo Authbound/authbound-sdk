@@ -45,7 +45,16 @@ export type HandlerKernelConfig = Pick<
 export type HandlerKernelErrorBody = {
   error: string;
   code: string;
-  details?: { path: string; message: string }[];
+  details?: HandlerKernelValidationDetails;
+};
+
+export type HandlerKernelValidationIssue = {
+  path: string;
+  message: string;
+};
+
+export type HandlerKernelValidationDetails = {
+  issues: HandlerKernelValidationIssue[];
 };
 
 export type HandlerKernelResponse<TBody = unknown> = {
@@ -102,27 +111,59 @@ const FinalizeVerificationRequestSchema = z.object({
   clientToken: z.string().min(1),
 });
 
+export function createHandlerKernelInvalidRequestBody(
+  issues: HandlerKernelValidationIssue[]
+): HandlerKernelErrorBody {
+  return {
+    error: `Invalid request: ${issues
+      .map(({ path, message }) => `${path} ${message}`)
+      .join("; ")}`,
+    code: "INVALID_REQUEST",
+    details: { issues },
+  };
+}
+
+function getIssueValue(requestBody: unknown, path: PropertyKey[]): unknown {
+  let value = requestBody;
+  for (const segment of path) {
+    if (typeof value !== "object" || value === null) {
+      return value;
+    }
+    value = (value as Record<PropertyKey, unknown>)[segment];
+  }
+  return value;
+}
+
+function safeIssueMessage(
+  issue: z.core.$ZodIssue,
+  requestBody: unknown
+): string {
+  if (issue.code === "invalid_type") {
+    if (getIssueValue(requestBody, issue.path) === undefined) {
+      return "is required";
+    }
+    return `must be ${issue.expected === "object" ? "an" : "a"} ${issue.expected}`;
+  }
+  if (issue.code === "too_small" && issue.origin === "string") {
+    return "must not be empty";
+  }
+  if (issue.code === "invalid_value") {
+    return "has an unsupported value";
+  }
+  return "is invalid";
+}
+
 function invalidRequestResponse(
-  error: z.ZodError
+  error: z.ZodError,
+  requestBody: unknown
 ): HandlerKernelResponse<HandlerKernelErrorBody> {
-  const details = error.issues.map((issue) => ({
+  const issues = error.issues.map((issue) => ({
     path: issue.path.length > 0 ? issue.path.join(".") : "request body",
-    message: issue.message,
+    message: safeIssueMessage(issue, requestBody),
   }));
-  const summary = details
-    .map(({ path, message }) =>
-      message.includes("received undefined")
-        ? `${path} is required`
-        : `${path}: ${message}`
-    )
-    .join("; ");
   return {
     status: 400,
-    body: {
-      error: `Invalid request: ${summary}`,
-      code: "INVALID_REQUEST",
-      details,
-    },
+    body: createHandlerKernelInvalidRequestBody(issues),
   };
 }
 
@@ -184,7 +225,7 @@ export async function createVerificationHandlerKernel({
     };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return invalidRequestResponse(error);
+      return invalidRequestResponse(error, requestBody ?? {});
     }
     if (error instanceof BrowserWalletUrlError) {
       return errorResponse(error.message, 502, "BROWSER_WALLET_URL_MISSING");
@@ -242,9 +283,12 @@ export async function finalizeSessionHandlerKernel({
       );
     }
 
-    const parsed = FinalizeVerificationRequestSchema.safeParse(requestBody);
+    const normalizedRequestBody = requestBody ?? {};
+    const parsed = FinalizeVerificationRequestSchema.safeParse(
+      normalizedRequestBody
+    );
     if (!parsed.success) {
-      return invalidRequestResponse(parsed.error);
+      return invalidRequestResponse(parsed.error, normalizedRequestBody);
     }
 
     const { verificationId } = parsed.data;

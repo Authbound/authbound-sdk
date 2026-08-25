@@ -15,6 +15,39 @@ import {
 const SESSION_SECRET = "session-secret-at-least-32-characters";
 
 describe("Next.js server debug logging", () => {
+  it("names missing session fields without exposing submitted values", async () => {
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as typeof fetch;
+    const handler = createSessionRoute({
+      gatewayUrl: "https://api.authbound.io",
+      publishableKey: "pk_test_configured",
+      sessionSecret: SESSION_SECRET,
+    });
+    const response = await handler(
+      new Request("https://playground.authbound.io/api/authbound/session", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://playground.authbound.io",
+          "sec-fetch-site": "same-origin",
+        },
+        body: JSON.stringify({ verificationId: "private-verification-id" }),
+      }) as never
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body).toEqual({
+      error: "Invalid request: clientToken is required",
+      code: "INVALID_REQUEST",
+      details: {
+        issues: [{ path: "clientToken", message: "is required" }],
+      },
+    });
+    expect(JSON.stringify(body)).not.toContain("private-verification-id");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   const originalFetch = global.fetch;
 
   afterEach(() => {

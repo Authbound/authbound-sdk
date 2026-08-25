@@ -4,6 +4,8 @@ All customer-visible changes to the Authbound public SDK are recorded here.
 
 ## Unreleased
 
+- Return field-specific, value-safe validation errors consistently from the
+  Next.js, Nuxt, Express, and Hono framework handlers.
 - Compatible fixes intended for the first official platform release should
   target `0.1.6`.
 - Keep `@authbound/nextjs` middleware helpers available from the root entry for

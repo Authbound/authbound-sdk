@@ -34,6 +34,7 @@ import {
   BrowserVerificationResponseError,
   BrowserWalletUrlError,
   type CreateVerificationResponse,
+  createHandlerKernelInvalidRequestBody,
   createToken,
   getVerificationFromToken,
   redactSensitiveText,
@@ -1565,18 +1566,45 @@ export function createSessionRoute(
         verificationId?: unknown;
         clientToken?: unknown;
       } | null;
-      const verificationId =
-        typeof body?.verificationId === "string" ? body.verificationId : "";
-      const clientToken =
-        typeof body?.clientToken === "string" ? body.clientToken : "";
+      const verificationId = body?.verificationId;
+      const clientToken = body?.clientToken;
 
-      if (!(verificationId && clientToken)) {
+      if (
+        typeof verificationId !== "string" ||
+        verificationId.length === 0 ||
+        typeof clientToken !== "string" ||
+        clientToken.length === 0
+      ) {
+        const issues = [
+          ...(typeof verificationId !== "string" || verificationId.length === 0
+            ? [
+                {
+                  path: "verificationId",
+                  message:
+                    verificationId === undefined
+                      ? "is required"
+                      : typeof verificationId === "string"
+                        ? "must not be empty"
+                        : "must be a string",
+                },
+              ]
+            : []),
+          ...(typeof clientToken !== "string" || clientToken.length === 0
+            ? [
+                {
+                  path: "clientToken",
+                  message:
+                    clientToken === undefined
+                      ? "is required"
+                      : typeof clientToken === "string"
+                        ? "must not be empty"
+                        : "must be a string",
+                },
+              ]
+            : []),
+        ];
         return NextResponse.json(
-          {
-            error:
-              "Session finalization requires a verificationId and the clientToken returned with it",
-            code: "INVALID_REQUEST",
-          },
+          createHandlerKernelInvalidRequestBody(issues),
           { status: 400 }
         );
       }
