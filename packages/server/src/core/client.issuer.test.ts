@@ -77,6 +77,13 @@ function credentialDefinitionResponse(
   };
 }
 
+const validCredentialDefinitionClaim = {
+  name: "employee_id",
+  path: ["employee_id"],
+  mandatory: false,
+  displayName: "Employee ID",
+};
+
 describe("AuthboundClient issuer APIs", () => {
   beforeEach(() => {
     vi.stubGlobal(
@@ -288,6 +295,122 @@ describe("AuthboundClient issuer APIs", () => {
     });
   });
 
+  it.each([
+    ["an unknown base property", { unexpected: true }],
+    [
+      "an unknown claim property",
+      {
+        claims: [{ ...validCredentialDefinitionClaim, unexpected: true }],
+      },
+    ],
+    [
+      "an empty claim path",
+      { claims: [{ ...validCredentialDefinitionClaim, path: [] }] },
+    ],
+    [
+      "an invalid rendering color",
+      { rendering: { simple: { text_color: "navy" } } },
+    ],
+    ["an unknown rendering property", { rendering: { unexpected: true } }],
+  ])("fails closed when a credential definition response contains %s", async (_, overrides) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(credentialDefinitionResponse("published", overrides))
+      )
+    );
+
+    await expect(
+      createClient().issuer.credentialDefinitions.get("employee_badge_v1")
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "INVALID_RESPONSE",
+    });
+  });
+
+  it.each([
+    ["id length", { id: "x".repeat(257) }],
+    [
+      "credentialDefinitionId length",
+      { credentialDefinitionId: "x".repeat(257) },
+    ],
+    ["vct length", { vct: "x".repeat(2049) }],
+    ["title length", { title: "x".repeat(257) }],
+    [
+      "claim count",
+      {
+        claims: Array.from(
+          { length: 257 },
+          () => validCredentialDefinitionClaim
+        ),
+      },
+    ],
+    [
+      "claim name length",
+      {
+        claims: [{ ...validCredentialDefinitionClaim, name: "x".repeat(257) }],
+      },
+    ],
+    [
+      "claim path count",
+      {
+        claims: [
+          {
+            ...validCredentialDefinitionClaim,
+            path: Array.from({ length: 17 }, () => "segment"),
+          },
+        ],
+      },
+    ],
+    [
+      "claim path segment length",
+      {
+        claims: [
+          { ...validCredentialDefinitionClaim, path: ["x".repeat(257)] },
+        ],
+      },
+    ],
+    [
+      "claim display name length",
+      {
+        claims: [
+          { ...validCredentialDefinitionClaim, displayName: "x".repeat(257) },
+        ],
+      },
+    ],
+    ["alias count", { aliases: Array.from({ length: 257 }, () => "alias") }],
+    ["alias length", { aliases: ["x".repeat(2049)] }],
+    ["PublicJson string length", { metadata: { value: "x".repeat(2049) } }],
+    [
+      "PublicJson array count",
+      { metadata: { value: Array.from({ length: 129 }, () => null) } },
+    ],
+    [
+      "PublicJson object property count",
+      {
+        metadata: {
+          value: Object.fromEntries(
+            Array.from({ length: 129 }, (_, index) => [`key${index}`, null])
+          ),
+        },
+      },
+    ],
+  ])("fails closed when a credential definition response exceeds the %s bound", async (_, overrides) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(credentialDefinitionResponse("published", overrides))
+      )
+    );
+
+    await expect(
+      createClient().issuer.credentialDefinitions.get("employee_badge_v1")
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "INVALID_RESPONSE",
+    });
+  });
+
   it("rejects wrong lifecycle responses from update and archive", async () => {
     const fetchMock = vi
       .fn()
@@ -308,6 +431,53 @@ describe("AuthboundClient issuer APIs", () => {
     await expect(
       client.issuer.credentialDefinitions.archive("employee_badge_v2")
     ).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  });
+
+  it("sends only approved draft fields when updating", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(
+        credentialDefinitionResponse("draft", {
+          title: "Updated Employee Badge",
+        })
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createClient().issuer.credentialDefinitions.update(
+      "employee_badge_v2",
+      {
+        title: "Updated Employee Badge",
+        lifecycleStatus: "published",
+        idempotencyKey: "not-allowed-on-update",
+        arbitrary: "not-allowed",
+      } as unknown as UpdateCredentialDefinitionOptions
+    );
+
+    const [, request] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(JSON.parse(request.body as string)).toEqual({
+      title: "Updated Employee Badge",
+    });
+  });
+
+  it("rejects update input containing only disallowed fields", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(credentialDefinitionResponse("draft"))
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      createClient().issuer.credentialDefinitions.update("employee_badge_v2", {
+        lifecycleStatus: "draft",
+        idempotencyKey: "not-allowed-on-update",
+      } as unknown as UpdateCredentialDefinitionOptions)
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "VALIDATION_ERROR",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("exposes exact lifecycle-specific option and return types", () => {

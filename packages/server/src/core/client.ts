@@ -221,12 +221,14 @@ const CredentialDefinitionAuthoringFormatSchema = z.enum([
   "jwt_vc_json",
 ]);
 
-const CredentialDefinitionClaimSchema = z.object({
-  name: z.string(),
-  path: z.array(z.string()),
-  mandatory: z.boolean(),
-  displayName: z.string(),
-});
+const CredentialDefinitionClaimSchema = z
+  .object({
+    name: z.string().max(256),
+    path: z.array(z.string().max(256)).min(1).max(16),
+    mandatory: z.boolean(),
+    displayName: z.string().max(256),
+  })
+  .strict();
 
 export type PublicJson =
   | null
@@ -241,21 +243,28 @@ const PublicJsonSchema: z.ZodType<PublicJson> = z.lazy(() =>
     z.null(),
     z.boolean(),
     z.number(),
-    z.string(),
-    z.array(PublicJsonSchema),
-    z.record(z.string(), PublicJsonSchema),
+    z.string().max(2048),
+    z.array(PublicJsonSchema).max(128),
+    z
+      .record(z.string(), PublicJsonSchema)
+      .refine((value) => Object.keys(value).length <= 128),
   ])
 );
 
-const CredentialDefinitionRenderingSchema = z.object({
-  simple: z
-    .object({
-      text_color: z.string().optional(),
-      background_color: z.string().optional(),
-    })
-    .optional(),
-  authbound_svg_template_preset: z.string().optional(),
-});
+const CredentialDefinitionColorSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
+
+const CredentialDefinitionRenderingSchema = z
+  .object({
+    simple: z
+      .object({
+        text_color: CredentialDefinitionColorSchema.optional(),
+        background_color: CredentialDefinitionColorSchema.optional(),
+      })
+      .strict()
+      .optional(),
+    authbound_svg_template_preset: z.string().optional(),
+  })
+  .strict();
 
 const CredentialDefinitionLifecycleStatusSchema = z.enum([
   "draft",
@@ -263,18 +272,20 @@ const CredentialDefinitionLifecycleStatusSchema = z.enum([
   "archived",
 ]);
 
-const CredentialDefinitionBaseSchema = z.object({
-  object: z.literal("issuer.credential_definition"),
-  id: z.string().min(1),
-  credentialDefinitionId: z.string().min(1),
-  format: PublicCredentialFormatSchema,
-  vct: z.string().min(1),
-  title: z.string().min(1),
-  claims: z.array(CredentialDefinitionClaimSchema),
-  aliases: z.array(z.string()),
-  rendering: CredentialDefinitionRenderingSchema.optional(),
-  metadata: z.record(z.string(), PublicJsonSchema).optional(),
-});
+const CredentialDefinitionBaseSchema = z
+  .object({
+    object: z.literal("issuer.credential_definition"),
+    id: z.string().min(1).max(256),
+    credentialDefinitionId: z.string().min(1).max(256),
+    format: PublicCredentialFormatSchema,
+    vct: z.string().min(1).max(2048),
+    title: z.string().min(1).max(256),
+    claims: z.array(CredentialDefinitionClaimSchema).max(256),
+    aliases: z.array(z.string().max(2048)).max(256),
+    rendering: CredentialDefinitionRenderingSchema.optional(),
+    metadata: z.record(z.string(), PublicJsonSchema).optional(),
+  })
+  .strict();
 
 const DraftCredentialDefinitionSchema = CredentialDefinitionBaseSchema.extend({
   lifecycleStatus: z.literal("draft"),
@@ -1572,20 +1583,31 @@ class CredentialDefinitionsApi {
     options: UpdateCredentialDefinitionOptions
   ): Promise<DraftCredentialDefinition> {
     assertNonEmpty(credentialDefinitionId, "credentialDefinitionId");
-    if (Object.keys(options).length === 0) {
+    const body: UpdateCredentialDefinitionOptions = {
+      ...(options.vct !== undefined ? { vct: options.vct } : {}),
+      ...(options.format !== undefined ? { format: options.format } : {}),
+      ...(options.title !== undefined ? { title: options.title } : {}),
+      ...(options.claims !== undefined ? { claims: options.claims } : {}),
+      ...(options.aliases !== undefined ? { aliases: options.aliases } : {}),
+      ...(options.rendering !== undefined
+        ? { rendering: options.rendering }
+        : {}),
+      ...(options.metadata !== undefined ? { metadata: options.metadata } : {}),
+    };
+    if (Object.keys(body).length === 0) {
       throw new AuthboundClientError(
         "At least one credential definition field is required",
         "VALIDATION_ERROR",
         400
       );
     }
-    if (options.format) {
-      assertCredentialDefinitionAuthoringFormat(options.format);
+    if (body.format) {
+      assertCredentialDefinitionAuthoringFormat(body.format);
     }
     const response = await this.client.request<unknown>(
       "PATCH",
       `/v1/issuer/credential-definitions/${encodePathSegment(credentialDefinitionId)}`,
-      options
+      body
     );
     return parseApiResponse(DraftCredentialDefinitionSchema, response);
   }
