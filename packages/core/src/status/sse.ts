@@ -196,51 +196,6 @@ function isTerminalStatus(status: string): boolean {
   return isTerminalVerificationUiStatus(projectVerificationStatusForUi(status));
 }
 
-async function fetchLatestStatus(
-  config: ResolvedConfig,
-  verificationId: VerificationId,
-  clientToken: ClientToken
-): Promise<StatusEvent | null> {
-  const url = new URL(
-    `/v1/verifications/${verificationId}/status`,
-    config.gatewayUrl
-  );
-
-  const response = await fetch(url.toString(), {
-    method: "GET",
-    headers: {
-      ...authboundContractHeaders(),
-      Accept: "application/json",
-      Authorization: `Bearer ${clientToken}`,
-      "x-authbound-publishable-key": config.publishableKey,
-    },
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const data = (await response.json()) as {
-    status?: string;
-    error?: StatusEvent["error"];
-  } & Record<string, unknown>;
-  assertBrowserSafeStatusPayload(data);
-  if (typeof data.status !== "string") {
-    throw new AuthboundError(
-      "verification_invalid_state",
-      "Status response is missing a verification status"
-    );
-  }
-  const status = mapGatewayStatus(data.status);
-
-  return {
-    type: data.error ? "error" : "status",
-    status,
-    ...(data.error ? { error: data.error } : {}),
-    timestamp: new Date().toISOString(),
-  };
-}
-
 /**
  * Create an SSE subscription for verification status updates.
  *
@@ -422,23 +377,7 @@ export function createStatusSubscription(
 
             // Stop on terminal status (check raw status for terminal detection)
             if (isTerminalStatus(parsed.status as string)) {
-              const finalEvent = statusEvent.error
-                ? null
-                : await fetchLatestStatus(config, verificationId, clientToken)
-                    .then((event) => event)
-                    .catch((error) => {
-                      const authboundError = AuthboundError.from(error);
-                      return {
-                        type: "error" as const,
-                        status: "error" as const,
-                        error: {
-                          code: authboundError.code,
-                          message: authboundError.message,
-                        },
-                        timestamp: new Date().toISOString(),
-                      };
-                    });
-              onEvent(finalEvent ?? statusEvent);
+              onEvent(statusEvent);
               cleanup();
               return;
             }
