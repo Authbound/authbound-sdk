@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import {
   AFFECTED_PACKAGES,
   assertChangedPublishablePackagesIncluded,
   assertInternalPins,
+  assertSourceReleaseManifests,
   RELEASE_VERSION,
   resolveAffectedReleaseSet,
   unchangedAdapters,
@@ -53,6 +55,24 @@ function createManifests({ serverCoreVersion = RELEASE_VERSION } = {}) {
   };
 }
 
+function createSourceManifests(affectedPackages = AFFECTED_PACKAGES) {
+  const manifests = createManifests();
+  const affected = new Set(affectedPackages);
+
+  for (const manifest of Object.values(manifests)) {
+    if (affected.has(manifest.name)) {
+      manifest.version = RELEASE_VERSION;
+    }
+    for (const dependency of Object.keys(manifest.dependencies)) {
+      if (dependency.startsWith("@authbound/")) {
+        manifest.dependencies[dependency] = "workspace:*";
+      }
+    }
+  }
+
+  return manifests;
+}
+
 test("resolves the explicit release set in dependency order", () => {
   const manifests = createManifests();
 
@@ -93,6 +113,20 @@ test("allows unchanged adapters to retain their compatible base pins", () => {
     "@authbound/react",
     "@authbound/vue",
   ]);
+});
+
+test("allows an adapter to be promoted into the affected release set", () => {
+  const affectedPackages = [...AFFECTED_PACKAGES, "@authbound/react"];
+  const manifests = createSourceManifests(affectedPackages);
+
+  assert.deepEqual(unchangedAdapters(manifests, affectedPackages), [
+    "@authbound/nextjs",
+    "@authbound/nuxt",
+    "@authbound/vue",
+  ]);
+  assert.doesNotThrow(() =>
+    assertSourceReleaseManifests(manifests, affectedPackages)
+  );
 });
 
 test("rejects a changed publishable package omitted from the affected set", () => {
@@ -143,4 +177,34 @@ test("still rejects production source, manifest, and export artifact changes", (
       /@authbound\/react changed but is omitted from the affected release set/
     );
   }
+});
+
+test("packed consumers check concrete adapter values and dependency declarations", () => {
+  const source = readFileSync(
+    new URL("./validate-packed-consumers.mjs", import.meta.url),
+    "utf8"
+  );
+
+  assert.doesNotMatch(source, /skipLibCheck:\s*true/);
+  assert.doesNotMatch(source, /declare const adapterExport/);
+  assert.doesNotMatch(source, /\["exec", "tsc"/);
+  assert.match(source, /collectPackedConsumerTypeDiagnostics/);
+  assert.match(source, /"@authbound\/nuxt": "\{\}"/);
+  assert.match(
+    source,
+    /const adapterExport = \$\{adapterTypeValues\[packageName\]\} satisfies AdapterExport/
+  );
+  assert.match(source, /routes:\s*\{/);
+});
+
+test("release workflow fetches the base tag history", () => {
+  const workflow = readFileSync(
+    new URL("../.github/workflows/sdk-release-check.yml", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(
+    workflow,
+    /uses: actions\/checkout@v4\n\s+with:\n\s+fetch-depth: 0/
+  );
 });

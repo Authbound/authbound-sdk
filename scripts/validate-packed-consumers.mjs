@@ -9,17 +9,22 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  ADAPTER_PACKAGES,
+  collectPackedConsumerTypeDiagnostics,
+  summarizeExternalDiagnostics,
+} from "./packed-consumer-typecheck.mjs";
+import {
   AFFECTED_PACKAGES,
   assertInternalPins,
   BASE_RELEASE_TAG,
   BASE_VERSION,
   classifyPublishablePackageChange,
+  expectedUnchangedAdapters,
   loadWorkspaceManifests,
   packageDirectory,
   RELEASE_VERSION,
@@ -175,9 +180,20 @@ const adapterTypeImports = {
   "@authbound/nuxt":
     'import type { ModuleOptions as AdapterExport } from "@authbound/nuxt";',
   "@authbound/react":
-    'import type { UseVerificationReturn as AdapterExport } from "@authbound/react";',
+    'import type { UseVerificationOptions as AdapterExport } from "@authbound/react";',
   "@authbound/vue":
-    'import type { UseVerificationReturn as AdapterExport } from "@authbound/vue";',
+    'import type { UseVerificationOptions as AdapterExport } from "@authbound/vue";',
+};
+
+const adapterTypeValues = {
+  "@authbound/nextjs": `{
+  apiKey: "sk_test_packed_consumer",
+  secret: "packed-consumer-secret-at-least-32-characters",
+  routes: { protected: [], verify: "/verify" },
+}`,
+  "@authbound/nuxt": "{}",
+  "@authbound/react": "{}",
+  "@authbound/vue": "{}",
 };
 
 function typeFixture(packageName) {
@@ -220,7 +236,7 @@ function narrowLifecycle(value: CredentialDefinition): string {
   }
 }
 
-declare const adapterExport: AdapterExport;
+const adapterExport = ${adapterTypeValues[packageName]} satisfies AdapterExport;
 void adapterExport;
 void narrowLifecycle;
 `;
@@ -347,7 +363,7 @@ function validateAdapterConsumer(
       module: "ESNext",
       moduleResolution: "Bundler",
       noEmit: true,
-      skipLibCheck: true,
+      skipLibCheck: false,
     },
     include: ["consumer.ts"],
   });
@@ -373,7 +389,27 @@ function validateAdapterConsumer(
   run("pnpm", ["install", "--ignore-scripts", "--no-frozen-lockfile"], {
     cwd: fixtureDirectory,
   });
-  run("pnpm", ["exec", "tsc", "--noEmit"], { cwd: fixtureDirectory });
+  const fixtureRequire = createRequire(join(fixtureDirectory, "package.json"));
+  const typescript = fixtureRequire("typescript");
+  const { blocking, external } = collectPackedConsumerTypeDiagnostics(
+    typescript,
+    fixtureDirectory
+  );
+  if (external.length > 0) {
+    console.warn(`${packageName}: ${summarizeExternalDiagnostics(external)}`);
+  }
+  if (blocking.length > 0) {
+    throw new Error(
+      `${packageName} has blocking packed consumer declaration diagnostics:\n${typescript.formatDiagnostics(
+        blocking,
+        {
+          getCanonicalFileName: (fileName) => fileName,
+          getCurrentDirectory: () => fixtureDirectory,
+          getNewLine: () => "\n",
+        }
+      )}`
+    );
+  }
   run(process.execPath, ["dependency-tree.mjs"], { cwd: fixtureDirectory });
   run(process.execPath, ["runtime.mjs"], { cwd: fixtureDirectory });
   console.log(
@@ -383,10 +419,11 @@ function validateAdapterConsumer(
 
 try {
   const manifests = loadWorkspaceManifests(sdkRoot);
-  const adapters = unchangedAdapters(manifests);
-  if (JSON.stringify(adapters) !== JSON.stringify(ADAPTER_PACKAGES)) {
+  const expectedAdapters = expectedUnchangedAdapters(AFFECTED_PACKAGES).sort();
+  const adapters = unchangedAdapters(manifests, AFFECTED_PACKAGES);
+  if (JSON.stringify(adapters) !== JSON.stringify(expectedAdapters)) {
     throw new Error(
-      `Expected unchanged adapters ${ADAPTER_PACKAGES.join(", ")}; got ${adapters.join(", ")}`
+      `Expected unchanged adapters ${expectedAdapters.join(", ")}; got ${adapters.join(", ")}`
     );
   }
 
@@ -415,7 +452,12 @@ try {
         `${packageName} packed version must be ${RELEASE_VERSION}; got ${manifest.version}`
       );
     }
-    assertInternalPins(packedAffectedManifests, packageName, RELEASE_VERSION);
+    assertInternalPins(
+      packedAffectedManifests,
+      packageName,
+      RELEASE_VERSION,
+      AFFECTED_PACKAGES
+    );
   }
   console.log(
     `Affected tarballs contain exact ${RELEASE_VERSION} versions and internal pins`

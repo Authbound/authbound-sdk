@@ -82,8 +82,12 @@ export function loadWorkspaceManifests(rootDirectory = process.cwd()) {
   );
 }
 
-export function resolveAffectedReleaseSet(manifests, requestedPackages) {
-  const affected = new Set(AFFECTED_PACKAGES);
+export function resolveAffectedReleaseSet(
+  manifests,
+  requestedPackages,
+  affectedPackages = AFFECTED_PACKAGES
+) {
+  const affected = new Set(affectedPackages);
   const resolved = new Set();
   const visiting = new Set();
 
@@ -113,9 +117,14 @@ export function resolveAffectedReleaseSet(manifests, requestedPackages) {
   return [...resolved];
 }
 
-export function assertInternalPins(manifests, packageName, version) {
+export function assertInternalPins(
+  manifests,
+  packageName,
+  version,
+  affectedPackages = AFFECTED_PACKAGES
+) {
   const manifest = manifestFor(manifests, packageName);
-  const affected = new Set(AFFECTED_PACKAGES);
+  const affected = new Set(affectedPackages);
 
   for (const field of ["dependencies", "optionalDependencies"]) {
     for (const [dependency, range] of Object.entries(manifest[field] ?? {})) {
@@ -128,12 +137,23 @@ export function assertInternalPins(manifests, packageName, version) {
   }
 }
 
-export function unchangedAdapters(manifests) {
-  const affected = new Set(AFFECTED_PACKAGES);
-  return ADAPTER_PACKAGES.filter((packageName) => {
-    const manifest = manifestFor(manifests, packageName);
-    return !affected.has(packageName) && manifest.version === BASE_VERSION;
-  }).sort();
+export function expectedUnchangedAdapters(
+  affectedPackages = AFFECTED_PACKAGES
+) {
+  const affected = new Set(affectedPackages);
+  return ADAPTER_PACKAGES.filter((packageName) => !affected.has(packageName));
+}
+
+export function unchangedAdapters(
+  manifests,
+  affectedPackages = AFFECTED_PACKAGES
+) {
+  return expectedUnchangedAdapters(affectedPackages)
+    .filter((packageName) => {
+      const manifest = manifestFor(manifests, packageName);
+      return manifest.version === BASE_VERSION;
+    })
+    .sort();
 }
 
 export function classifyPublishablePackageChange(filePath) {
@@ -169,12 +189,19 @@ export function assertChangedPublishablePackagesIncluded(
   }
 }
 
-export function assertSourceReleaseManifests(manifests) {
-  const affected = new Set(AFFECTED_PACKAGES);
-  const resolved = resolveAffectedReleaseSet(manifests, AFFECTED_PACKAGES);
-  if (JSON.stringify(resolved) !== JSON.stringify(AFFECTED_PACKAGES)) {
+export function assertSourceReleaseManifests(
+  manifests,
+  affectedPackages = AFFECTED_PACKAGES
+) {
+  const affected = new Set(affectedPackages);
+  const resolved = resolveAffectedReleaseSet(
+    manifests,
+    affectedPackages,
+    affectedPackages
+  );
+  if (JSON.stringify(resolved) !== JSON.stringify(affectedPackages)) {
     throw new Error(
-      `Affected release set must resolve to ${AFFECTED_PACKAGES.join(", ")}; got ${resolved.join(", ")}`
+      `Affected release set must resolve to ${affectedPackages.join(", ")}; got ${resolved.join(", ")}`
     );
   }
 
@@ -199,10 +226,11 @@ export function assertSourceReleaseManifests(manifests) {
     }
   }
 
-  const adapters = unchangedAdapters(manifests);
-  if (JSON.stringify(adapters) !== JSON.stringify(ADAPTER_PACKAGES)) {
+  const expectedAdapters = expectedUnchangedAdapters(affectedPackages).sort();
+  const adapters = unchangedAdapters(manifests, affectedPackages);
+  if (JSON.stringify(adapters) !== JSON.stringify(expectedAdapters)) {
     throw new Error(
-      `Unchanged adapters must remain ${ADAPTER_PACKAGES.join(", ")}; got ${adapters.join(", ")}`
+      `Unchanged adapters must remain ${expectedAdapters.join(", ")}; got ${adapters.join(", ")}`
     );
   }
 }
