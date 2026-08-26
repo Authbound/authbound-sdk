@@ -32,7 +32,9 @@ export interface AuthboundClientConfig {
 
   /**
    * Session handling mode: SDK cookie finalization or app-owned manual session.
-   * SDK mode requires the Web Locks API in browser environments.
+   * SDK mode requires the Web Locks API and coordinates mutations only within
+   * the same browser origin. Shared parent-domain or multi-origin sessions must
+   * use manual mode with server-side coordination.
    */
   sessionMode?: "sdk" | "manual";
 

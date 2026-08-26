@@ -154,7 +154,9 @@ export interface AuthboundProviderProps {
   sessionEndpoint?: string;
   /**
    * Whether the SDK should create its own browser session binding.
-   * SDK mode requires the Web Locks API in browser environments.
+   * SDK mode requires the Web Locks API and coordinates mutations only within
+   * the same browser origin. Shared parent-domain or multi-origin sessions must
+   * use manual mode with server-side coordination.
    */
   sessionMode?: "sdk" | "manual";
   /** Gateway URL override (for testing) */
