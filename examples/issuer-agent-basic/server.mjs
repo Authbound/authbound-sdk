@@ -11,8 +11,14 @@ const authbound = new AuthboundClient({
   apiUrl: process.env.AUTHBOUND_API_URL || undefined,
 });
 
+const ownedCredentialDefinitionId = "employee_badge_v1";
 const credentialDefinitionId =
-  process.env.AUTHBOUND_CREDENTIAL_DEFINITION_ID || "employee_badge_v1";
+  process.env.AUTHBOUND_CREDENTIAL_DEFINITION_ID || ownedCredentialDefinitionId;
+if (credentialDefinitionId !== ownedCredentialDefinitionId) {
+  throw new Error(
+    "This example only manages its owned employee_badge_v1 credential definition"
+  );
+}
 
 const employee = {
   id: "employee_123",

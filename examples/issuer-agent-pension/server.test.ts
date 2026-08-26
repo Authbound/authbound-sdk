@@ -239,6 +239,30 @@ describe("issuer-agent-pension example", () => {
     );
   });
 
+  it("rethrows untyped not-found-shaped errors without creating", async () => {
+    const untypedNotFound = Object.assign(new Error("not found"), {
+      code: "credential_definition_not_found",
+    });
+    const create = mockFunction(
+      async ({ credentialDefinitionId }: { credentialDefinitionId: string }) =>
+        credentialDefinition(credentialDefinitionId, "published")
+    );
+    const client = createMockClient({
+      credentialDefinitions: {
+        get: async () => {
+          throw untypedNotFound;
+        },
+        create,
+      },
+    });
+
+    await assert.rejects(
+      () => createPensionCredentialDefinition(client, "pension-credential"),
+      (error) => error === untypedNotFound
+    );
+    assert.equal(create.calls.length, 0);
+  });
+
   it("reuses a published definition", async () => {
     const get = mockFunction(async () =>
       credentialDefinition("pension-credential", "published")
