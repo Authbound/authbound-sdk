@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AuthboundClient } from "../client/factory";
+import { type AuthboundClient, createClient } from "../client/factory";
 import { AuthboundError } from "../types/errors";
 import type {
   CreateVerificationResponse,
@@ -107,6 +107,62 @@ describe("createBrowserVerificationFlow", () => {
     expect(cleanup).toHaveBeenCalledTimes(1);
     expect(flow.getState()).toMatchObject({ status: "verified" });
     expect(states).toContain("verified");
+  });
+
+  it("finalizes after SSE failure when fallback polling outlives five minutes", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const verifiedAt = Date.parse("2026-05-15T12:05:32.000Z");
+    const expiresAt = "2026-05-15T12:10:00.000Z";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/events/sse")) {
+        throw new TypeError("Failed to fetch: net::ERR_QUIC_PROTOCOL_ERROR");
+      }
+      if (url.endsWith("/status")) {
+        return new Response(
+          JSON.stringify({
+            object: "verification_status",
+            id: "vrf_test123",
+            status: Date.now() >= verifiedAt ? "verified" : "awaiting_user",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createClient({
+      publishableKey: "pk_test_public123" as never,
+      gatewayUrl: "https://gateway.authbound.test",
+    });
+    client.startVerification = vi.fn().mockResolvedValue({
+      verificationId: "vrf_test123",
+      authorizationRequestUrl: "openid4vp://authorize",
+      clientToken: "client_token_123",
+      expiresAt,
+    });
+    client.finalizeVerification = vi.fn().mockResolvedValue({
+      isVerified: true,
+      verificationId: "vrf_test123",
+      status: "verified",
+    });
+    const flow = createBrowserVerificationFlow({ client, sessionMode: "sdk" });
+
+    await flow.start();
+    await vi.advanceTimersByTimeAsync(332_000);
+
+    expect(Date.now()).toBeLessThan(Date.parse(expiresAt));
+    expect(
+      fetchMock.mock.calls.filter(([input]) =>
+        String(input).endsWith("/events/sse")
+      )
+    ).toHaveLength(6);
+    expect(client.finalizeVerification).toHaveBeenCalledOnce();
+    expect(flow.getState()).toMatchObject({ status: "verified" });
   });
 
   it("does not finalize in manual session mode", async () => {

@@ -38,7 +38,10 @@ export interface BrowserVerificationFlowClient {
     verificationId: VerificationId,
     clientToken: ClientToken,
     onEvent: (event: StatusEvent) => void,
-    options?: { onError?: (error: AuthboundError) => void }
+    options?: {
+      onError?: (error: AuthboundError) => void;
+      expiresAt?: Date;
+    }
   ) => () => void;
   finalizeVerification: (
     verificationId: VerificationId,
@@ -367,6 +370,7 @@ export function createBrowserVerificationFlow(
           );
         },
         {
+          ...(nextState.expiresAt ? { expiresAt: nextState.expiresAt } : {}),
           onError: (error) => {
             if (revision !== operationRevision) {
               return;

@@ -60,6 +60,8 @@ export const DEFAULT_POLLING_CONFIG: PollingConfig = {
 export interface PollingSubscriptionOptions {
   /** Called when an error occurs */
   onError?: (error: AuthboundError) => void;
+  /** Absolute verification expiry returned by startVerification */
+  expiresAt?: Date;
   /** Custom polling configuration */
   pollingConfig?: Partial<PollingConfig>;
 }
@@ -89,6 +91,9 @@ export function createPollingSubscription(
   let currentInterval = pollingConfig.initialInterval;
   let lastStatus: VerificationUiStatus = "idle";
   const startTime = Date.now();
+  const pollingDeadline = options.expiresAt
+    ? options.expiresAt.getTime()
+    : startTime + pollingConfig.maxDuration;
 
   const url = new URL(
     `/v1/verifications/${verificationId}/status`,
@@ -98,12 +103,9 @@ export function createPollingSubscription(
   async function poll(): Promise<void> {
     if (isCleanedUp) return;
 
-    // Calculate remaining time
-    const elapsed = Date.now() - startTime;
-    const remainingTime = pollingConfig.maxDuration - elapsed;
+    const remainingTime = pollingDeadline - Date.now();
 
-    // Check if we've exceeded max duration
-    if (remainingTime <= 0) {
+    if (!Number.isFinite(remainingTime) || remainingTime <= 0) {
       const timeoutEvent: StatusEvent = {
         type: "timeout",
         status: "timeout",

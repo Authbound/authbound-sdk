@@ -13,7 +13,7 @@
  * });
  *
  * // Start verification
- * const { verificationId, authorizationRequestUrl, clientToken } =
+ * const { verificationId, authorizationRequestUrl, clientToken, expiresAt } =
  *   await client.startVerification();
  *
  * // Subscribe to status updates (SSE with polling fallback)
@@ -21,7 +21,7 @@
  *   if (event.status === 'verified') {
  *     console.log('Verification successful!');
  *   }
- * });
+ * }, { expiresAt: new Date(expiresAt) });
  * ```
  */
 

@@ -11,13 +11,13 @@
  * });
  *
  * // Start verification
- * const { verificationId, authorizationRequestUrl, clientToken } =
+ * const { verificationId, authorizationRequestUrl, clientToken, expiresAt } =
  *   await client.startVerification();
  *
  * // Subscribe to status updates
  * const cleanup = client.subscribeToStatus(verificationId, clientToken, (event) => {
  *   console.log('Status:', event.status);
- * });
+ * }, { expiresAt: new Date(expiresAt) });
  * ```
  */
 
@@ -167,6 +167,8 @@ export interface AuthboundClient {
     options?: {
       onError?: (error: AuthboundError) => void;
       fallbackToPolling?: boolean;
+      /** Absolute verification expiry returned by startVerification */
+      expiresAt?: Date;
     }
   ): () => void;
 
@@ -286,7 +288,7 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
     },
 
     subscribeToStatus(verificationId, clientToken, onEvent, options = {}) {
-      const { onError, fallbackToPolling = true } = options;
+      const { onError, fallbackToPolling = true, expiresAt } = options;
 
       log("Subscribing to status for verification:", verificationId);
 
@@ -323,6 +325,18 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
         }
       };
 
+      const startPolling = () =>
+        createPollingSubscription(
+          resolvedConfig,
+          verificationId,
+          clientToken,
+          handleEvent,
+          {
+            onError: handleError,
+            ...(expiresAt ? { expiresAt } : {}),
+          }
+        );
+
       // Try SSE first
       try {
         activeCleanup = createStatusSubscription(
@@ -350,13 +364,7 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
                 if (isCleanedUp) return;
 
                 // Start polling instead and track the new cleanup
-                activeCleanup = createPollingSubscription(
-                  resolvedConfig,
-                  verificationId,
-                  clientToken,
-                  handleEvent,
-                  { onError: handleError }
-                );
+                activeCleanup = startPolling();
               } else {
                 handleError(error);
               }
@@ -369,13 +377,7 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
         // If SSE setup fails immediately, fall back to polling
         if (fallbackToPolling) {
           log("SSE setup failed, using polling");
-          activeCleanup = createPollingSubscription(
-            resolvedConfig,
-            verificationId,
-            clientToken,
-            handleEvent,
-            { onError: handleError }
-          );
+          activeCleanup = startPolling();
           return cleanup;
         }
         throw AuthboundError.from(error);

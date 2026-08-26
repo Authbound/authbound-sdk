@@ -109,6 +109,21 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
       // Verify timeout event was emitted
       expect(events.some((e) => e.type === "timeout")).toBe(true);
     });
+
+    it("does not poll past the authoritative verification expiry", () => {
+      cleanup = createPollingSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        { expiresAt: new Date(Date.now() - 1) }
+      );
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(events).toContainEqual(
+        expect.objectContaining({ type: "timeout", status: "timeout" })
+      );
+    });
   });
 
   describe("AbortController Integration", () => {
