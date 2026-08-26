@@ -49,8 +49,8 @@ Use short conventional prefixes so release notes stay scannable:
 6. Tag the exact release commit:
 
    ```bash
-   git tag -a sdk-v0.2.0 -m "Authbound SDK 0.2.0"
-   git push origin main sdk-v0.2.0
+   git tag -a sdk-v0.2.1 -m "Authbound SDK 0.2.1"
+   git push origin main sdk-v0.2.1
    ```
 
 7. Wait for the `SDK Release Check` workflow to pass on the tag.
