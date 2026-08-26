@@ -88,6 +88,7 @@ export function createPollingSubscription(
 
   let isCleanedUp = false;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let activeAbortController: AbortController | null = null;
   let currentInterval = pollingConfig.initialInterval;
   let lastStatus: VerificationUiStatus = "idle";
   const startTime = Date.now();
@@ -100,25 +101,33 @@ export function createPollingSubscription(
     config.gatewayUrl
   );
 
+  function hasReachedPollingDeadline(): boolean {
+    return !Number.isFinite(pollingDeadline) || Date.now() >= pollingDeadline;
+  }
+
+  function emitTimeout(): void {
+    const timeoutEvent: StatusEvent = {
+      type: "timeout",
+      status: "timeout",
+      timestamp: new Date().toISOString(),
+    };
+    onEvent(timeoutEvent);
+    cleanup();
+  }
+
   async function poll(): Promise<void> {
     if (isCleanedUp) return;
 
     const remainingTime = pollingDeadline - Date.now();
 
-    if (!Number.isFinite(remainingTime) || remainingTime <= 0) {
-      const timeoutEvent: StatusEvent = {
-        type: "timeout",
-        status: "timeout",
-        timestamp: new Date().toISOString(),
-      };
-      onEvent(timeoutEvent);
-      cleanup();
+    if (hasReachedPollingDeadline()) {
+      emitTimeout();
       return;
     }
 
-    // Use AbortController to enforce timeout on the network request itself
-    // This prevents slow requests from exceeding max duration
+    // Bound each request without replacing the verification's lifecycle deadline.
     const abortController = new AbortController();
+    activeAbortController = abortController;
     const requestTimeoutId = setTimeout(
       () => abortController.abort(),
       Math.min(remainingTime, 30_000) // Cap individual request at 30s
@@ -135,8 +144,6 @@ export function createPollingSubscription(
         signal: abortController.signal,
       });
 
-      clearTimeout(requestTimeoutId);
-
       if (!response.ok) {
         throw await createPollingResponseError(response);
       }
@@ -146,6 +153,13 @@ export function createPollingSubscription(
         error?: { code: string; message: string };
         timeRemaining?: number;
       } & Record<string, unknown>;
+
+      if (isCleanedUp) return;
+      if (hasReachedPollingDeadline()) {
+        emitTimeout();
+        return;
+      }
+
       assertBrowserSafeStatusPayload(data);
 
       // Map gateway status to SDK-friendly status
@@ -174,19 +188,16 @@ export function createPollingSubscription(
       // Schedule next poll with backoff
       scheduleNextPoll();
     } catch (error) {
-      clearTimeout(requestTimeoutId);
-
       if (isCleanedUp) return;
 
-      // Handle AbortError from our timeout as a timeout event
+      if (hasReachedPollingDeadline()) {
+        emitTimeout();
+        return;
+      }
+
+      // A per-request timeout is retryable until the verification expires.
       if (error instanceof Error && error.name === "AbortError") {
-        const timeoutEvent: StatusEvent = {
-          type: "timeout",
-          status: "timeout",
-          timestamp: new Date().toISOString(),
-        };
-        onEvent(timeoutEvent);
-        cleanup();
+        scheduleNextPoll();
         return;
       }
 
@@ -218,6 +229,11 @@ export function createPollingSubscription(
       };
       onEvent(errorEvent);
       cleanup();
+    } finally {
+      clearTimeout(requestTimeoutId);
+      if (activeAbortController === abortController) {
+        activeAbortController = null;
+      }
     }
   }
 
@@ -240,6 +256,10 @@ export function createPollingSubscription(
 
   function cleanup(): void {
     isCleanedUp = true;
+    if (activeAbortController) {
+      activeAbortController.abort();
+      activeAbortController = null;
+    }
     if (timeoutId) {
       clearTimeout(timeoutId);
       timeoutId = null;

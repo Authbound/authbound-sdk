@@ -178,6 +178,45 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
       const fetchOptions = fetchMock.mock.calls[0][1];
       expect(fetchOptions.signal).toBeInstanceOf(AbortSignal);
     });
+
+    it("retries a request timeout while the verification remains unexpired", async () => {
+      fetchMock
+        .mockImplementationOnce(
+          (_url: string, options: { signal: AbortSignal }) =>
+            new Promise((_, reject) => {
+              options.signal.addEventListener("abort", () => {
+                const error = new Error("The operation was aborted");
+                error.name = "AbortError";
+                reject(error);
+              });
+            })
+        )
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ status: "verified" }),
+        });
+
+      cleanup = createPollingSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+          pollingConfig: { initialInterval: 100 },
+        }
+      );
+
+      await vi.advanceTimersByTimeAsync(30_100);
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(events).not.toContainEqual(
+        expect.objectContaining({ type: "timeout" })
+      );
+      expect(events).toContainEqual(
+        expect.objectContaining({ type: "status", status: "verified" })
+      );
+    });
   });
 
   describe("Per-Request Timeout", () => {
@@ -477,6 +516,40 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
       // Advance time - should not make more requests
       await vi.advanceTimersByTimeAsync(5000);
       expect(fetchMock.mock.calls.length).toBe(callsBeforeCleanup);
+    });
+
+    it("aborts and suppresses an in-flight response after cleanup", async () => {
+      let resolveBody: (body: unknown) => void = () => {};
+      let requestSignal: AbortSignal | undefined;
+      fetchMock.mockImplementation(
+        (_url: string, options: { signal: AbortSignal }) => {
+          requestSignal = options.signal;
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              new Promise((resolve) => {
+                resolveBody = resolve;
+              }),
+          });
+        }
+      );
+
+      cleanup = createPollingSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event)
+      );
+
+      await Promise.resolve();
+      await Promise.resolve();
+      cleanup();
+      cleanup = null;
+      resolveBody({ status: "verified" });
+      await vi.runAllTimersAsync();
+
+      expect(requestSignal?.aborted).toBe(true);
+      expect(events).toEqual([]);
     });
   });
 });

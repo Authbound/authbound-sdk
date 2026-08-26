@@ -229,22 +229,26 @@ export function createBrowserVerificationFlow(
     });
   }
 
-  function scheduleExpiry(expiresAt: Date | undefined, revision: number): void {
+  function scheduleExpiry(
+    expiresAt: Date | undefined,
+    revision: number
+  ): boolean {
     cleanupTimers();
 
-    if (!expiresAt || Number.isNaN(expiresAt.getTime())) {
-      return;
+    if (!expiresAt) {
+      return true;
     }
 
     const delay = expiresAt.getTime() - Date.now();
-    if (delay <= 0) {
+    if (!Number.isFinite(delay) || delay <= 0) {
       markTimedOut(revision);
-      return;
+      return false;
     }
 
     updateTimeRemaining(revision);
     countdownInterval = setInterval(() => updateTimeRemaining(revision), 1000);
     expiryTimeout = setTimeout(() => markTimedOut(revision), delay);
+    return true;
   }
 
   async function finalizeOnce(
@@ -277,11 +281,12 @@ export function createBrowserVerificationFlow(
     const isCurrent = () =>
       revision === operationRevision && state.verificationId === verificationId;
 
-    if (!isCurrent()) {
+    if (!isCurrent() || isTerminalStatus(state.status)) {
       return;
     }
 
     if (event.status === "verified") {
+      cleanup();
       try {
         await finalizeOnce(verificationId, clientToken);
       } catch (error) {
@@ -355,7 +360,9 @@ export function createBrowserVerificationFlow(
 
       const nextState = stateFromResponse(client, response);
       emit(nextState);
-      scheduleExpiry(nextState.expiresAt, revision);
+      if (!scheduleExpiry(nextState.expiresAt, revision)) {
+        return;
+      }
 
       const verificationId = response.verificationId;
       const clientToken = response.clientToken;
