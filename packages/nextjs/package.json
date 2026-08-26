@@ -1,6 +1,6 @@
 {
   "name": "@authbound/nextjs",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "Authbound Next.js SDK - Complete verification for Next.js with middleware, handlers, and React components.",
   "type": "module",
   "sideEffects": [
@@ -67,7 +67,7 @@
   "scripts": {
     "build": "tsup --config tsup.config.ts && cp src/styles.css dist/styles.css",
     "dev": "tsup --config tsup.config.ts --watch",
-    "pretypecheck": "pnpm --filter @authbound/server build",
+    "pretypecheck": "pnpm --filter @authbound/react --filter @authbound/server build",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "ultracite lint",
