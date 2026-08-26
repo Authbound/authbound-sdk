@@ -75,15 +75,10 @@ function browserSessionMutationKey(endpoint: string): string | null {
   }
 }
 
-async function runBrowserSessionMutation<T>(
-  endpoint: string,
+async function runLocalBrowserSessionMutation<T>(
+  key: string,
   operation: () => Promise<T>
 ): Promise<T> {
-  const key = browserSessionMutationKey(endpoint);
-  if (!key) {
-    return operation();
-  }
-
   const previous = browserSessionMutationTails.get(key);
   const result = previous ? previous.then(operation) : operation();
   const tail = result.then(
@@ -99,6 +94,23 @@ async function runBrowserSessionMutation<T>(
       browserSessionMutationTails.delete(key);
     }
   }
+}
+
+async function runBrowserSessionMutation<T>(
+  endpoint: string,
+  operation: () => Promise<T>
+): Promise<T> {
+  const key = browserSessionMutationKey(endpoint);
+  if (!key) {
+    return operation();
+  }
+
+  const lockManager = globalThis.navigator?.locks;
+  if (lockManager) {
+    return lockManager.request(`authbound:browser-session:${key}`, operation);
+  }
+
+  return runLocalBrowserSessionMutation(key, operation);
 }
 
 function assertSafeVerificationMetadata(

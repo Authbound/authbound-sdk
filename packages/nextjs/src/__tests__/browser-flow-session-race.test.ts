@@ -28,6 +28,22 @@ function gatewayVerification(id: string): Response {
   });
 }
 
+function installBrowserSessionLocks(): ReturnType<typeof vi.fn> {
+  let tail = Promise.resolve();
+  const request = vi.fn(
+    (_name: string, operation: () => Promise<unknown>): Promise<unknown> => {
+      const result = tail.then(operation);
+      tail = result.then(
+        () => undefined,
+        () => undefined
+      );
+      return result;
+    }
+  );
+  vi.stubGlobal("navigator", { locks: { request } });
+  return request;
+}
+
 describe("browser flow session cookie ordering", () => {
   const originalFetch = global.fetch;
 
@@ -38,6 +54,7 @@ describe("browser flow session cookie ordering", () => {
   });
 
   it("keeps a new controller's pending cookie when stale finalization returns", async () => {
+    const lockRequest = installBrowserSessionLocks();
     const cookies = new Map<string, string>();
     const createHandler = createVerificationRoute({
       policyId: "pol_authbound_pension_v1" as never,
@@ -167,6 +184,12 @@ describe("browser flow session cookie ordering", () => {
       status: "PENDING",
       verificationId: "vrf_second",
     });
+    expect(lockRequest).toHaveBeenCalledTimes(3);
+    expect(
+      lockRequest.mock.calls.every(
+        ([name]) => name === `authbound:browser-session:${BROWSER_ORIGIN}`
+      )
+    ).toBe(true);
   });
 
   it("serializes verification creation across browser clients", async () => {
