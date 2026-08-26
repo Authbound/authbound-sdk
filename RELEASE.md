@@ -7,8 +7,10 @@ release repeatable.
 ## Version Policy
 
 - Publishable SDK packages use one aligned version across `packages/*`.
-- Compatible fixes for the first official platform release target `0.1.6`.
-- SDK tags use `sdk-v<version>`, for example `sdk-v0.1.6`.
+- Compatible fixes use patch releases; breaking pre-1.0 changes use minor
+  releases with a separate release plan.
+- The current breaking-contract release target is `0.2.0`.
+- SDK tags use `sdk-v<version>`, for example `sdk-v0.2.0`.
 - Breaking SDK changes require a separate release plan before publishing.
 
 ## Commit Convention
@@ -39,8 +41,8 @@ Use short conventional prefixes so release notes stay scannable:
 6. Tag the exact release commit:
 
    ```bash
-   git tag -a sdk-v0.1.6 -m "Authbound SDK 0.1.6"
-   git push origin main sdk-v0.1.6
+   git tag -a sdk-v0.2.0 -m "Authbound SDK 0.2.0"
+   git push origin main sdk-v0.2.0
    ```
 
 7. Wait for the `SDK Release Check` workflow to pass on the tag.
