@@ -33,10 +33,11 @@ describe("browser flow session cookie ordering", () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  it("keeps the replacement pending cookie when stale finalization returns", async () => {
+  it("keeps a new controller's pending cookie when stale finalization returns", async () => {
     const cookies = new Map<string, string>();
     const createHandler = createVerificationRoute({
       policyId: "pol_authbound_pension_v1" as never,
@@ -109,13 +110,15 @@ describe("browser flow session cookie ordering", () => {
         throw new Error(`Unexpected fetch: ${url}`);
       }
     ) as typeof fetch;
+    vi.stubGlobal("location", new URL(BROWSER_ORIGIN));
 
-    const client = createClient({
+    const clientConfig = {
       publishableKey: "pk_test_public123",
       policyId: "pol_authbound_pension_v1" as never,
       verificationEndpoint: "/api/authbound/verification",
       sessionEndpoint: "/api/authbound/session",
-    });
+    };
+    const client = createClient(clientConfig);
     let statusHandler: Parameters<AuthboundClient["subscribeToStatus"]>[2] =
       () => {
         throw new Error("Status handler was not registered");
@@ -134,8 +137,12 @@ describe("browser flow session cookie ordering", () => {
     });
     await vi.waitFor(() => expect(resultRequested).toBe(true));
 
-    flow.reset();
-    const restart = flow.start();
+    const replacementClient = createClient(clientConfig);
+    replacementClient.subscribeToStatus = vi.fn(() => vi.fn());
+    const replacementFlow = createBrowserVerificationFlow({
+      client: replacementClient,
+    });
+    const restart = replacementFlow.start();
     await new Promise<void>((resolve) => {
       setTimeout(() => {
         resolveFirstResult(
@@ -152,6 +159,82 @@ describe("browser flow session cookie ordering", () => {
     await restart;
     await vi.waitFor(() => expect(cookies.has("__authbound")).toBe(true));
 
+    const pendingToken = cookies.get("__authbound_pending");
+    expect(pendingToken).toBeDefined();
+    await expect(
+      getVerificationFromToken(pendingToken ?? "", SESSION_SECRET)
+    ).resolves.toMatchObject({
+      status: "PENDING",
+      verificationId: "vrf_second",
+    });
+  });
+
+  it("serializes verification creation across browser clients", async () => {
+    const cookies = new Map<string, string>();
+    const createHandler = createVerificationRoute({
+      policyId: "pol_authbound_pension_v1" as never,
+      gatewayUrl: "https://api.authbound.io",
+      secret: "sk_test_secret",
+      sessionSecret: SESSION_SECRET,
+    });
+    let createCount = 0;
+    let resolveFirstCreate: (response: Response) => void = () => {};
+
+    global.fetch = vi.fn(
+      async (input: string | URL | Request, init?: RequestInit) => {
+        const rawUrl = input instanceof Request ? input.url : input.toString();
+        const url = new URL(rawUrl, BROWSER_ORIGIN);
+
+        if (url.origin === BROWSER_ORIGIN) {
+          const headers = new Headers(init?.headers);
+          headers.set(
+            "cookie",
+            [...cookies].map(([name, value]) => `${name}=${value}`).join("; ")
+          );
+          headers.set("origin", BROWSER_ORIGIN);
+          headers.set("sec-fetch-site", "same-origin");
+          const response = await createHandler(
+            new Request(url, { ...init, headers })
+          );
+          const setCookie = response.headers.get("set-cookie") ?? "";
+          const pendingCookie = /(?:^|,\s*)__authbound_pending=([^;]*)/.exec(
+            setCookie
+          )?.[1];
+          if (pendingCookie) {
+            cookies.set("__authbound_pending", pendingCookie);
+          }
+          return response;
+        }
+
+        if (url.pathname === "/v1/verifications") {
+          createCount += 1;
+          if (createCount === 1) {
+            return new Promise<Response>((resolve) => {
+              resolveFirstCreate = resolve;
+            });
+          }
+          return gatewayVerification("vrf_second");
+        }
+
+        throw new Error(`Unexpected fetch: ${url}`);
+      }
+    ) as typeof fetch;
+    vi.stubGlobal("location", new URL(BROWSER_ORIGIN));
+
+    const clientConfig = {
+      publishableKey: "pk_test_public123",
+      policyId: "pol_authbound_pension_v1" as never,
+      verificationEndpoint: "/api/authbound/verification",
+      sessionEndpoint: "/api/authbound/session",
+    };
+    const firstStart = createClient(clientConfig).startVerification();
+    const secondStart = createClient(clientConfig).startVerification();
+
+    await vi.waitFor(() => expect(createCount).toBe(1));
+    resolveFirstCreate(gatewayVerification("vrf_first"));
+    await Promise.all([firstStart, secondStart]);
+
+    expect(createCount).toBe(2);
     const pendingToken = cookies.get("__authbound_pending");
     expect(pendingToken).toBeDefined();
     await expect(

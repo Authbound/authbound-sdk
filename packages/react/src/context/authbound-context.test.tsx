@@ -12,6 +12,7 @@ import {
   Suspense,
   startTransition,
   useEffect,
+  useLayoutEffect,
   useRef,
 } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -90,11 +91,11 @@ function AutoStartEudiVerificationHook() {
   return null;
 }
 
-function EffectStartVerification() {
+function LayoutStartVerification() {
   const { startVerification } = useAuthbound();
   const didStartRef = useRef(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (didStartRef.current) {
       return;
     }
@@ -332,7 +333,7 @@ describe("AuthboundProvider session finalization", () => {
     unmount();
   });
 
-  it("accepts a descendant effect start on initial mount", async () => {
+  it("accepts a descendant layout-effect start on initial mount", async () => {
     const fetchMock = createPendingVerificationFetchMock();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -344,7 +345,7 @@ describe("AuthboundProvider session finalization", () => {
           publishableKey="pk_test_public123"
           sessionMode="manual"
         >
-          <EffectStartVerification />
+          <LayoutStartVerification />
         </AuthboundProvider>
       </StrictMode>
     );
@@ -428,7 +429,7 @@ describe("AuthboundProvider session finalization", () => {
     );
   });
 
-  it("accepts a descendant effect start after a committed flow replacement", async () => {
+  it("accepts a descendant layout start after a committed flow replacement", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(createPendingVerificationResponse())
@@ -453,7 +454,7 @@ describe("AuthboundProvider session finalization", () => {
         publishableKey="pk_test_public123"
         sessionMode="manual"
       >
-        <EffectStartVerification key={policyId} />
+        <LayoutStartVerification key={policyId} />
       </AuthboundProvider>
     );
     const { rerender } = render(tree("pol_authbound_pension_v1"));

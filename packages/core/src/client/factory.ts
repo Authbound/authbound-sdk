@@ -61,6 +61,46 @@ const RESERVED_VERIFICATION_METADATA_KEYS = [
   "nonce",
 ] as const;
 
+const browserSessionMutationTails = new Map<string, Promise<void>>();
+
+function browserSessionMutationKey(endpoint: string): string | null {
+  if (typeof globalThis.location?.href !== "string") {
+    return null;
+  }
+
+  try {
+    return new URL(endpoint, globalThis.location.href).origin;
+  } catch {
+    return null;
+  }
+}
+
+async function runBrowserSessionMutation<T>(
+  endpoint: string,
+  operation: () => Promise<T>
+): Promise<T> {
+  const key = browserSessionMutationKey(endpoint);
+  if (!key) {
+    return operation();
+  }
+
+  const previous = browserSessionMutationTails.get(key);
+  const result = previous ? previous.then(operation) : operation();
+  const tail = result.then(
+    () => undefined,
+    () => undefined
+  );
+  browserSessionMutationTails.set(key, tail);
+
+  try {
+    return await result;
+  } finally {
+    if (browserSessionMutationTails.get(key) === tail) {
+      browserSessionMutationTails.delete(key);
+    }
+  }
+}
+
 function assertSafeVerificationMetadata(
   metadata: Record<string, unknown> | undefined
 ): void {
@@ -199,12 +239,16 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
 
       log("Starting verification with policy:", policyId);
 
-      const response = await verificationClient.createVerification({
-        policyId,
-        customerUserRef: options.customerUserRef,
-        metadata: options.metadata,
-        provider: options.provider,
-      });
+      const response = await runBrowserSessionMutation(
+        resolvedConfig.verificationEndpoint,
+        () =>
+          verificationClient.createVerification({
+            policyId,
+            customerUserRef: options.customerUserRef,
+            metadata: options.metadata,
+            provider: options.provider,
+          })
+      );
 
       // Validate response
       const parsed = CreateVerificationResponseSchema.safeParse(response);
@@ -351,10 +395,14 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
     async finalizeVerification(verificationId, clientToken) {
       log("Finalizing browser session for verification:", verificationId);
 
-      const response = await sessionClient.finalizeVerification({
-        verificationId,
-        clientToken,
-      });
+      const response = await runBrowserSessionMutation(
+        resolvedConfig.sessionEndpoint,
+        () =>
+          sessionClient.finalizeVerification({
+            verificationId,
+            clientToken,
+          })
+      );
 
       const parsed = FinalizeVerificationResponseSchema.safeParse(response);
       if (!parsed.success) {

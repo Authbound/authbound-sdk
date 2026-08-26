@@ -27,7 +27,7 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useLayoutEffect,
+  useInsertionEffect,
   useMemo,
   useRef,
   useState,
@@ -290,11 +290,6 @@ export function AuthboundProvider({
   );
 
   const currentFlow = useRef<BrowserVerificationFlowController | null>(null);
-  const acceptingStarts = useRef(true);
-  const pendingFlowDisposal = useRef<{
-    flow: BrowserVerificationFlowController;
-    canceled: boolean;
-  } | null>(null);
 
   const flow = useMemo(() => {
     let createdFlow!: BrowserVerificationFlowController;
@@ -311,9 +306,26 @@ export function AuthboundProvider({
     });
     return createdFlow;
   }, [client, policyId, sessionMode]);
-
-  useLayoutEffect(() => {
+  if (currentFlow.current === null) {
     currentFlow.current = flow;
+  }
+
+  useInsertionEffect(() => {
+    currentFlow.current = flow;
+    return () => {
+      if (currentFlow.current === flow) {
+        currentFlow.current = null;
+      }
+    };
+  }, [flow]);
+
+  const acceptingStarts = useRef(true);
+  const pendingFlowDisposal = useRef<{
+    flow: typeof flow;
+    canceled: boolean;
+  } | null>(null);
+
+  useEffect(() => {
     acceptingStarts.current = true;
     const pendingDisposal = pendingFlowDisposal.current;
     if (pendingDisposal?.flow === flow) {
@@ -321,9 +333,6 @@ export function AuthboundProvider({
     }
 
     return () => {
-      if (currentFlow.current === flow) {
-        currentFlow.current = null;
-      }
       acceptingStarts.current = false;
       const disposal = { flow, canceled: false };
       pendingFlowDisposal.current = disposal;
