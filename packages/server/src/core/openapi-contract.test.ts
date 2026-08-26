@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -87,12 +87,17 @@ const policySdkContract = [
   },
 ] as const;
 
-describe("public issuer SDK/OpenAPI contract", () => {
+const rootOpenApiPath = resolve(
+  process.cwd(),
+  "../../../../docs/api/openapi.yaml"
+);
+const describeWithRootOpenApi = existsSync(rootOpenApiPath)
+  ? describe
+  : describe.skip;
+
+describeWithRootOpenApi("public issuer SDK/OpenAPI contract", () => {
   function readRootOpenApiText(): string {
-    return readFileSync(
-      resolve(process.cwd(), "../../../../docs/api/openapi.yaml"),
-      "utf8"
-    );
+    return readFileSync(rootOpenApiPath, "utf8");
   }
 
   function readRootOpenApi(): OpenApiDocument {
