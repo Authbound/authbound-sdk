@@ -106,7 +106,7 @@ describe("useVerification", () => {
             verificationId: "vrf_request_blob123",
             authorizationRequestUrl: "eyJ0eXAiOiJvcGVuaWQ0dnAifQ",
             clientToken: "client_token_123",
-            expiresAt: "2026-04-21T10:10:00.000Z",
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
             walletHandoffKind: "request_blob",
           }),
           { status: 200, headers: { "Content-Type": "application/json" } }
@@ -158,7 +158,7 @@ describe("useVerification", () => {
               authorizationRequestUrl:
                 "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.test%2Frequest%2Fcleanup",
               clientToken: "client_token_123",
-              expiresAt: "2026-04-21T10:10:00.000Z",
+              expiresAt: new Date(Date.now() + 60_000).toISOString(),
             }),
             { status: 200, headers: { "Content-Type": "application/json" } }
           );
@@ -222,7 +222,7 @@ describe("useVerification", () => {
               authorizationRequestUrl:
                 "openid4vp://authorize?request_uri=https%3A%2F%2Fapi.authbound.test%2Frequest%2F123",
               clientToken: "client_token_123",
-              expiresAt: "2026-04-21T10:10:00.000Z",
+              expiresAt: new Date(Date.now() + 60_000).toISOString(),
             }),
             { status: 200, headers: { "Content-Type": "application/json" } }
           );

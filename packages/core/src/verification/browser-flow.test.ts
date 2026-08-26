@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AuthboundClient } from "../client/factory";
+import { type AuthboundClient, createClient } from "../client/factory";
 import { AuthboundError } from "../types/errors";
 import type {
   CreateVerificationResponse,
@@ -109,6 +109,102 @@ describe("createBrowserVerificationFlow", () => {
     expect(states).toContain("verified");
   });
 
+  it("cleans up expiry before awaiting finalization of a verified event", async () => {
+    const { client, cleanup, emitStatus } = createClientStub();
+    const states: string[] = [];
+    let resolveFinalization: (response: FinalizeVerificationResponse) => void =
+      () => {};
+    client.finalizeVerification = vi.fn(
+      () =>
+        new Promise<FinalizeVerificationResponse>((resolve) => {
+          resolveFinalization = resolve;
+        })
+    );
+    const flow = createBrowserVerificationFlow({
+      client,
+      sessionMode: "sdk",
+      onStateChange: (state) => states.push(state.status),
+    });
+
+    await flow.start();
+    await vi.advanceTimersByTimeAsync(59_000);
+    emitStatus({
+      type: "status",
+      status: "verified",
+      timestamp: "2026-05-15T12:00:59.000Z",
+    });
+    await Promise.resolve();
+
+    expect(cleanup).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(states).not.toContain("timeout");
+
+    resolveFinalization({
+      isVerified: true,
+      verificationId: "vrf_test123" as never,
+      status: "verified",
+    });
+    await vi.runAllTimersAsync();
+
+    expect(flow.getState()).toMatchObject({ status: "verified" });
+  });
+
+  it("finalizes after SSE failure when fallback polling outlives five minutes", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const verifiedAt = Date.parse("2026-05-15T12:05:32.000Z");
+    const expiresAt = "2026-05-15T12:10:00.000Z";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/events/sse")) {
+        throw new TypeError("Failed to fetch: net::ERR_QUIC_PROTOCOL_ERROR");
+      }
+      if (url.endsWith("/status")) {
+        return new Response(
+          JSON.stringify({
+            object: "verification_status",
+            id: "vrf_test123",
+            status: Date.now() >= verifiedAt ? "verified" : "awaiting_user",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createClient({
+      publishableKey: "pk_test_public123" as never,
+      gatewayUrl: "https://gateway.authbound.test",
+    });
+    client.startVerification = vi.fn().mockResolvedValue({
+      verificationId: "vrf_test123",
+      authorizationRequestUrl: "openid4vp://authorize",
+      clientToken: "client_token_123",
+      expiresAt,
+    });
+    client.finalizeVerification = vi.fn().mockResolvedValue({
+      isVerified: true,
+      verificationId: "vrf_test123",
+      status: "verified",
+    });
+    const flow = createBrowserVerificationFlow({ client, sessionMode: "sdk" });
+
+    await flow.start();
+    await vi.advanceTimersByTimeAsync(332_000);
+
+    expect(Date.now()).toBeLessThan(Date.parse(expiresAt));
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).endsWith("/events/sse")
+      )
+    ).toBe(true);
+    expect(client.finalizeVerification).toHaveBeenCalledOnce();
+    expect(flow.getState()).toMatchObject({ status: "verified" });
+  });
+
   it("does not finalize in manual session mode", async () => {
     const { client, emitStatus } = createClientStub();
     const flow = createBrowserVerificationFlow({
@@ -144,6 +240,48 @@ describe("createBrowserVerificationFlow", () => {
       error: expect.objectContaining({
         code: "wallet_timeout",
       }) as AuthboundError,
+    });
+  });
+
+  it("ignores status events delivered after expiry cleanup", async () => {
+    const { client, emitStatus } = createClientStub();
+    const flow = createBrowserVerificationFlow({
+      client,
+      sessionMode: "sdk",
+    });
+
+    await flow.start();
+    await vi.advanceTimersByTimeAsync(61_000);
+    emitStatus({
+      type: "status",
+      status: "verified",
+      timestamp: "2026-05-15T12:01:01.000Z",
+    });
+    await vi.runAllTimersAsync();
+
+    expect(client.finalizeVerification).not.toHaveBeenCalled();
+    expect(flow.getState()).toMatchObject({ status: "timeout" });
+  });
+
+  it("does not subscribe when the created verification is already expired", async () => {
+    const { client } = createClientStub();
+    client.startVerification = vi.fn().mockResolvedValue({
+      verificationId: "vrf_test123",
+      authorizationRequestUrl: "openid4vp://authorize",
+      clientToken: "client_token_123",
+      expiresAt: "2026-05-15T11:59:59.999Z",
+    });
+    const flow = createBrowserVerificationFlow({
+      client,
+      sessionMode: "sdk",
+    });
+
+    await flow.start();
+
+    expect(client.subscribeToStatus).not.toHaveBeenCalled();
+    expect(flow.getState()).toMatchObject({
+      status: "timeout",
+      error: expect.objectContaining({ code: "wallet_timeout" }),
     });
   });
 
