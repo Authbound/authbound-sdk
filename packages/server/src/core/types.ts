@@ -276,7 +276,11 @@ export const CookieOptionsSchema = z.object({
   maxAge: z.number().int().positive().optional(),
   /** Cookie path. Defaults to "/" */
   path: z.string().optional(),
-  /** Cookie domain */
+  /**
+   * Cookie domain. Parent-domain cookies shared by multiple browser origins
+   * require app-owned server-side session coordination; do not combine them
+   * with the browser SDK's sessionMode: "sdk".
+   */
   domain: z.string().optional(),
   /** Secure flag. Defaults to true in production */
   secure: z.boolean().optional(),

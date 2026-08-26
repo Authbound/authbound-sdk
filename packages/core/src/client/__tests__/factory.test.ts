@@ -1,7 +1,52 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AuthboundError } from "../../types/errors";
 import { VerificationProviderOptionsSchema } from "../../types/verification";
-import { createClient } from "../factory";
+import { createClient, runBrowserSessionMutation } from "../factory";
+
+describe("runBrowserSessionMutation", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("normalizes lock acquisition failures without running the operation", async () => {
+    const operation = vi.fn();
+    vi.stubGlobal("location", new URL("https://demo.authbound.test/verify"));
+    vi.stubGlobal("navigator", {
+      locks: {
+        request: vi
+          .fn()
+          .mockRejectedValue(new DOMException("Denied", "SecurityError")),
+      },
+    });
+
+    await expect(
+      runBrowserSessionMutation("/api/authbound/verification", "sdk", operation)
+    ).rejects.toMatchObject({ code: "session_coordination_unsupported" });
+    expect(operation).not.toHaveBeenCalled();
+  });
+
+  it("preserves errors thrown after lock acquisition", async () => {
+    const operationError = new Error("operation failed");
+    vi.stubGlobal("location", new URL("https://demo.authbound.test/verify"));
+    vi.stubGlobal("navigator", {
+      locks: {
+        request: vi.fn((_name: string, operation: () => Promise<unknown>) =>
+          operation()
+        ),
+      },
+    });
+
+    await expect(
+      runBrowserSessionMutation(
+        "/api/authbound/verification",
+        "sdk",
+        async () => {
+          throw operationError;
+        }
+      )
+    ).rejects.toBe(operationError);
+  });
+});
 
 describe("createClient", () => {
   afterEach(() => {

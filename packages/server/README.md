@@ -503,7 +503,10 @@ The SDK uses secure defaults, but ensure:
 - **Secure flag** is enabled in production
 - **HttpOnly** prevents XSS attacks
 - **SameSite=Lax** prevents CSRF attacks
-- **Domain** is set correctly for multi-domain setups
+- **Domain** remains host-only for SDK-managed browser sessions. Web Locks
+  coordinate only within one browser origin. If sibling origins intentionally
+  share a parent-domain cookie, use `sessionMode: "manual"` and coordinate
+  session mutations on your server.
 
 ### 4. Rate Limiting
 

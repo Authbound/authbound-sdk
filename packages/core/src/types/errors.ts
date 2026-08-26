@@ -37,6 +37,7 @@ export type AuthboundErrorCode =
   | "verification_invalid_state"
   // Browser session errors
   | "session_origin_forbidden"
+  | "session_coordination_unsupported"
   // Wallet interaction errors
   | "wallet_timeout"
   | "wallet_rejected"
@@ -131,6 +132,10 @@ export const ERROR_METADATA: Record<AuthboundErrorCode, ErrorMetadata> = {
     message: "Session finalization origin is not allowed.",
     hint: "Check your SDK session route origin/proxy configuration and allowed origins.",
     docsPath: "/errors/session-origin-forbidden",
+  },
+  session_coordination_unsupported: {
+    message: "Secure browser session coordination is not supported.",
+    hint: "Use a browser with the Web Locks API, or configure sessionMode as manual and manage the session on your server.",
   },
   // Wallet
   wallet_timeout: {

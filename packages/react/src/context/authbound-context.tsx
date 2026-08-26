@@ -8,6 +8,7 @@ import {
   type AuthboundClient,
   type AuthboundClientConfig,
   AuthboundError,
+  type BrowserVerificationFlowController,
   type BrowserVerificationFlowState,
   createBrowserVerificationFlow,
   createClient,
@@ -26,7 +27,9 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { AuthboundAppearance } from "../types/appearance";
@@ -149,7 +152,12 @@ export interface AuthboundProviderProps {
   verificationEndpoint?: string;
   /** Browser session finalization endpoint (default: /api/authbound/session) */
   sessionEndpoint?: string;
-  /** Whether the SDK should create its own browser session binding */
+  /**
+   * Whether the SDK should create its own browser session binding.
+   * SDK mode requires the Web Locks API and coordinates mutations only within
+   * the same browser origin. Shared parent-domain or multi-origin sessions must
+   * use manual mode with server-side coordination.
+   */
   sessionMode?: "sdk" | "manual";
   /** Gateway URL override (for testing) */
   gatewayUrl?: string;
@@ -286,20 +294,54 @@ export function AuthboundProvider({
     []
   );
 
-  const flow = useMemo(
-    () =>
-      createBrowserVerificationFlow({
-        client,
-        policyId,
-        sessionMode,
-        onStateChange: (flowState) => {
-          setVerification(toVerificationState(flowState));
-        },
-      }),
-    [client, policyId, sessionMode]
-  );
+  const currentFlow = useRef<BrowserVerificationFlowController | null>(null);
+  const acceptingStarts = useRef(true);
+  const pendingFlowDisposal = useRef<{
+    flow: BrowserVerificationFlowController;
+    canceled: boolean;
+  } | null>(null);
 
-  useEffect(() => () => flow.dispose(), [flow]);
+  const flow = useMemo(() => {
+    let createdFlow!: BrowserVerificationFlowController;
+    createdFlow = createBrowserVerificationFlow({
+      client,
+      policyId,
+      sessionMode,
+      onStateChange: (flowState) => {
+        if (currentFlow.current !== createdFlow) {
+          return;
+        }
+        setVerification(toVerificationState(flowState));
+      },
+    });
+    return createdFlow;
+  }, [client, policyId, sessionMode]);
+
+  useLayoutEffect(() => {
+    currentFlow.current = flow;
+    acceptingStarts.current = true;
+    const pendingDisposal = pendingFlowDisposal.current;
+    if (pendingDisposal?.flow === flow) {
+      pendingDisposal.canceled = true;
+    }
+
+    return () => {
+      if (currentFlow.current === flow) {
+        currentFlow.current = null;
+      }
+      acceptingStarts.current = false;
+      const disposal = { flow, canceled: false };
+      pendingFlowDisposal.current = disposal;
+      queueMicrotask(() => {
+        if (!disposal.canceled) {
+          disposal.flow.dispose();
+        }
+        if (pendingFlowDisposal.current === disposal) {
+          pendingFlowDisposal.current = null;
+        }
+      });
+    };
+  }, [flow]);
 
   // Reset verification
   const resetVerification = useCallback(() => {
@@ -314,6 +356,12 @@ export function AuthboundProvider({
       metadata?: Record<string, unknown>;
       provider?: ProviderPreference;
     }) => {
+      if (currentFlow.current !== flow) {
+        await Promise.resolve();
+      }
+      if (!acceptingStarts.current || currentFlow.current !== flow) {
+        return;
+      }
       try {
         await flow.start({
           policyId: options?.policyId ?? policyId,

@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthboundClient } from "../client/factory";
 import { AuthboundError } from "../types/errors";
-import type { CreateVerificationResponse } from "../types/verification";
+import type {
+  CreateVerificationResponse,
+  FinalizeVerificationResponse,
+} from "../types/verification";
 import { createBrowserVerificationFlow } from "./browser-flow";
 
 function createClientStub() {
@@ -158,7 +161,10 @@ describe("createBrowserVerificationFlow", () => {
     expect(flow.getState()).toEqual({ status: "idle" });
   });
 
-  it("does not subscribe after disposal while start is in flight", async () => {
+  it.each([
+    "dispose",
+    "reset",
+  ] as const)("does not subscribe after %s while start is in flight", async (action) => {
     const { client } = createClientStub();
     let resolveStart: (response: CreateVerificationResponse) => void = () => {};
     client.startVerification = vi.fn(
@@ -172,10 +178,8 @@ describe("createBrowserVerificationFlow", () => {
       sessionMode: "manual",
     });
 
-    const startPromise = flow.start({
-      policyId: "pol_age_over_18_authbound_v1" as never,
-    });
-    flow.dispose();
+    const startPromise = flow.start();
+    flow[action]();
     resolveStart({
       verificationId: "vrf_test123" as never,
       authorizationRequestUrl: "openid4vp://authorize",
@@ -186,6 +190,137 @@ describe("createBrowserVerificationFlow", () => {
 
     expect(client.subscribeToStatus).not.toHaveBeenCalled();
     expect(flow.getState()).toEqual({ status: "idle" });
+  });
+
+  it("does not start after disposal", async () => {
+    const { client } = createClientStub();
+    const flow = createBrowserVerificationFlow({ client });
+
+    flow.dispose();
+    await flow.start();
+
+    expect(client.startVerification).not.toHaveBeenCalled();
+  });
+
+  it("deduplicates overlapping starts", async () => {
+    const { client } = createClientStub();
+    const resolvers: Array<(response: CreateVerificationResponse) => void> = [];
+    client.startVerification = vi.fn(
+      () =>
+        new Promise<CreateVerificationResponse>((resolve) => {
+          resolvers.push(resolve);
+        })
+    );
+    const flow = createBrowserVerificationFlow({
+      client,
+      sessionMode: "manual",
+    });
+
+    const firstStart = flow.start();
+    const secondStart = flow.start();
+
+    expect(client.startVerification).toHaveBeenCalledTimes(1);
+
+    resolvers[0]?.({
+      verificationId: "vrf_first" as never,
+      authorizationRequestUrl: "openid4vp://first",
+      clientToken: "client_token_first" as never,
+      expiresAt: "2026-05-15T12:01:00.000Z",
+    });
+    await Promise.all([firstStart, secondStart]);
+
+    expect(flow.getState()).toMatchObject({
+      verificationId: "vrf_first",
+      status: "pending",
+    });
+    expect(client.subscribeToStatus).toHaveBeenCalledTimes(1);
+    expect(client.subscribeToStatus).toHaveBeenCalledWith(
+      "vrf_first",
+      "client_token_first",
+      expect.any(Function),
+      expect.any(Object)
+    );
+  });
+
+  it("rejects an overlapping start with different identity options", async () => {
+    const { client } = createClientStub();
+    let resolveStart: (response: CreateVerificationResponse) => void = () => {};
+    client.startVerification = vi.fn(
+      () =>
+        new Promise<CreateVerificationResponse>((resolve) => {
+          resolveStart = resolve;
+        })
+    );
+    const flow = createBrowserVerificationFlow({
+      client,
+      sessionMode: "manual",
+    });
+
+    const firstStart = flow.start({ customerUserRef: "user_first" });
+    await expect(
+      flow.start({ customerUserRef: "user_second" })
+    ).rejects.toMatchObject({ code: "verification_invalid_state" });
+    expect(client.startVerification).toHaveBeenCalledTimes(1);
+
+    resolveStart({
+      verificationId: "vrf_first" as never,
+      authorizationRequestUrl: "openid4vp://first",
+      clientToken: "client_token_first" as never,
+      expiresAt: "2026-05-15T12:01:00.000Z",
+    });
+    await firstStart;
+  });
+
+  it("does not let stale finalization mutate a restarted flow", async () => {
+    const { client, cleanup, emitStatus } = createClientStub();
+    let resolveFinalization: (response: FinalizeVerificationResponse) => void =
+      () => {};
+    client.finalizeVerification = vi.fn(
+      () =>
+        new Promise<FinalizeVerificationResponse>((resolve) => {
+          resolveFinalization = resolve;
+        })
+    );
+    client.startVerification = vi
+      .fn()
+      .mockResolvedValueOnce({
+        verificationId: "vrf_first",
+        authorizationRequestUrl: "openid4vp://first",
+        clientToken: "client_token_first",
+        expiresAt: "2026-05-15T12:01:00.000Z",
+      })
+      .mockResolvedValueOnce({
+        verificationId: "vrf_second",
+        authorizationRequestUrl: "openid4vp://second",
+        clientToken: "client_token_second",
+        expiresAt: "2026-05-15T12:01:00.000Z",
+      });
+    const flow = createBrowserVerificationFlow({ client });
+
+    await flow.start();
+    emitStatus({
+      type: "status",
+      status: "verified",
+      timestamp: "2026-05-15T12:00:05.000Z",
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    flow.reset();
+    const restart = flow.start();
+
+    expect(client.startVerification).toHaveBeenCalledTimes(2);
+
+    resolveFinalization({
+      isVerified: true,
+      verificationId: "vrf_first" as never,
+      status: "verified",
+    });
+    await restart;
+
+    expect(flow.getState()).toMatchObject({
+      verificationId: "vrf_second",
+      status: "pending",
+    });
+    expect(cleanup).toHaveBeenCalledTimes(1);
   });
 
   it("ignores subscription errors after disposal", async () => {

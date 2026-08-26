@@ -61,6 +61,59 @@ const RESERVED_VERIFICATION_METADATA_KEYS = [
   "nonce",
 ] as const;
 
+function browserSessionMutationKey(endpoint: string): string | null {
+  if (typeof globalThis.location?.href !== "string") {
+    return null;
+  }
+
+  try {
+    return new URL(endpoint, globalThis.location.href).origin;
+  } catch {
+    return null;
+  }
+}
+
+export async function runBrowserSessionMutation<T>(
+  endpoint: string,
+  sessionMode: "sdk" | "manual",
+  operation: () => Promise<T>
+): Promise<T> {
+  if (sessionMode === "manual") {
+    return operation();
+  }
+  const key = browserSessionMutationKey(endpoint);
+  if (!key) {
+    return operation();
+  }
+
+  const lockManager = globalThis.navigator?.locks;
+  if (!lockManager) {
+    throw new AuthboundError(
+      "session_coordination_unsupported",
+      "SDK-managed browser sessions require the Web Locks API"
+    );
+  }
+
+  let acquired = false;
+  try {
+    return await lockManager.request(
+      `authbound:browser-session:${key}`,
+      async () => {
+        acquired = true;
+        return operation();
+      }
+    );
+  } catch (error) {
+    if (acquired) {
+      throw error;
+    }
+    throw new AuthboundError(
+      "session_coordination_unsupported",
+      "SDK-managed browser sessions require the Web Locks API"
+    );
+  }
+}
+
 function assertSafeVerificationMetadata(
   metadata: Record<string, unknown> | undefined
 ): void {
@@ -199,12 +252,21 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
 
       log("Starting verification with policy:", policyId);
 
-      const response = await verificationClient.createVerification({
-        policyId,
-        customerUserRef: options.customerUserRef,
-        metadata: options.metadata,
-        provider: options.provider,
-      });
+      const createVerification = () =>
+        verificationClient.createVerification({
+          policyId,
+          customerUserRef: options.customerUserRef,
+          metadata: options.metadata,
+          provider: options.provider,
+        });
+      const response =
+        resolvedConfig.sessionMode === "sdk"
+          ? await runBrowserSessionMutation(
+              resolvedConfig.verificationEndpoint,
+              "sdk",
+              createVerification
+            )
+          : await createVerification();
 
       // Validate response
       const parsed = CreateVerificationResponseSchema.safeParse(response);
@@ -351,10 +413,15 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
     async finalizeVerification(verificationId, clientToken) {
       log("Finalizing browser session for verification:", verificationId);
 
-      const response = await sessionClient.finalizeVerification({
-        verificationId,
-        clientToken,
-      });
+      const response = await runBrowserSessionMutation(
+        resolvedConfig.sessionEndpoint,
+        "sdk",
+        () =>
+          sessionClient.finalizeVerification({
+            verificationId,
+            clientToken,
+          })
+      );
 
       const parsed = FinalizeVerificationResponseSchema.safeParse(response);
       if (!parsed.success) {
