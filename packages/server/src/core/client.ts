@@ -342,14 +342,9 @@ function isBoundedPublicJson(value: unknown): value is PublicJson {
   return true;
 }
 
-const PublicJsonSchema: z.ZodType<PublicJson> = z.custom<PublicJson>(
-  isBoundedPublicJson,
-  { message: "Invalid public JSON" }
-);
-
 const PublicMetadataSchema: z.ZodType<Record<string, PublicJson>> = z.custom<
   Record<string, PublicJson>
->((value) => isRecord(value) && PublicJsonSchema.safeParse(value).success, {
+>((value) => isRecord(value) && isBoundedPublicJson(value), {
   message: "Invalid public metadata",
 });
 

@@ -328,11 +328,7 @@ function validateAdapterConsumer(
     packageDirectory(packageName)
   );
   mkdirSync(fixtureDirectory, { recursive: true });
-  const peerDependencies = Object.fromEntries(
-    Object.entries(adapterManifest.peerDependencies ?? {}).map(
-      ([dependency, range]) => [dependency, range]
-    )
-  );
+  const peerDependencies = adapterManifest.peerDependencies ?? {};
   const manifest = {
     name: `packed-consumer-${packageDirectory(packageName)}`,
     private: true,

@@ -30,17 +30,8 @@ const packageDirectoryByName = new Map(
   ])
 );
 
-function manifestEntries(manifests) {
-  return manifests instanceof Map
-    ? [...manifests.entries()]
-    : Object.entries(manifests);
-}
-
 function manifestFor(manifests, packageName) {
-  const manifest =
-    manifests instanceof Map
-      ? manifests.get(packageName)
-      : manifests[packageName];
+  const manifest = manifests[packageName];
   if (!manifest) {
     throw new Error(`Missing manifest for ${packageName}`);
   }
@@ -205,7 +196,7 @@ export function assertSourceReleaseManifests(
     );
   }
 
-  for (const [packageName, manifest] of manifestEntries(manifests)) {
+  for (const [packageName, manifest] of Object.entries(manifests)) {
     const expectedVersion = affected.has(packageName)
       ? RELEASE_VERSION
       : BASE_VERSION;
