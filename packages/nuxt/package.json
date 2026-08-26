@@ -1,6 +1,6 @@
 {
   "name": "@authbound/nuxt",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Authbound Nuxt 4 module - Complete verification for Nuxt with auto-imports and server middleware.",
   "type": "module",
   "license": "MIT",
