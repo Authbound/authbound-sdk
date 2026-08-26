@@ -172,6 +172,7 @@ export function useVerification(
 
   // Local loading state for start operation
   const [isStarting, setIsStarting] = useState(false);
+  const isStartingRef = useRef(false);
 
   // Derive state from the current verification
   const status = verification?.status ?? "idle";
@@ -188,8 +189,9 @@ export function useVerification(
 
   // Start verification
   const startVerification = useCallback(async () => {
-    if (isStarting) return;
+    if (isStartingRef.current) return;
 
+    isStartingRef.current = true;
     setIsStarting(true);
 
     try {
@@ -204,17 +206,10 @@ export function useVerification(
       const authboundError = AuthboundError.from(err);
       onFailed?.(authboundError);
     } finally {
+      isStartingRef.current = false;
       setIsStarting(false);
     }
-  }, [
-    contextStart,
-    policyId,
-    customerUserRef,
-    metadata,
-    provider,
-    onFailed,
-    isStarting,
-  ]);
+  }, [contextStart, policyId, customerUserRef, metadata, provider, onFailed]);
 
   // Retry after failure
   const retry = useCallback(async () => {

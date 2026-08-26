@@ -246,7 +246,7 @@ describe("createBrowserVerificationFlow", () => {
     );
   });
 
-  it("does not let stale finalization mutate a restarted flow", async () => {
+  it("settles stale session finalization before creating a replacement verification", async () => {
     const { client, cleanup, emitStatus } = createClientStub();
     let resolveFinalization: (response: FinalizeVerificationResponse) => void =
       () => {};
@@ -280,18 +280,22 @@ describe("createBrowserVerificationFlow", () => {
     });
     await vi.advanceTimersByTimeAsync(0);
     flow.reset();
-    await flow.start();
+    const restart = flow.start();
+
+    expect(client.startVerification).toHaveBeenCalledTimes(1);
+
     resolveFinalization({
       isVerified: true,
       verificationId: "vrf_first" as never,
       status: "verified",
     });
-    await vi.advanceTimersByTimeAsync(0);
+    await restart;
 
     expect(flow.getState()).toMatchObject({
       verificationId: "vrf_second",
       status: "pending",
     });
+    expect(client.startVerification).toHaveBeenCalledTimes(2);
     expect(cleanup).toHaveBeenCalledTimes(1);
   });
 

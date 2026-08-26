@@ -12,7 +12,6 @@ import {
   Suspense,
   startTransition,
   useEffect,
-  useLayoutEffect,
   useRef,
 } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -91,11 +90,11 @@ function AutoStartEudiVerificationHook() {
   return null;
 }
 
-function LayoutStartVerification() {
+function EffectStartVerification() {
   const { startVerification } = useAuthbound();
   const didStartRef = useRef(false);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (didStartRef.current) {
       return;
     }
@@ -239,21 +238,26 @@ describe("AuthboundProvider session finalization", () => {
 
   it("auto-starts verification after StrictMode replays provider effects", async () => {
     let resolveFirstStart: (response: Response) => void = () => {};
-    const fetchMock = vi
-      .fn()
-      .mockImplementationOnce(
-        () =>
-          new Promise<Response>((resolve) => {
+    let isFirstStart = true;
+    const fetchMock = vi.fn(
+      (_input: string | URL | Request, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          if (!isFirstStart) {
+            return Promise.resolve(createPendingVerificationResponse());
+          }
+          isFirstStart = false;
+          return new Promise<Response>((resolve) => {
             resolveFirstStart = resolve;
+          });
+        }
+        return Promise.resolve(
+          new Response(createSseStream(""), {
+            status: 200,
+            headers: { "Content-Type": "text/event-stream" },
           })
-      )
-      .mockResolvedValueOnce(createPendingVerificationResponse())
-      .mockResolvedValueOnce(
-        new Response(createSseStream(""), {
-          status: 200,
-          headers: { "Content-Type": "text/event-stream" },
-        })
-      );
+        );
+      }
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     const { unmount } = render(
@@ -269,13 +273,21 @@ describe("AuthboundProvider session finalization", () => {
       </StrictMode>
     );
 
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")
+    ).toHaveLength(1);
+
+    resolveFirstStart(createPendingVerificationResponse());
+
     await waitFor(() => {
       expect(screen.getByTestId("verification-status").textContent).toBe(
         "pending"
       );
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    resolveFirstStart(createPendingVerificationResponse());
     unmount();
   });
 
@@ -320,7 +332,7 @@ describe("AuthboundProvider session finalization", () => {
     unmount();
   });
 
-  it("accepts a descendant layout-effect start on initial mount", async () => {
+  it("accepts a descendant effect start on initial mount", async () => {
     const fetchMock = createPendingVerificationFetchMock();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -332,7 +344,7 @@ describe("AuthboundProvider session finalization", () => {
           publishableKey="pk_test_public123"
           sessionMode="manual"
         >
-          <LayoutStartVerification />
+          <EffectStartVerification />
         </AuthboundProvider>
       </StrictMode>
     );
@@ -416,7 +428,7 @@ describe("AuthboundProvider session finalization", () => {
     );
   });
 
-  it("accepts a descendant layout start after a committed flow replacement", async () => {
+  it("accepts a descendant effect start after a committed flow replacement", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(createPendingVerificationResponse())
@@ -441,7 +453,7 @@ describe("AuthboundProvider session finalization", () => {
         publishableKey="pk_test_public123"
         sessionMode="manual"
       >
-        <LayoutStartVerification key={policyId} />
+        <EffectStartVerification key={policyId} />
       </AuthboundProvider>
     );
     const { rerender } = render(tree("pol_authbound_pension_v1"));

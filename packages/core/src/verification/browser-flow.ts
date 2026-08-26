@@ -165,6 +165,7 @@ export function createBrowserVerificationFlow(
   let countdownInterval: ReturnType<typeof setInterval> | null = null;
   let operationRevision = 0;
   let active = true;
+  let activeFinalization: Promise<void> | null = null;
   const finalizedVerificationIds = new Set<string>();
 
   function emit(nextState: BrowserVerificationFlowState): void {
@@ -255,11 +256,19 @@ export function createBrowserVerificationFlow(
     }
 
     finalizedVerificationIds.add(verificationId);
+    const finalization = client
+      .finalizeVerification(verificationId, clientToken)
+      .then(() => undefined);
+    activeFinalization = finalization;
     try {
-      await client.finalizeVerification(verificationId, clientToken);
+      await finalization;
     } catch (error) {
       finalizedVerificationIds.delete(verificationId);
       throw AuthboundError.from(error);
+    } finally {
+      if (activeFinalization === finalization) {
+        activeFinalization = null;
+      }
     }
   }
 
@@ -338,6 +347,16 @@ export function createBrowserVerificationFlow(
     cleanup();
 
     try {
+      // Finalization responses mutate session cookies, so they must settle before
+      // a replacement create response installs its pending-session cookie.
+      const pendingFinalization = activeFinalization;
+      if (pendingFinalization) {
+        await pendingFinalization.catch(() => undefined);
+        if (revision !== operationRevision) {
+          return;
+        }
+      }
+
       const response = await client.startVerification({
         policyId: startOptions.policyId ?? options.policyId,
         customerUserRef: startOptions.customerUserRef,
