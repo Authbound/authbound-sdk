@@ -8,6 +8,7 @@ import {
   type AuthboundClient,
   type AuthboundClientConfig,
   AuthboundError,
+  type BrowserVerificationFlowController,
   type BrowserVerificationFlowState,
   createBrowserVerificationFlow,
   createClient,
@@ -26,7 +27,9 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useInsertionEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { AuthboundAppearance } from "../types/appearance";
@@ -286,20 +289,63 @@ export function AuthboundProvider({
     []
   );
 
-  const flow = useMemo(
-    () =>
-      createBrowserVerificationFlow({
-        client,
-        policyId,
-        sessionMode,
-        onStateChange: (flowState) => {
-          setVerification(toVerificationState(flowState));
-        },
-      }),
-    [client, policyId, sessionMode]
-  );
+  const currentFlow = useRef<BrowserVerificationFlowController | null>(null);
 
-  useEffect(() => () => flow.dispose(), [flow]);
+  const flow = useMemo(() => {
+    let createdFlow!: BrowserVerificationFlowController;
+    createdFlow = createBrowserVerificationFlow({
+      client,
+      policyId,
+      sessionMode,
+      onStateChange: (flowState) => {
+        if (currentFlow.current !== createdFlow) {
+          return;
+        }
+        setVerification(toVerificationState(flowState));
+      },
+    });
+    return createdFlow;
+  }, [client, policyId, sessionMode]);
+  if (currentFlow.current === null) {
+    currentFlow.current = flow;
+  }
+
+  useInsertionEffect(() => {
+    currentFlow.current = flow;
+    return () => {
+      if (currentFlow.current === flow) {
+        currentFlow.current = null;
+      }
+    };
+  }, [flow]);
+
+  const acceptingStarts = useRef(true);
+  const pendingFlowDisposal = useRef<{
+    flow: typeof flow;
+    canceled: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    acceptingStarts.current = true;
+    const pendingDisposal = pendingFlowDisposal.current;
+    if (pendingDisposal?.flow === flow) {
+      pendingDisposal.canceled = true;
+    }
+
+    return () => {
+      acceptingStarts.current = false;
+      const disposal = { flow, canceled: false };
+      pendingFlowDisposal.current = disposal;
+      queueMicrotask(() => {
+        if (!disposal.canceled) {
+          disposal.flow.dispose();
+        }
+        if (pendingFlowDisposal.current === disposal) {
+          pendingFlowDisposal.current = null;
+        }
+      });
+    };
+  }, [flow]);
 
   // Reset verification
   const resetVerification = useCallback(() => {
@@ -314,6 +360,9 @@ export function AuthboundProvider({
       metadata?: Record<string, unknown>;
       provider?: ProviderPreference;
     }) => {
+      if (!acceptingStarts.current || currentFlow.current !== flow) {
+        return;
+      }
       try {
         await flow.start({
           policyId: options?.policyId ?? policyId,

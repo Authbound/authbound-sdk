@@ -163,7 +163,8 @@ export function createBrowserVerificationFlow(
   let statusCleanup: (() => void) | null = null;
   let expiryTimeout: ReturnType<typeof setTimeout> | null = null;
   let countdownInterval: ReturnType<typeof setInterval> | null = null;
-  let disposed = false;
+  let operationRevision = 0;
+  let active = true;
   const finalizedVerificationIds = new Set<string>();
 
   function emit(nextState: BrowserVerificationFlowState): void {
@@ -192,8 +193,8 @@ export function createBrowserVerificationFlow(
     cleanupTimers();
   }
 
-  function updateTimeRemaining(): void {
-    if (disposed) {
+  function updateTimeRemaining(revision: number): void {
+    if (revision !== operationRevision) {
       return;
     }
     if (!state.expiresAt || isTerminalStatus(state.status)) {
@@ -207,8 +208,8 @@ export function createBrowserVerificationFlow(
     emit({ ...state, timeRemaining });
   }
 
-  function markTimedOut(): void {
-    if (disposed) {
+  function markTimedOut(revision: number): void {
+    if (revision !== operationRevision) {
       return;
     }
     if (isTerminalStatus(state.status)) {
@@ -223,7 +224,7 @@ export function createBrowserVerificationFlow(
     });
   }
 
-  function scheduleExpiry(expiresAt: Date | undefined): void {
+  function scheduleExpiry(expiresAt: Date | undefined, revision: number): void {
     cleanupTimers();
 
     if (!expiresAt || Number.isNaN(expiresAt.getTime())) {
@@ -232,13 +233,13 @@ export function createBrowserVerificationFlow(
 
     const delay = expiresAt.getTime() - Date.now();
     if (delay <= 0) {
-      markTimedOut();
+      markTimedOut(revision);
       return;
     }
 
-    updateTimeRemaining();
-    countdownInterval = setInterval(updateTimeRemaining, 1000);
-    expiryTimeout = setTimeout(markTimedOut, delay);
+    updateTimeRemaining(revision);
+    countdownInterval = setInterval(() => updateTimeRemaining(revision), 1000);
+    expiryTimeout = setTimeout(() => markTimedOut(revision), delay);
   }
 
   async function finalizeOnce(
@@ -265,12 +266,13 @@ export function createBrowserVerificationFlow(
   async function handleStatusEvent(
     event: StatusEvent,
     verificationId: VerificationId,
-    clientToken: ClientToken
+    clientToken: ClientToken,
+    revision: number
   ): Promise<void> {
-    if (disposed) {
-      return;
-    }
-    if (state.verificationId !== verificationId) {
+    const isCurrent = () =>
+      revision === operationRevision && state.verificationId === verificationId;
+
+    if (!isCurrent()) {
       return;
     }
 
@@ -278,12 +280,18 @@ export function createBrowserVerificationFlow(
       try {
         await finalizeOnce(verificationId, clientToken);
       } catch (error) {
+        if (!isCurrent()) {
+          return;
+        }
         cleanup();
         emit({
           ...state,
           status: "error",
           error: AuthboundError.from(error),
         });
+        return;
+      }
+      if (!isCurrent()) {
         return;
       }
     }
@@ -313,6 +321,7 @@ export function createBrowserVerificationFlow(
   }
 
   function reset(): void {
+    operationRevision += 1;
     cleanup();
     finalizedVerificationIds.clear();
     emit({ status: "idle" });
@@ -321,9 +330,11 @@ export function createBrowserVerificationFlow(
   async function start(
     startOptions: BrowserVerificationFlowStartOptions = {}
   ): Promise<void> {
-    if (disposed) {
+    if (!active) {
       return;
     }
+    operationRevision += 1;
+    const revision = operationRevision;
     cleanup();
 
     try {
@@ -333,14 +344,14 @@ export function createBrowserVerificationFlow(
         metadata: startOptions.metadata,
         provider: startOptions.provider,
       });
-      if (disposed) {
+      if (revision !== operationRevision) {
         return;
       }
       finalizedVerificationIds.delete(response.verificationId);
 
       const nextState = stateFromResponse(client, response);
       emit(nextState);
-      scheduleExpiry(nextState.expiresAt);
+      scheduleExpiry(nextState.expiresAt, revision);
 
       const verificationId = response.verificationId;
       const clientToken = response.clientToken;
@@ -348,7 +359,7 @@ export function createBrowserVerificationFlow(
         verificationId,
         clientToken,
         (event) => {
-          handleStatusEvent(event, verificationId, clientToken).catch(
+          handleStatusEvent(event, verificationId, clientToken, revision).catch(
             (error) => {
               client.log("Failed to handle verification status event:", error);
             }
@@ -356,7 +367,7 @@ export function createBrowserVerificationFlow(
         },
         {
           onError: (error) => {
-            if (disposed) {
+            if (revision !== operationRevision) {
               return;
             }
             if (state.verificationId !== verificationId) {
@@ -372,7 +383,7 @@ export function createBrowserVerificationFlow(
         }
       );
     } catch (error) {
-      if (disposed) {
+      if (revision !== operationRevision) {
         return;
       }
       const authboundError = AuthboundError.from(error);
@@ -390,7 +401,8 @@ export function createBrowserVerificationFlow(
     start,
     reset,
     dispose: () => {
-      disposed = true;
+      operationRevision += 1;
+      active = false;
       cleanup();
     },
   };
