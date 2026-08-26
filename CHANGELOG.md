@@ -6,6 +6,16 @@ All customer-visible changes to the Authbound public SDK are recorded here.
 
 ## 0.2.0 - 2026-08-26
 
+### Breaking changes
+
+- Remove the legacy `eudiplo` provider identifier. Applications that still
+  send or compare that value must migrate to `eudi` before upgrading.
+- Require webhook events to use `api_version: "v1"` and include a string
+  `contract_revision`. Update custom webhook fixtures, producers, and parsers
+  to provide both fields; the SDK now rejects older event shapes.
+
+### Changes
+
 - Add verification policy management APIs for creating, listing, reading, and
   archiving project policies.
 - Add EUDI verifier provider options and `dc_api` wallet handoff support across

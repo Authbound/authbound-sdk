@@ -13,6 +13,14 @@ release repeatable.
 - SDK tags use `sdk-v<version>`, for example `sdk-v0.2.0`.
 - Breaking SDK changes require a separate release plan before publishing.
 
+### 0.2.0 Breaking-Change Plan
+
+Before upgrading, replace the legacy `eudiplo` provider identifier with
+`eudi`. Webhook integrations must accept and emit `api_version: "v1"` and a
+string `contract_revision`; update custom fixtures, producers, and parsers
+before deploying the new SDK. Publish all six packages together so framework
+adapters and their shared contracts remain aligned.
+
 ## Commit Convention
 
 Use short conventional prefixes so release notes stay scannable:
