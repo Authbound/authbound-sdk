@@ -94,7 +94,24 @@ export async function runBrowserSessionMutation<T>(
     );
   }
 
-  return lockManager.request(`authbound:browser-session:${key}`, operation);
+  let acquired = false;
+  try {
+    return await lockManager.request(
+      `authbound:browser-session:${key}`,
+      async () => {
+        acquired = true;
+        return operation();
+      }
+    );
+  } catch (error) {
+    if (acquired) {
+      throw error;
+    }
+    throw new AuthboundError(
+      "session_coordination_unsupported",
+      "SDK-managed browser sessions require the Web Locks API"
+    );
+  }
 }
 
 function assertSafeVerificationMetadata(
