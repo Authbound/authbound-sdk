@@ -73,10 +73,14 @@ function browserSessionMutationKey(endpoint: string): string | null {
   }
 }
 
-async function runBrowserSessionMutation<T>(
+export async function runBrowserSessionMutation<T>(
   endpoint: string,
+  sessionMode: "sdk" | "manual",
   operation: () => Promise<T>
 ): Promise<T> {
+  if (sessionMode === "manual") {
+    return operation();
+  }
   const key = browserSessionMutationKey(endpoint);
   if (!key) {
     return operation();
@@ -242,6 +246,7 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
         resolvedConfig.sessionMode === "sdk"
           ? await runBrowserSessionMutation(
               resolvedConfig.verificationEndpoint,
+              "sdk",
               createVerification
             )
           : await createVerification();
@@ -393,6 +398,7 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
 
       const response = await runBrowserSessionMutation(
         resolvedConfig.sessionEndpoint,
+        "sdk",
         () =>
           sessionClient.finalizeVerification({
             verificationId,

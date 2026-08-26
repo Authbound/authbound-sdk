@@ -15,6 +15,7 @@ export {
   createClient,
   getClient,
   isConfigured,
+  runBrowserSessionMutation,
 } from "./factory";
 
 export {

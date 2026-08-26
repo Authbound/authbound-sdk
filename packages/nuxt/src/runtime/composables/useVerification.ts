@@ -16,6 +16,7 @@ import {
   type BrowserVerificationFlowState,
   createBrowserVerificationFlow,
   isTerminalStatus,
+  runBrowserSessionMutation,
 } from "@authbound/core";
 import { useRouter } from "nuxt/app";
 import { computed, onUnmounted, ref, watch } from "vue";
@@ -81,6 +82,7 @@ export interface UseVerificationOptions {
 export function useVerification(options: UseVerificationOptions = {}) {
   const { client, config } = useAuthbound();
   const router = useRouter();
+  const sessionMode = config.sessionMode ?? "sdk";
 
   // State
   const status = ref<VerificationUiStatus>("idle");
@@ -144,26 +146,34 @@ export function useVerification(options: UseVerificationOptions = {}) {
         body.provider = startOptions.provider;
       }
 
-      return await $fetch<{
-        verificationId: VerificationId;
-        authorizationRequestUrl: string;
-        clientToken: ClientToken;
-        deepLink?: string;
-        expiresAt: string;
-      }>(config.verificationEndpoint ?? "/api/authbound/verification", {
-        method: "POST",
-        body,
-      });
+      const endpoint =
+        config.verificationEndpoint ?? "/api/authbound/verification";
+      return await runBrowserSessionMutation(endpoint, sessionMode, () =>
+        $fetch<{
+          verificationId: VerificationId;
+          authorizationRequestUrl: string;
+          clientToken: ClientToken;
+          deepLink?: string;
+          expiresAt: string;
+        }>(endpoint, {
+          method: "POST",
+          body,
+        })
+      );
     },
     subscribeToStatus: () => () => undefined,
-    finalizeVerification: async (id: VerificationId, token: ClientToken) =>
-      await $fetch(config.sessionEndpoint ?? "/api/authbound/session", {
-        method: "POST",
-        body: {
-          verificationId: id,
-          clientToken: token,
-        },
-      }),
+    finalizeVerification: async (id: VerificationId, token: ClientToken) => {
+      const endpoint = config.sessionEndpoint ?? "/api/authbound/session";
+      return await runBrowserSessionMutation(endpoint, sessionMode, () =>
+        $fetch(endpoint, {
+          method: "POST",
+          body: {
+            verificationId: id,
+            clientToken: token,
+          },
+        })
+      );
+    },
     getDeepLink: (authorizationRequestUrl: string) => authorizationRequestUrl,
     log: (...args: unknown[]) => {
       if (config.debug) {
@@ -175,7 +185,7 @@ export function useVerification(options: UseVerificationOptions = {}) {
   const flow = createBrowserVerificationFlow({
     client: client ?? fallbackClient,
     policyId: (options.policyId ?? config.policyId) as PolicyId | undefined,
-    sessionMode: config.sessionMode ?? "sdk",
+    sessionMode,
     onStateChange: applyFlowState,
   });
 

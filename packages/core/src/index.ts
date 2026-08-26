@@ -42,6 +42,7 @@ export {
   type ResolvedConfig,
   // Configuration
   resolveConfig,
+  runBrowserSessionMutation,
 } from "./client";
 
 // ============================================================================
