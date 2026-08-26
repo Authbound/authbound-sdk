@@ -6,7 +6,8 @@
   "scripts": {
     "predev": "pnpm --filter @authbound/server build",
     "dev": "node server.mjs",
-    "check": "node --check server.mjs"
+    "check": "node --check server.mjs",
+    "test": "node --test *.test.mjs"
   },
   "dependencies": {
     "@authbound/server": "workspace:*"

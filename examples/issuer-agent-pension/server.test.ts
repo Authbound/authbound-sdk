@@ -54,18 +54,75 @@ async function withAppServer<T>(
 
 function credentialDefinition(
   credentialDefinitionId: string,
-  lifecycleStatus: CredentialDefinition["lifecycleStatus"] = "published"
+  lifecycleStatus: CredentialDefinition["lifecycleStatus"] = "published",
+  overrides: Partial<CredentialDefinition> = {}
 ): CredentialDefinition {
   return {
     object: "issuer.credential_definition",
-    id: `cd_${credentialDefinitionId}`,
+    id: credentialDefinitionId,
     credentialDefinitionId,
     format: "dc+sd-jwt",
     vct: "urn:vc:authbound:pension:1.0",
     title: "Pension Credential",
-    claims: [],
+    claims: [
+      {
+        name: "Person.given_name",
+        path: ["Person", "given_name"],
+        mandatory: true,
+        displayName: "Given Name",
+      },
+      {
+        name: "Person.family_name",
+        path: ["Person", "family_name"],
+        mandatory: true,
+        displayName: "Family Name",
+      },
+      {
+        name: "Person.birth_date",
+        path: ["Person", "birth_date"],
+        mandatory: true,
+        displayName: "Birth Date",
+      },
+      {
+        name: "Person.personal_administrative_number",
+        path: ["Person", "personal_administrative_number"],
+        mandatory: true,
+        displayName: "Person Identifier",
+      },
+      {
+        name: "Pension.typeCode",
+        path: ["Pension", "typeCode"],
+        mandatory: true,
+        displayName: "Type Code",
+      },
+      {
+        name: "Pension.typeName",
+        path: ["Pension", "typeName"],
+        mandatory: true,
+        displayName: "Type",
+      },
+      {
+        name: "Pension.startDate",
+        path: ["Pension", "startDate"],
+        mandatory: true,
+        displayName: "Start Date",
+      },
+      {
+        name: "Pension.endDate",
+        path: ["Pension", "endDate"],
+        mandatory: false,
+        displayName: "End Date",
+      },
+      {
+        name: "Pension.provisional",
+        path: ["Pension", "provisional"],
+        mandatory: false,
+        displayName: "Provisional",
+      },
+    ],
     aliases: ["pension"],
     lifecycleStatus,
+    ...overrides,
   };
 }
 
@@ -288,7 +345,7 @@ describe("issuer-agent-pension example", () => {
     assert.equal(create.calls.length, 0);
   });
 
-  it("publishes only the known owned pension draft", async () => {
+  it("publishes a matching owned pension draft", async () => {
     const publish = mockFunction(
       async (
         credentialDefinitionId: string,
@@ -310,6 +367,27 @@ describe("issuer-agent-pension example", () => {
         { idempotencyKey: "publish:pension-credential:v1" },
       ],
     ]);
+  });
+
+  it("refuses to publish a pension draft with mismatched wallet fields", async () => {
+    const publish = mockFunction(async (credentialDefinitionId: string) =>
+      credentialDefinition(credentialDefinitionId, "published")
+    );
+    const client = createMockClient({
+      credentialDefinitions: {
+        get: async () =>
+          credentialDefinition("pension-credential", "draft", {
+            rendering: { simple: { background_color: "#112233" } },
+          }),
+        publish,
+      },
+    });
+
+    await assert.rejects(
+      () => createPensionCredentialDefinition(client, "pension-credential"),
+      /Inspect the draft and update it before publishing/
+    );
+    assert.equal(publish.calls.length, 0);
   });
 
   it("rejects archived definitions with new-version guidance", async () => {

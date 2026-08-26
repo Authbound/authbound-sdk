@@ -4,6 +4,14 @@ All customer-visible changes to the Authbound public SDK are recorded here.
 
 ## Unreleased
 
+### Breaking changes
+
+- Make credential-definition `create()` publish by default and enforce
+  publication readiness more strictly. Credential-definition APIs now require
+  lifecycle-discriminated complete responses, default listing returns only
+  published definitions, and explicit draft workflows use `createDraft()`,
+  `update()`, and `publish()`.
+
 ### Changes
 
 - Document credential-definition lifecycle recovery for issuer examples: a

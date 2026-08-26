@@ -208,3 +208,20 @@ test("release workflow fetches the base tag history", () => {
     /uses: actions\/checkout@v4\n\s+with:\n\s+fetch-depth: 0/
   );
 });
+
+test("Unreleased documents the credential-definition lifecycle breaking changes", () => {
+  const changelog = readFileSync(
+    new URL("../CHANGELOG.md", import.meta.url),
+    "utf8"
+  );
+  const unreleased = changelog.slice(0, changelog.indexOf("## 0.2.2"));
+
+  assert.match(unreleased, /### Breaking changes/);
+  assert.match(unreleased, /`create\(\)`[\s\S]*publish by default/);
+  assert.match(unreleased, /lifecycle-discriminated complete responses/);
+  assert.match(unreleased, /default listing[\s\S]*published/);
+  assert.match(
+    unreleased,
+    /`createDraft\(\)`[\s\S]*`update\(\)`[\s\S]*`publish\(\)`/
+  );
+});

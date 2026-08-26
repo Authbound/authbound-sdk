@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { AuthboundClient, AuthboundClientError } from "@authbound/server";
+import { ensureEmployeeCredentialDefinition } from "./credential-definition.mjs";
 
 const apiKey = process.env.AUTHBOUND_SECRET_KEY;
 if (!apiKey) {
@@ -28,50 +29,6 @@ const employee = {
   department: "Customer Success",
 };
 
-async function ensureCredentialDefinition() {
-  try {
-    const definition = await authbound.issuer.credentialDefinitions.get(
-      credentialDefinitionId
-    );
-    if (definition.lifecycleStatus === "published") {
-      return definition;
-    }
-    if (definition.lifecycleStatus === "draft") {
-      return authbound.issuer.credentialDefinitions.publish(
-        credentialDefinitionId,
-        { idempotencyKey: `publish:${credentialDefinitionId}:v1` }
-      );
-    }
-    throw new Error(
-      "Credential definition is archived. Create a new credential definition version."
-    );
-  } catch (error) {
-    if (
-      !(error instanceof AuthboundClientError) ||
-      error.code !== "credential_definition_not_found"
-    ) {
-      throw error;
-    }
-  }
-
-  return authbound.issuer.credentialDefinitions.create({
-    credentialDefinitionId,
-    vct: "urn:vc:authbound:employee-badge:1.0",
-    format: "dc+sd-jwt",
-    title: "Employee Badge",
-    aliases: ["employee_badge"],
-    claims: [
-      { path: ["Employee", "given_name"], mandatory: true },
-      { path: ["Employee", "family_name"], mandatory: true },
-      { path: ["Employee", "employee_number"], mandatory: true },
-      { path: ["Employee", "department"], mandatory: true },
-    ],
-    metadata: {
-      example: "issuer-agent-basic",
-    },
-  });
-}
-
 function employeeClaims(record) {
   return {
     Employee: {
@@ -84,7 +41,10 @@ function employeeClaims(record) {
 }
 
 async function createWalletOffer() {
-  const definition = await ensureCredentialDefinition();
+  const definition = await ensureEmployeeCredentialDefinition(
+    authbound,
+    credentialDefinitionId
+  );
   return authbound.openId4Vc.issuance.createOffer({
     credentialDefinitionId: definition.credentialDefinitionId,
     claims: employeeClaims(employee),

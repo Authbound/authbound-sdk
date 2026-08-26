@@ -221,6 +221,21 @@ const CredentialDefinitionAuthoringFormatSchema = z.enum([
   "jwt_vc_json",
 ]);
 
+const PublicValidationDetailsSchema = z
+  .object({
+    issues: z
+      .array(
+        z
+          .object({
+            path: z.string().min(1).max(512),
+            message: z.string().min(1).max(256),
+          })
+          .strict()
+      )
+      .max(256),
+  })
+  .strict();
+
 const CredentialDefinitionClaimSchema = z
   .object({
     name: z.string().max(256),
@@ -238,18 +253,105 @@ export type PublicJson =
   | PublicJson[]
   | { [key: string]: PublicJson };
 
-const PublicJsonSchema: z.ZodType<PublicJson> = z.lazy(() =>
-  z.union([
-    z.null(),
-    z.boolean(),
-    z.number(),
-    z.string().max(2048),
-    z.array(PublicJsonSchema).max(128),
-    z
-      .record(z.string(), PublicJsonSchema)
-      .refine((value) => Object.keys(value).length <= 128),
-  ])
+const MAX_PUBLIC_JSON_DEPTH = 8;
+const MAX_PUBLIC_JSON_NODES = 1024;
+const MAX_PUBLIC_JSON_ENTRIES = 128;
+const MAX_PUBLIC_JSON_STRING_LENGTH = 2048;
+const UNSAFE_PUBLIC_JSON_KEYS = new Set([
+  "__proto__",
+  "prototype",
+  "constructor",
+]);
+
+function isBoundedPublicJson(value: unknown): value is PublicJson {
+  const pending: Array<{ value: unknown; depth: number }> = [
+    { value, depth: 1 },
+  ];
+  let nodeCount = 0;
+
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!current) {
+      continue;
+    }
+
+    nodeCount += 1;
+    if (
+      current.depth > MAX_PUBLIC_JSON_DEPTH ||
+      nodeCount > MAX_PUBLIC_JSON_NODES
+    ) {
+      return false;
+    }
+
+    if (current.value === null || typeof current.value === "boolean") {
+      continue;
+    }
+    if (typeof current.value === "number") {
+      if (!Number.isFinite(current.value)) {
+        return false;
+      }
+      continue;
+    }
+    if (typeof current.value === "string") {
+      if (current.value.length > MAX_PUBLIC_JSON_STRING_LENGTH) {
+        return false;
+      }
+      continue;
+    }
+    if (Array.isArray(current.value)) {
+      if (current.value.length > MAX_PUBLIC_JSON_ENTRIES) {
+        return false;
+      }
+      for (let index = current.value.length - 1; index >= 0; index -= 1) {
+        pending.push({
+          value: current.value[index],
+          depth: current.depth + 1,
+        });
+      }
+      continue;
+    }
+    if (typeof current.value !== "object") {
+      return false;
+    }
+
+    const prototype = Object.getPrototypeOf(current.value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      return false;
+    }
+
+    const keys = Object.keys(current.value);
+    if (keys.length > MAX_PUBLIC_JSON_ENTRIES) {
+      return false;
+    }
+    for (let index = keys.length - 1; index >= 0; index -= 1) {
+      const key = keys[index];
+      if (UNSAFE_PUBLIC_JSON_KEYS.has(key)) {
+        return false;
+      }
+      const property = Object.getOwnPropertyDescriptor(current.value, key);
+      if (!(property && "value" in property)) {
+        return false;
+      }
+      pending.push({
+        value: property.value,
+        depth: current.depth + 1,
+      });
+    }
+  }
+
+  return true;
+}
+
+const PublicJsonSchema: z.ZodType<PublicJson> = z.custom<PublicJson>(
+  isBoundedPublicJson,
+  { message: "Invalid public JSON" }
 );
+
+const PublicMetadataSchema: z.ZodType<Record<string, PublicJson>> = z.custom<
+  Record<string, PublicJson>
+>((value) => isRecord(value) && PublicJsonSchema.safeParse(value).success, {
+  message: "Invalid public metadata",
+});
 
 const CredentialDefinitionColorSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
 
@@ -283,21 +385,26 @@ const CredentialDefinitionBaseSchema = z
     claims: z.array(CredentialDefinitionClaimSchema).max(256),
     aliases: z.array(z.string().max(2048)).max(256),
     rendering: CredentialDefinitionRenderingSchema.optional(),
-    metadata: z.record(z.string(), PublicJsonSchema).optional(),
+    metadata: PublicMetadataSchema.optional(),
   })
-  .strict();
+  .strict()
+  .refine((value) => value.id === value.credentialDefinitionId, {
+    message: "Credential definition ID aliases must match",
+    path: ["id"],
+  });
 
-const DraftCredentialDefinitionSchema = CredentialDefinitionBaseSchema.extend({
-  lifecycleStatus: z.literal("draft"),
-});
+const DraftCredentialDefinitionSchema =
+  CredentialDefinitionBaseSchema.safeExtend({
+    lifecycleStatus: z.literal("draft"),
+  });
 
 const PublishedCredentialDefinitionSchema =
-  CredentialDefinitionBaseSchema.extend({
+  CredentialDefinitionBaseSchema.safeExtend({
     lifecycleStatus: z.literal("published"),
   });
 
 const ArchivedCredentialDefinitionSchema =
-  CredentialDefinitionBaseSchema.extend({
+  CredentialDefinitionBaseSchema.safeExtend({
     lifecycleStatus: z.literal("archived"),
   });
 
@@ -1241,7 +1348,7 @@ export class AuthboundClient {
             ? publicError.code
             : "API_ERROR",
           response.status,
-          summarizeForDebug(errorBody)
+          errorDetailsFromApiResponse(publicError, errorBody)
         );
       }
 
@@ -1480,6 +1587,14 @@ function errorMessageFromApiResponse(
     return redactSensitiveText(publicError.message);
   }
   return fallback;
+}
+
+function errorDetailsFromApiResponse(
+  publicError: Record<string, unknown> | undefined,
+  body: unknown
+): unknown {
+  const parsed = PublicValidationDetailsSchema.safeParse(publicError?.details);
+  return parsed.success ? parsed.data : summarizeForDebug(body);
 }
 
 // ============================================================================
@@ -2348,7 +2463,7 @@ export async function getVerificationStatus(options: {
       ),
       typeof publicError?.code === "string" ? publicError.code : "API_ERROR",
       response.status,
-      summarizeForDebug(body)
+      errorDetailsFromApiResponse(publicError, body)
     );
   }
 

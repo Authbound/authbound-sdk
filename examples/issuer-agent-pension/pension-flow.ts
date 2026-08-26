@@ -1,6 +1,8 @@
+import { isDeepStrictEqual } from "node:util";
 import type {
   AuthboundClient,
   CreateCredentialDefinitionOptions,
+  CredentialDefinition,
 } from "@authbound/server";
 import { AuthboundClientError } from "@authbound/server";
 import type { PensionCredentialFixture } from "./utils.ts";
@@ -63,10 +65,63 @@ function isCredentialDefinitionNotFound(error: unknown): boolean {
   );
 }
 
+function normalizeClaims(claims: CreateCredentialDefinitionOptions["claims"]) {
+  return claims.map((claim) => ({
+    name: claim.path.join("."),
+    path: claim.path,
+    mandatory: claim.mandatory ?? false,
+    displayName: claim.displayName ?? claim.path.at(-1) ?? claim.path.join("."),
+  }));
+}
+
+function walletFacingDefinition(definition: CredentialDefinition) {
+  return {
+    credentialDefinitionId: definition.credentialDefinitionId,
+    vct: definition.vct,
+    format: definition.format,
+    title: definition.title,
+    aliases: definition.aliases,
+    claims: definition.claims,
+    rendering: definition.rendering,
+  };
+}
+
+function expectedWalletFacingDefinition(
+  input: CreateCredentialDefinitionOptions
+) {
+  return {
+    credentialDefinitionId: input.credentialDefinitionId,
+    vct: input.vct,
+    format: input.format,
+    title: input.title,
+    aliases: input.aliases ?? [],
+    claims: normalizeClaims(input.claims),
+    rendering: input.rendering,
+  };
+}
+
+function assertMatchingOwnedDraft(
+  definition: CredentialDefinition,
+  expected: CreateCredentialDefinitionOptions
+) {
+  if (
+    !isDeepStrictEqual(
+      walletFacingDefinition(definition),
+      expectedWalletFacingDefinition(expected)
+    )
+  ) {
+    throw new Error(
+      "Credential definition draft does not match this example's expected wallet-facing definition. Inspect the draft and update it before publishing; this example will not overwrite it automatically."
+    );
+  }
+}
+
 export async function createPensionCredentialDefinition(
   authboundClient: AuthboundClient,
   credentialDefinitionId: string
 ) {
+  const expected = pensionCredentialDefinitionPayload(credentialDefinitionId);
+
   try {
     const definition = await authboundClient.issuer.credentialDefinitions.get(
       credentialDefinitionId
@@ -75,6 +130,7 @@ export async function createPensionCredentialDefinition(
       return definition;
     }
     if (definition.lifecycleStatus === "draft") {
+      assertMatchingOwnedDraft(definition, expected);
       return authboundClient.issuer.credentialDefinitions.publish(
         credentialDefinitionId,
         { idempotencyKey: `publish:${credentialDefinitionId}:v1` }
@@ -87,9 +143,7 @@ export async function createPensionCredentialDefinition(
     if (!isCredentialDefinitionNotFound(error)) {
       throw error;
     }
-    return authboundClient.issuer.credentialDefinitions.create(
-      pensionCredentialDefinitionPayload(credentialDefinitionId)
-    );
+    return authboundClient.issuer.credentialDefinitions.create(expected);
   }
 }
 

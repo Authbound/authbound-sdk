@@ -84,6 +84,25 @@ const validCredentialDefinitionClaim = {
   displayName: "Employee ID",
 };
 
+function metadataWithDepth(depth: number): Record<string, unknown> {
+  let value: unknown = null;
+  for (let level = depth; level > 1; level -= 1) {
+    value = { value };
+  }
+  return value as Record<string, unknown>;
+}
+
+function metadataWithNodeCount(nodeCount: 1024 | 1025) {
+  const leafCount = nodeCount - 9;
+  return Object.fromEntries(
+    Array.from({ length: 8 }, (_, index) => {
+      const groupSize =
+        Math.floor(leafCount / 8) + (index < leafCount % 8 ? 1 : 0);
+      return [`group${index}`, Array.from({ length: groupSize }, () => null)];
+    })
+  );
+}
+
 describe("AuthboundClient issuer APIs", () => {
   beforeEach(() => {
     vi.stubGlobal(
@@ -295,6 +314,26 @@ describe("AuthboundClient issuer APIs", () => {
     });
   });
 
+  it("fails closed when credential-definition ID aliases disagree", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          credentialDefinitionResponse("published", {
+            id: "cd_employee_badge_v1",
+          })
+        )
+      )
+    );
+
+    await expect(
+      createClient().issuer.credentialDefinitions.get("employee_badge_v1")
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "INVALID_RESPONSE",
+    });
+  });
+
   it.each([
     ["an unknown base property", { unexpected: true }],
     [
@@ -400,6 +439,117 @@ describe("AuthboundClient issuer APIs", () => {
       "fetch",
       vi.fn(async () =>
         jsonResponse(credentialDefinitionResponse("published", overrides))
+      )
+    );
+
+    await expect(
+      createClient().issuer.credentialDefinitions.get("employee_badge_v1")
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "INVALID_RESPONSE",
+    });
+  });
+
+  it("accepts PublicJson at depth 8, counting the top-level metadata object as level 1", async () => {
+    const metadata = metadataWithDepth(8);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(credentialDefinitionResponse("published", { metadata }))
+      )
+    );
+
+    await expect(
+      createClient().issuer.credentialDefinitions.get("employee_badge_v1")
+    ).resolves.toMatchObject({ metadata });
+  });
+
+  it("rejects PublicJson at depth 9, counting the top-level metadata object as level 1", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          credentialDefinitionResponse("published", {
+            metadata: metadataWithDepth(9),
+          })
+        )
+      )
+    );
+
+    await expect(
+      createClient().issuer.credentialDefinitions.get("employee_badge_v1")
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "INVALID_RESPONSE",
+    });
+  });
+
+  it("accepts PublicJson with exactly 1,024 total nodes", async () => {
+    const metadata = metadataWithNodeCount(1024);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(credentialDefinitionResponse("published", { metadata }))
+      )
+    );
+
+    await expect(
+      createClient().issuer.credentialDefinitions.get("employee_badge_v1")
+    ).resolves.toMatchObject({ metadata });
+  });
+
+  it("rejects PublicJson with 1,025 total nodes", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          credentialDefinitionResponse("published", {
+            metadata: metadataWithNodeCount(1025),
+          })
+        )
+      )
+    );
+
+    await expect(
+      createClient().issuer.credentialDefinitions.get("employee_badge_v1")
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "INVALID_RESPONSE",
+    });
+  });
+
+  it("turns a stable 1,500-level PublicJson response into INVALID_RESPONSE", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          credentialDefinitionResponse("published", {
+            metadata: metadataWithDepth(1500),
+          })
+        )
+      )
+    );
+
+    await expect(
+      createClient().issuer.credentialDefinitions.get("employee_badge_v1")
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "INVALID_RESPONSE",
+    });
+  });
+
+  it.each([
+    "__proto__",
+    "prototype",
+    "constructor",
+  ])("rejects recursively nested PublicJson key %s", async (unsafeKey) => {
+    const metadata = JSON.parse(
+      `{"safe":{"${unsafeKey}":{"secret":"must-not-be-accepted"}}}`
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(credentialDefinitionResponse("published", { metadata }))
       )
     );
 
