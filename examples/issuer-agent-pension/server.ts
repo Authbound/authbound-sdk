@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
-  toBrowserVerificationResponse,
   type AuthboundClient as AuthboundClientInstance,
+  toBrowserVerificationResponse,
 } from "@authbound/server";
 import express, {
   type ErrorRequestHandler,
