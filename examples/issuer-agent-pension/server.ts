@@ -1,6 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { AuthboundClient as AuthboundClientInstance } from "@authbound/server";
+import {
+  toBrowserVerificationResponse,
+  type AuthboundClient as AuthboundClientInstance,
+} from "@authbound/server";
 import express, {
   type ErrorRequestHandler,
   type Request,
@@ -202,12 +205,9 @@ async function createVerification(
   const verification = await createPensionVerificationRequest(authboundClient, {
     policyId: pensionVerificationPolicyId,
   });
-  const handoff =
-    verification.clientAction?.data ?? verification.verificationUrl ?? "";
-  const clientToken = verification.clientToken;
-  if (!clientToken) {
-    throw new Error("Verification response did not include a client token");
-  }
+  const browserVerification = toBrowserVerificationResponse(verification);
+  const handoff = browserVerification.authorizationRequestUrl;
+  const clientToken = browserVerification.clientToken;
 
   // Keep the client token server-side so the browser receives only public
   // verification data and the QR/link handoff payload.
@@ -220,14 +220,13 @@ async function createVerification(
 
   return {
     verification: publicVerification,
-    qrSvg: handoff
-      ? await QRCode.toString(handoff, {
-          type: "svg",
-          margin: 1,
-          width: 288,
-          color: { dark: "#111827", light: "#ffffff" },
-        })
-      : null,
+    authorizationRequestUrl: handoff,
+    qrSvg: await QRCode.toString(handoff, {
+      type: "svg",
+      margin: 1,
+      width: 288,
+      color: { dark: "#111827", light: "#ffffff" },
+    }),
   };
 }
 

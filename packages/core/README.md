@@ -10,8 +10,10 @@ pnpm add @authbound/core
 import { createClient } from "@authbound/core";
 
 const authbound = createClient({
-  publishableKey: "pk_...",
+  publishableKey: "pk_test_...",
 });
 ```
 
 Most applications should install a framework package instead, such as `@authbound/nextjs`, `@authbound/react`, `@authbound/vue`, or `@authbound/nuxt`.
+
+Requires Node.js 18 or newer when used in Node. SDK-managed browser sessions also require the Web Locks API. Same-origin tabs coordinate under a lock keyed by the resolved endpoint origin. If `navigator.locks` is unavailable, use `sessionMode: "manual"` and finalize the session on your server.

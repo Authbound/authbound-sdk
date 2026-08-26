@@ -314,6 +314,29 @@ describe("issuer-agent-pension example", () => {
     });
   });
 
+  it("does not encode a hosted verification URL as a wallet QR code", async () => {
+    process.env.AUTHBOUND_PUBLISHABLE_KEY = "pk_test_123";
+    const create = mockFunction(async () =>
+      verification({
+        id: "vrf_hosted_only",
+        status: "created",
+        clientToken: "client_token_123",
+        expiresAt: "2999-01-01T00:00:00.000Z",
+        verificationUrl: "https://app.authbound.io/v/vrf_hosted_only",
+      })
+    );
+    const app = createApp({
+      createClient: () => createMockClient({ verifications: { create } }),
+    });
+
+    await withAppServer(app, async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/verify`, { method: "POST" });
+
+      assert.equal(response.status, 500);
+      assert.doesNotMatch(await response.text(), /<svg/);
+    });
+  });
+
   it("rejects impossible calendar dates in JSON fixtures", () => {
     assert.throws(
       () =>

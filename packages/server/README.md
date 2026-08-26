@@ -25,10 +25,13 @@ pnpm add @authbound/server
 yarn add @authbound/server
 ```
 
-**Peer Dependencies:**
+Requires Node.js 18 or newer. Framework adapters use optional peer dependencies, so install only the one your server uses:
 
-- `next >= 14.0.0` (Next.js 15+ recommended)
-- `jose >= 5.0.0` (for JWT encryption)
+- Express 4.18 or newer
+- Hono 4 or newer
+- Next.js 14, 15, or 16
+
+`jose` is installed with the package and does not need to be added separately.
 
 ## OpenID4VC Issuance
 
@@ -504,7 +507,8 @@ The SDK uses secure defaults, but ensure:
 - **HttpOnly** prevents XSS attacks
 - **SameSite=Lax** prevents CSRF attacks
 - **Domain** remains host-only for SDK-managed browser sessions. Web Locks
-  coordinate only within one browser origin. If sibling origins intentionally
+  coordinate only among same-origin browser contexts, with the lock keyed by
+  the resolved endpoint origin. If sibling origins intentionally
   share a parent-domain cookie, use `sessionMode: "manual"` and coordinate
   session mutations on your server.
 
