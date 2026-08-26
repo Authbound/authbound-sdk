@@ -2,7 +2,17 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, normalize } from "node:path";
 
-const packageNames = ["core", "server", "react", "nextjs", "vue", "nuxt"];
+import {
+  AFFECTED_PACKAGES,
+  assertChangedPublishablePackagesIncluded,
+  assertSourceReleaseManifests,
+  BASE_RELEASE_TAG,
+  loadWorkspaceManifests,
+  PUBLISHABLE_PACKAGES,
+  packageDirectory,
+} from "./release-set.mjs";
+
+const packageNames = PUBLISHABLE_PACKAGES.map(packageDirectory);
 const authboundScope = "@authbound";
 const forbiddenText = [`${authboundScope}-sdk/`, `${authboundScope}/shared`];
 const expectedExportKeys = {
@@ -200,21 +210,49 @@ function hasRootNextjsMiddlewareImport(text) {
 }
 
 let hasFailure = false;
-let expectedVersion = null;
+
+try {
+  const manifests = loadWorkspaceManifests();
+  assertSourceReleaseManifests(manifests);
+
+  const changedFiles = spawnSync(
+    "git",
+    ["diff", "--name-only", BASE_RELEASE_TAG, "--", "packages"],
+    { encoding: "utf8" }
+  );
+  if (changedFiles.status !== 0) {
+    throw new Error(
+      changedFiles.stderr.trim() ||
+        `git diff against ${BASE_RELEASE_TAG} failed with ${changedFiles.status}`
+    );
+  }
+  const untrackedFiles = spawnSync(
+    "git",
+    ["ls-files", "--others", "--exclude-standard", "--", "packages"],
+    { encoding: "utf8" }
+  );
+  if (untrackedFiles.status !== 0) {
+    throw new Error(
+      untrackedFiles.stderr.trim() ||
+        `git ls-files for untracked packages failed with ${untrackedFiles.status}`
+    );
+  }
+  assertChangedPublishablePackagesIncluded(
+    [changedFiles.stdout, untrackedFiles.stdout]
+      .flatMap((output) => output.trim().split(/\r?\n/))
+      .filter(Boolean),
+    AFFECTED_PACKAGES
+  );
+} catch (error) {
+  hasFailure = true;
+  console.error(error instanceof Error ? error.message : String(error));
+}
 
 for (const packageName of packageNames) {
   const packageDir = join("packages", packageName);
   const manifestPath = join(packageDir, "package.json");
   const manifestText = readFileSync(manifestPath, "utf8");
   const manifest = JSON.parse(manifestText);
-
-  expectedVersion ??= manifest.version;
-  if (manifest.version !== expectedVersion) {
-    hasFailure = true;
-    console.error(
-      `${manifest.name} version ${manifest.version} does not match ${expectedVersion}`
-    );
-  }
 
   const exportKeys = Object.keys(manifest.exports ?? {});
   const expectedExports = expectedExportKeys[packageName];

@@ -6,15 +6,19 @@ release repeatable.
 
 ## Version Policy
 
-- Publishable SDK packages use one aligned version across `packages/*`.
+- `scripts/release-set.mjs` is the source of truth for the affected package set,
+  dependency closure, release version, and compatible unchanged adapters.
+- Only affected packages are versioned and published for a release. Unchanged
+  adapters retain their existing version after the packed-consumer gate proves
+  source/export, dependency-tree, type, and runtime compatibility.
 - Compatible fixes use patch releases; breaking pre-1.0 changes use minor
   releases with a separate release plan.
-- The current breaking-contract baseline is `0.2.0`; compatible fixes use
-  later `0.2.x` patch releases.
-- SDK tags use `sdk-v<version>`, for example `sdk-v0.2.2`.
+- The current breaking-contract baseline is `0.3.0`; compatible fixes use
+  later `0.3.x` patch releases.
+- SDK tags use `sdk-v<version>`, for example `sdk-v0.3.0`.
 - Breaking SDK changes require a separate release plan before publishing.
 
-### 0.2.0 Breaking-Change Plan
+### Historical 0.2.0 Breaking-Change Plan
 
 Before upgrading, replace the legacy `eudiplo` provider identifier with
 `eudi`. Webhook integrations must accept and emit `api_version: "v1"` and a
@@ -37,7 +41,10 @@ Use short conventional prefixes so release notes stay scannable:
 ## Release Checklist
 
 1. Merge all SDK fixes intended for the release into `main`.
-2. Bump every publishable SDK package in `packages/*/package.json` to the same version.
+2. Update the affected package set and release version in
+   `scripts/release-set.mjs`, then bump exactly those package manifests. Keep
+   internal source dependencies as `workspace:*`; packed manifests must rewrite
+   affected internal dependencies to the exact release version.
 3. Update `CHANGELOG.md` with the customer-visible changes.
 4. Run:
 
@@ -46,31 +53,36 @@ Use short conventional prefixes so release notes stay scannable:
    pnpm release:check
    ```
 
-5. Commit the version and changelog update.
-6. Tag the exact release commit:
+5. Confirm `release:check` packed the affected packages into an isolated
+   consumer, compiled the public lifecycle APIs, and proved each unchanged
+   adapter side-by-side against its base-version dependency tree without
+   workspace links or live Authbound requests.
+6. Commit the version and changelog update.
+7. Tag the exact release commit:
 
    ```bash
-   git tag -a sdk-v0.2.2 -m "Authbound SDK 0.2.2"
-   git push origin main sdk-v0.2.2
+   git tag -a sdk-v0.3.0 -m "Authbound SDK 0.3.0"
+   git push origin main sdk-v0.3.0
    ```
 
-7. Wait for the `SDK Release Check` workflow to pass on the tag.
-8. From the mono repo root, run:
+8. Wait for the `SDK Release Check` workflow to pass on the tag.
+9. From the mono repo root, run:
 
    ```bash
    pnpm sdk:publish -- --dry-run
    ```
 
-9. After approval, publish manually from the mono repo root:
+10. After approval, publish manually from the mono repo root:
 
    ```bash
    pnpm sdk:publish -- --tag latest
    ```
 
-10. Record the SDK commit, tag, npm version, and publish result in the platform
+11. Record the SDK commit, tag, npm version, and publish result in the platform
     release evidence.
 
 ## CI Boundary
 
-GitHub Actions runs install and `pnpm release:check` for `workflow_dispatch` and
-`sdk-v*` tags. It does not run `npm publish` and must not receive npm tokens.
+GitHub Actions reads the affected set from `scripts/release-set.mjs`, then runs
+install and `pnpm release:check` for `workflow_dispatch` and `sdk-v*` tags. It
+does not run `npm publish` and must not receive npm tokens.
