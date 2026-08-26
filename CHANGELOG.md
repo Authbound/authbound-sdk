@@ -4,6 +4,23 @@ All customer-visible changes to the Authbound public SDK are recorded here.
 
 ## Unreleased
 
+## 0.2.2 - 2026-08-26
+
+### Changes
+
+- Restore verification startup under React Strict Mode so effect replay no
+  longer disposes and reuses a terminal browser flow before the request is
+  sent.
+- Reuse identical in-flight verification starts and reject conflicting
+  concurrent identity options before sending a second create request.
+- Serialize SDK-managed browser session creation and finalization across tabs,
+  clients, controllers, and framework adapters on the same browser origin.
+  Browsers without a usable Web Locks API now fail closed before the request;
+  app-owned manual sessions remain available.
+- Apply the same session coordination to the Nuxt fallback client. Shared
+  parent-domain cookies spanning multiple browser origins require
+  `sessionMode: "manual"` with app-owned server-side coordination.
+
 ## 0.2.1 - 2026-08-26
 
 ### Changes
