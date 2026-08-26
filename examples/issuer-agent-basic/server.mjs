@@ -24,8 +24,20 @@ const employee = {
 
 async function ensureCredentialDefinition() {
   try {
-    return await authbound.issuer.credentialDefinitions.get(
+    const definition = await authbound.issuer.credentialDefinitions.get(
       credentialDefinitionId
+    );
+    if (definition.lifecycleStatus === "published") {
+      return definition;
+    }
+    if (definition.lifecycleStatus === "draft") {
+      return authbound.issuer.credentialDefinitions.publish(
+        credentialDefinitionId,
+        { idempotencyKey: `publish:${credentialDefinitionId}:v1` }
+      );
+    }
+    throw new Error(
+      "Credential definition is archived. Create a new credential definition version."
     );
   } catch (error) {
     if (

@@ -47,14 +47,14 @@ AUTHBOUND_SECRET_KEY=sk_test_... pnpm dev
 
 Open `http://localhost:3000`, click **Create wallet offer**, and the server will:
 
-1. Create an `Employee Badge` credential definition if it does not exist.
+1. Reuse an `Employee Badge` published definition, publish only its own known draft, or create the complete definition when it is not found.
 2. Map a sample employee record into credential claims.
 3. Call `authbound.openId4Vc.issuance.createOffer`.
 4. Return the `offerUri` for QR-code or wallet-link handoff.
 
 ## Issue A Credential Offer
 
-Credential definitions are Authbound's issuer templates. List them first, create an OpenID4VCI offer, render the returned `offerUri` as a QR code, then poll the issuance session until the wallet redeems it.
+Credential definitions are Authbound's issuer templates. List them for discovery and inspection, select a published definition, create an OpenID4VCI offer, render the returned `offerUri` as a QR code, then poll the issuance session until the wallet redeems it. Listing drafts does not authorize publishing them.
 
 ```ts
 const definitions = await authbound.issuer.credentialDefinitions.list();
@@ -65,6 +65,10 @@ const pensionDefinition = definitions.data.find(
 
 if (!pensionDefinition) {
   throw new Error("Credential definition is not available for this project");
+}
+
+if (pensionDefinition.lifecycleStatus !== "published") {
+  throw new Error("Credential definition must be published before issuance");
 }
 
 const offer = await authbound.openId4Vc.issuance.createOffer({
@@ -94,7 +98,7 @@ console.log(latest.status);
 
 Use this shape when adding issuance to an existing website:
 
-1. Create or update a project-scoped credential definition during setup.
+1. Create a project-scoped published credential definition during setup, or intentionally stage one with `authbound.issuer.credentialDefinitions.createDraft()` then `authbound.issuer.credentialDefinitions.publish()`.
 2. Map your business JSON into credential claims.
 3. Call `openId4Vc.issuance.createOffer`.
 4. Return `offer.offerUri` to the browser and render it as a QR code or wallet link.
@@ -151,7 +155,9 @@ const offer = await authbound.openId4Vc.issuance.createOffer({
 return offer.offerUri;
 ```
 
-Credential definition metadata is public issuer metadata for wallet discovery. Keep secrets and personal data in issuance `claims` or private application storage, not in definition titles, aliases, labels, rendering, or metadata.
+`metadata` is authenticated management metadata, not wallet-discoverable issuer or credential metadata. Keep secrets and personal data in issuance `claims` or private application storage, not in definition titles, aliases, labels, rendering, or metadata. `rendering` supports only six-digit colors and Authbound-owned presets, not arbitrary SVG, HTML, CSS, or customer templates.
+
+`authbound.issuer.credentialDefinitions.create()` creates and returns a published definition. Use `authbound.issuer.credentialDefinitions.createDraft()` followed by `authbound.issuer.credentialDefinitions.publish()` only when you intentionally stage a definition.
 
 You can also create an offer by `vct` when you want the issuer to resolve the configured definition:
 
@@ -168,15 +174,38 @@ await authbound.openId4Vc.issuance.createOffer({
 
 ## Manage Credential Definitions
 
-Project definitions are scoped to the API key's project and environment. Global Authbound definitions can be listed and used, while customer-created definitions can be updated or archived.
+Project definitions are scoped to the API key's project and environment. Use `authbound.issuer.credentialDefinitions.list({ lifecycleStatus: "draft" })` only to discover and inspect drafts; never bulk-publish the result. A runnable service may publish only a known owned draft whose complete definition it controls.
 
 ```ts
-await authbound.issuer.credentialDefinitions.update("pension_credential_v1", {
-  title: "Updated Pension Credential",
-  aliases: ["pension", "retirement-benefit"],
+const draft = await authbound.issuer.credentialDefinitions.createDraft({
+  credentialDefinitionId: "pension_credential_v2",
+  vct: "urn:vc:authbound:pension:2.0",
+  format: "dc+sd-jwt",
+  title: "Pension Credential v2",
+  aliases: ["pension"],
+  claims: [
+    { path: ["Person", "given_name"], mandatory: true, displayName: "Given Name" },
+    { path: ["Person", "family_name"], mandatory: true, displayName: "Family Name" },
+    { path: ["Pension", "startDate"], mandatory: true, displayName: "Start Date" },
+  ],
 });
 
-await authbound.issuer.credentialDefinitions.archive("pension_credential_v1");
+await authbound.issuer.credentialDefinitions.update(draft.credentialDefinitionId, {
+  title: "Pension Credential v2",
+});
+
+const published = await authbound.issuer.credentialDefinitions.publish(
+  draft.credentialDefinitionId,
+  { idempotencyKey: "publish:pension_credential_v2:v1" }
+);
+```
+
+Published definitions are immutable. To change one, create a new credential-definition ID and VCT version; do not update the published definition. Archive a definition only when it should no longer be used:
+
+```ts
+await authbound.issuer.credentialDefinitions.archive(
+  published.credentialDefinitionId
+);
 ```
 
 ## Deferred Issuance

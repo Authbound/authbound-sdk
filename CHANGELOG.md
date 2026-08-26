@@ -4,6 +4,13 @@ All customer-visible changes to the Authbound public SDK are recorded here.
 
 ## Unreleased
 
+### Changes
+
+- Document credential-definition lifecycle recovery for issuer examples: a
+  known owned draft can be published with an idempotency key, while published
+  definitions are immutable and archived definitions require a new ID and VCT
+  version.
+
 ## 0.2.2 - 2026-08-26
 
 ### Changes

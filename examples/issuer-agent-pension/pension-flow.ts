@@ -2,6 +2,7 @@ import type {
   AuthboundClient,
   CreateCredentialDefinitionOptions,
 } from "@authbound/server";
+import { AuthboundClientError } from "@authbound/server";
 import type { PensionCredentialFixture } from "./utils.ts";
 
 function pensionCredentialDefinitionPayload(
@@ -57,9 +58,7 @@ function pensionCredentialDefinitionPayload(
 // credentials against the stored definition ID.
 function isCredentialDefinitionNotFound(error: unknown): boolean {
   return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
+    error instanceof AuthboundClientError &&
     error.code === "credential_definition_not_found"
   );
 }
@@ -68,20 +67,30 @@ export async function createPensionCredentialDefinition(
   authboundClient: AuthboundClient,
   credentialDefinitionId: string
 ) {
-  // Reusing the same definition ID keeps the example safe to run repeatedly.
   try {
-    return await authboundClient.issuer.credentialDefinitions.get(
+    const definition = await authboundClient.issuer.credentialDefinitions.get(
       credentialDefinitionId
+    );
+    if (definition.lifecycleStatus === "published") {
+      return definition;
+    }
+    if (definition.lifecycleStatus === "draft") {
+      return authboundClient.issuer.credentialDefinitions.publish(
+        credentialDefinitionId,
+        { idempotencyKey: `publish:${credentialDefinitionId}:v1` }
+      );
+    }
+    throw new Error(
+      "Credential definition is archived. Create a new credential definition version."
     );
   } catch (error) {
     if (!isCredentialDefinitionNotFound(error)) {
       throw error;
     }
+    return authboundClient.issuer.credentialDefinitions.create(
+      pensionCredentialDefinitionPayload(credentialDefinitionId)
+    );
   }
-
-  return authboundClient.issuer.credentialDefinitions.create(
-    pensionCredentialDefinitionPayload(credentialDefinitionId)
-  );
 }
 
 // The offer payload is just the credential claims. Fixture metadata such as
