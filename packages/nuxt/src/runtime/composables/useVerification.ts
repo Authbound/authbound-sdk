@@ -19,7 +19,7 @@ import {
   runBrowserSessionMutation,
 } from "@authbound/core";
 import { useRouter } from "nuxt/app";
-import { computed, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useAuthbound } from "./useAuthbound";
 
 // ============================================================================
@@ -250,10 +250,14 @@ export function useVerification(options: UseVerificationOptions = {}) {
     flow.reset();
   };
 
-  // Auto-start
-  if (options.autoStart) {
-    startVerification();
-  }
+  // Auto-start only after hydration. Errors are exposed through flow state and
+  // the onFailed callback, so the internal mount task must not reject unhandled.
+  onMounted(() => {
+    if (!options.autoStart) {
+      return;
+    }
+    startVerification().catch(() => undefined);
+  });
 
   // Cleanup
   onUnmounted(() => {

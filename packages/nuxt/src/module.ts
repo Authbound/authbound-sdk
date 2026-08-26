@@ -202,6 +202,19 @@ export default defineNuxtModule<ModuleOptions>({
   },
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url);
+    if (!nuxt.options.vite.optimizeDeps) {
+      nuxt.options.vite.optimizeDeps = {};
+    }
+    const optimizeDeps = nuxt.options.vite.optimizeDeps;
+    if (!optimizeDeps.include) {
+      optimizeDeps.include = [];
+    }
+    const optimizedDependencies = optimizeDeps.include;
+
+    const qrCodeOptimizerEntry = "@authbound/vue > qrcode";
+    if (!optimizedDependencies.includes(qrCodeOptimizerEntry)) {
+      optimizedDependencies.push(qrCodeOptimizerEntry);
+    }
 
     // Provide options to runtime
     nuxt.options.runtimeConfig.public.authbound = {
@@ -219,7 +232,7 @@ export default defineNuxtModule<ModuleOptions>({
 
     nuxt.options.runtimeConfig.authbound = {
       policyId: options.policyId,
-      provider: options.provider,
+      ...(options.provider ? { provider: options.provider } : {}),
       providerOptions: options.providerOptions,
       apiKey: options.apiKey ?? process.env.AUTHBOUND_SECRET_KEY,
       sessionSecret:
