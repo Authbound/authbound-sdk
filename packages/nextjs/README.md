@@ -14,6 +14,8 @@ import { createAuthboundHandlers } from "@authbound/nextjs/server";
 
 Use this package when your app is built on Next.js. For framework-neutral server code, use `@authbound/server`.
 
+Requires Next.js 14 through 16 and React 18.3 through 19.x.
+
 ## Quick Start
 
 Create one catch-all route:
@@ -65,6 +67,8 @@ The browser creates a verification, subscribes to status, then calls
 pending same-origin binding, fetches the signed result with your secret key, and
 sets the SDK cookie. Webhooks are for backend reconciliation and require
 `AUTHBOUND_WEBHOOK_SECRET` by default.
+
+SDK-managed sessions require the Web Locks API. Same-origin tabs serialize browser session mutations under a lock keyed by the resolved endpoint origin. For browsers or embedded webviews without `navigator.locks`, or when several origins share a parent-domain cookie, set `sessionMode="manual"` and coordinate session creation on your server.
 
 Set `allowedOrigins` to your public app origin when the route runs behind a
 proxy or container URL. If you want the SDK to derive the public origin from

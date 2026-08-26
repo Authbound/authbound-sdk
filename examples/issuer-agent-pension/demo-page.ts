@@ -701,8 +701,7 @@ export function renderDemoPage(credentials: PensionDemoOption[]): string {
         }
 
         const verification = body.verification || body;
-        const authorizationRequestUrl =
-          verification.clientAction?.data || verification.verificationUrl || body.authorizationRequestUrl || '';
+        const authorizationRequestUrl = body.authorizationRequestUrl || '';
         activeVerificationId = verification.id || body.verificationId;
         if (!activeVerificationId) throw new Error('Verification response did not include an id');
         setVerifyStep(2);
