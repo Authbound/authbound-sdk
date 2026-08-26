@@ -240,8 +240,15 @@ export function createPollingSubscription(
   function scheduleNextPoll(): void {
     if (isCleanedUp) return;
 
+    const remainingTime = pollingDeadline - Date.now();
+    if (remainingTime <= 0 || !Number.isFinite(remainingTime)) {
+      emitTimeout();
+      return;
+    }
+    const delay = Math.min(currentInterval, remainingTime);
+
     if (config.debug) {
-      console.log(`[Authbound] Next poll in ${currentInterval}ms`);
+      console.log(`[Authbound] Next poll in ${delay}ms`);
     }
 
     timeoutId = setTimeout(() => {
@@ -251,7 +258,7 @@ export function createPollingSubscription(
         currentInterval * pollingConfig.backoffMultiplier,
         pollingConfig.maxInterval
       );
-    }, currentInterval);
+    }, delay);
   }
 
   function cleanup(): void {

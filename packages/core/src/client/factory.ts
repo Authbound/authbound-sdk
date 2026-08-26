@@ -290,6 +290,19 @@ export function createClient(config: AuthboundClientConfig): AuthboundClient {
     subscribeToStatus(verificationId, clientToken, onEvent, options = {}) {
       const { onError, fallbackToPolling = true, expiresAt } = options;
 
+      const expiryTimestamp = expiresAt?.getTime();
+      if (
+        expiryTimestamp !== undefined &&
+        (!Number.isFinite(expiryTimestamp) || expiryTimestamp <= Date.now())
+      ) {
+        onEvent({
+          type: "timeout",
+          status: "timeout",
+          timestamp: new Date().toISOString(),
+        });
+        return () => {};
+      }
+
       log("Subscribing to status for verification:", verificationId);
 
       // Wrap event handler to validate and log

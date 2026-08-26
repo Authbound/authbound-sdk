@@ -304,6 +304,34 @@ describe("createClient", () => {
     cleanup();
   });
 
+  it.each([
+    ["invalid", new Date(Number.NaN)],
+    ["expired", new Date(Date.now() - 1)],
+  ])("does not open a status transport for an %s verification expiry", (_label, expiresAt) => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createClient({
+      publishableKey: "pk_test_public123" as never,
+      gatewayUrl: "https://gateway.authbound.test",
+    });
+    const events: unknown[] = [];
+
+    const cleanup = client.subscribeToStatus(
+      "vrf_test123" as never,
+      "client_token_123" as never,
+      (event) => events.push(event),
+      { expiresAt }
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: "timeout", status: "timeout" })
+    );
+
+    cleanup();
+  });
+
   it("sends provider preference through the configured verification endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(

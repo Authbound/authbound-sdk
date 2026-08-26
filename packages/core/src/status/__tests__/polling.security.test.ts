@@ -124,6 +124,36 @@ describe("createPollingSubscription - Timeout Enforcement", () => {
         expect.objectContaining({ type: "timeout", status: "timeout" })
       );
     });
+
+    it("emits timeout at expiry when the next backoff would cross it", async () => {
+      cleanup = createPollingSubscription(
+        TEST_CONFIG,
+        TEST_VERIFICATION_ID,
+        TEST_CLIENT_TOKEN,
+        (event) => events.push(event),
+        {
+          expiresAt: new Date(Date.now() + 10_000),
+          pollingConfig: {
+            initialInterval: 8000,
+            maxInterval: 30_000,
+            backoffMultiplier: 2,
+          },
+        }
+      );
+
+      await vi.advanceTimersByTimeAsync(8000);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(events).not.toContainEqual(
+        expect.objectContaining({ type: "timeout" })
+      );
+
+      await vi.advanceTimersByTimeAsync(2000);
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(events).toContainEqual(
+        expect.objectContaining({ type: "timeout", status: "timeout" })
+      );
+    });
   });
 
   describe("AbortController Integration", () => {
