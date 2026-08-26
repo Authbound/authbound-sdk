@@ -165,6 +165,7 @@ export function createBrowserVerificationFlow(
   let countdownInterval: ReturnType<typeof setInterval> | null = null;
   let operationRevision = 0;
   let active = true;
+  let activeStart: Promise<void> | null = null;
   const finalizedVerificationIds = new Set<string>();
 
   function emit(nextState: BrowserVerificationFlowState): void {
@@ -322,17 +323,15 @@ export function createBrowserVerificationFlow(
 
   function reset(): void {
     operationRevision += 1;
+    activeStart = null;
     cleanup();
     finalizedVerificationIds.clear();
     emit({ status: "idle" });
   }
 
-  async function start(
+  async function startOnce(
     startOptions: BrowserVerificationFlowStartOptions = {}
   ): Promise<void> {
-    if (!active) {
-      return;
-    }
     operationRevision += 1;
     const revision = operationRevision;
     cleanup();
@@ -396,6 +395,27 @@ export function createBrowserVerificationFlow(
     }
   }
 
+  async function start(
+    startOptions: BrowserVerificationFlowStartOptions = {}
+  ): Promise<void> {
+    if (!active) {
+      return;
+    }
+    if (activeStart) {
+      return activeStart;
+    }
+
+    const operation = startOnce(startOptions);
+    activeStart = operation;
+    try {
+      await operation;
+    } finally {
+      if (activeStart === operation) {
+        activeStart = null;
+      }
+    }
+  }
+
   return {
     getState: () => state,
     start,
@@ -403,6 +423,7 @@ export function createBrowserVerificationFlow(
     dispose: () => {
       operationRevision += 1;
       active = false;
+      activeStart = null;
       cleanup();
     },
   };

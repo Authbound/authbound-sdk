@@ -27,7 +27,7 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useInsertionEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -152,7 +152,10 @@ export interface AuthboundProviderProps {
   verificationEndpoint?: string;
   /** Browser session finalization endpoint (default: /api/authbound/session) */
   sessionEndpoint?: string;
-  /** Whether the SDK should create its own browser session binding */
+  /**
+   * Whether the SDK should create its own browser session binding.
+   * SDK mode requires the Web Locks API in browser environments.
+   */
   sessionMode?: "sdk" | "manual";
   /** Gateway URL override (for testing) */
   gatewayUrl?: string;
@@ -290,6 +293,11 @@ export function AuthboundProvider({
   );
 
   const currentFlow = useRef<BrowserVerificationFlowController | null>(null);
+  const acceptingStarts = useRef(true);
+  const pendingFlowDisposal = useRef<{
+    flow: BrowserVerificationFlowController;
+    canceled: boolean;
+  } | null>(null);
 
   const flow = useMemo(() => {
     let createdFlow!: BrowserVerificationFlowController;
@@ -306,26 +314,9 @@ export function AuthboundProvider({
     });
     return createdFlow;
   }, [client, policyId, sessionMode]);
-  if (currentFlow.current === null) {
+
+  useLayoutEffect(() => {
     currentFlow.current = flow;
-  }
-
-  useInsertionEffect(() => {
-    currentFlow.current = flow;
-    return () => {
-      if (currentFlow.current === flow) {
-        currentFlow.current = null;
-      }
-    };
-  }, [flow]);
-
-  const acceptingStarts = useRef(true);
-  const pendingFlowDisposal = useRef<{
-    flow: typeof flow;
-    canceled: boolean;
-  } | null>(null);
-
-  useEffect(() => {
     acceptingStarts.current = true;
     const pendingDisposal = pendingFlowDisposal.current;
     if (pendingDisposal?.flow === flow) {
@@ -333,6 +324,9 @@ export function AuthboundProvider({
     }
 
     return () => {
+      if (currentFlow.current === flow) {
+        currentFlow.current = null;
+      }
       acceptingStarts.current = false;
       const disposal = { flow, canceled: false };
       pendingFlowDisposal.current = disposal;
@@ -360,6 +354,9 @@ export function AuthboundProvider({
       metadata?: Record<string, unknown>;
       provider?: ProviderPreference;
     }) => {
+      if (currentFlow.current !== flow) {
+        await Promise.resolve();
+      }
       if (!acceptingStarts.current || currentFlow.current !== flow) {
         return;
       }

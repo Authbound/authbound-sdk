@@ -292,6 +292,51 @@ describe("AuthboundProvider session finalization", () => {
     unmount();
   });
 
+  it("deduplicates concurrent starts from multiple provider consumers", async () => {
+    let resolveStart: (response: Response) => void = () => {};
+    const fetchMock = vi.fn(
+      (_input: string | URL | Request, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          return new Promise<Response>((resolve) => {
+            resolveStart = resolve;
+          });
+        }
+        return Promise.resolve(
+          new Response(createSseStream(""), {
+            status: 200,
+            headers: { "Content-Type": "text/event-stream" },
+          })
+        );
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { unmount } = render(
+      <StrictMode>
+        <AuthboundProvider
+          gatewayUrl="https://api.authbound.test"
+          policyId={"pol_authbound_pension_v1" as never}
+          publishableKey="pk_test_public123"
+          sessionMode="manual"
+        >
+          <AutoStartVerification />
+          <AutoStartVerification />
+        </AuthboundProvider>
+      </StrictMode>
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")
+    ).toHaveLength(1);
+
+    resolveStart(createPendingVerificationResponse());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    unmount();
+  });
+
   it("preserves one-shot verification starts during StrictMode replay", async () => {
     let resolveStart: (response: Response) => void = () => {};
     const fetchMock = vi
@@ -476,6 +521,12 @@ describe("AuthboundProvider session finalization", () => {
   });
 
   it("finalizes the SDK session once when verification is verified", async () => {
+    vi.stubGlobal("navigator", {
+      locks: {
+        request: (_name: string, operation: () => Promise<unknown>) =>
+          operation(),
+      },
+    });
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url === "/api/authbound/verification") {

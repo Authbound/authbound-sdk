@@ -193,6 +193,7 @@ describe("browser flow session cookie ordering", () => {
   });
 
   it("serializes verification creation across browser clients", async () => {
+    const lockRequest = installBrowserSessionLocks();
     const cookies = new Map<string, string>();
     const createHandler = createVerificationRoute({
       policyId: "pol_authbound_pension_v1" as never,
@@ -266,5 +267,25 @@ describe("browser flow session cookie ordering", () => {
       status: "PENDING",
       verificationId: "vrf_second",
     });
+    expect(lockRequest).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails closed when SDK sessions cannot coordinate across browser realms", async () => {
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as typeof fetch;
+    vi.stubGlobal("location", new URL(BROWSER_ORIGIN));
+    vi.stubGlobal("navigator", {});
+
+    await expect(
+      createClient({
+        publishableKey: "pk_test_public123",
+        policyId: "pol_authbound_pension_v1" as never,
+        verificationEndpoint: "/api/authbound/verification",
+        sessionEndpoint: "/api/authbound/session",
+      }).startVerification()
+    ).rejects.toMatchObject({
+      code: "session_coordination_unsupported",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

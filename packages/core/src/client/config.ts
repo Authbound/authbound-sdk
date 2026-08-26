@@ -30,7 +30,10 @@ export interface AuthboundClientConfig {
   /** Verification session finalization endpoint on your server */
   sessionEndpoint?: string;
 
-  /** Session handling mode: SDK cookie finalization or app-owned manual session */
+  /**
+   * Session handling mode: SDK cookie finalization or app-owned manual session.
+   * SDK mode requires the Web Locks API in browser environments.
+   */
   sessionMode?: "sdk" | "manual";
 
   /** Request timeout in milliseconds (default: 30000) */

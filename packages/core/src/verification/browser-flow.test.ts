@@ -202,7 +202,7 @@ describe("createBrowserVerificationFlow", () => {
     expect(client.startVerification).not.toHaveBeenCalled();
   });
 
-  it("keeps the latest verification when starts overlap", async () => {
+  it("deduplicates overlapping starts", async () => {
     const { client } = createClientStub();
     const resolvers: Array<(response: CreateVerificationResponse) => void> = [];
     client.startVerification = vi.fn(
@@ -218,29 +218,25 @@ describe("createBrowserVerificationFlow", () => {
 
     const firstStart = flow.start();
     const secondStart = flow.start();
-    resolvers[1]?.({
-      verificationId: "vrf_second" as never,
-      authorizationRequestUrl: "openid4vp://second",
-      clientToken: "client_token_second" as never,
-      expiresAt: "2026-05-15T12:01:00.000Z",
-    });
-    await secondStart;
+
+    expect(client.startVerification).toHaveBeenCalledTimes(1);
+
     resolvers[0]?.({
       verificationId: "vrf_first" as never,
       authorizationRequestUrl: "openid4vp://first",
       clientToken: "client_token_first" as never,
       expiresAt: "2026-05-15T12:01:00.000Z",
     });
-    await firstStart;
+    await Promise.all([firstStart, secondStart]);
 
     expect(flow.getState()).toMatchObject({
-      verificationId: "vrf_second",
+      verificationId: "vrf_first",
       status: "pending",
     });
     expect(client.subscribeToStatus).toHaveBeenCalledTimes(1);
     expect(client.subscribeToStatus).toHaveBeenCalledWith(
-      "vrf_second",
-      "client_token_second",
+      "vrf_first",
+      "client_token_first",
       expect.any(Function),
       expect.any(Object)
     );
