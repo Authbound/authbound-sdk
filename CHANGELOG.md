@@ -4,6 +4,13 @@ All customer-visible changes to the Authbound public SDK are recorded here.
 
 ## Unreleased
 
+## 0.2.1 - 2026-08-26
+
+### Changes
+
+- Make `@authbound/nextjs/styles.css` self-contained so Tailwind CSS v4 and
+  other PostCSS pipelines do not need to resolve a nested package import.
+
 ## 0.2.0 - 2026-08-26
 
 ### Breaking changes

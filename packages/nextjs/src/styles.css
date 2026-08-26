@@ -1,9 +1,0 @@
-/**
- * Authbound Next.js SDK Styles
- *
- * Import in your app/layout.tsx:
- * import '@authbound/nextjs/styles.css';
- */
-
-/* Re-export React SDK styles */
-@import "@authbound/react/styles.css";

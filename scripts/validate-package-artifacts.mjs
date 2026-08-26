@@ -327,6 +327,15 @@ for (const guidanceFile of nextjsMiddlewareImportGuidanceFiles) {
   }
 }
 
+const reactStyles = readFileSync("packages/react/styles.css", "utf8");
+const nextjsStyles = readFileSync("packages/nextjs/dist/styles.css", "utf8");
+if (nextjsStyles !== reactStyles) {
+  hasFailure = true;
+  console.error(
+    "@authbound/nextjs styles.css must contain the self-contained @authbound/react styles"
+  );
+}
+
 runNodeCheck(
   "@authbound/nextjs root middleware compatibility guard",
   [
