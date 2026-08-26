@@ -166,6 +166,7 @@ export function createBrowserVerificationFlow(
   let operationRevision = 0;
   let active = true;
   let activeStart: Promise<void> | null = null;
+  let activeStartOptions: BrowserVerificationFlowStartOptions | null = null;
   const finalizedVerificationIds = new Set<string>();
 
   function emit(nextState: BrowserVerificationFlowState): void {
@@ -324,13 +325,14 @@ export function createBrowserVerificationFlow(
   function reset(): void {
     operationRevision += 1;
     activeStart = null;
+    activeStartOptions = null;
     cleanup();
     finalizedVerificationIds.clear();
     emit({ status: "idle" });
   }
 
   async function startOnce(
-    startOptions: BrowserVerificationFlowStartOptions = {}
+    startOptions: BrowserVerificationFlowStartOptions
   ): Promise<void> {
     operationRevision += 1;
     const revision = operationRevision;
@@ -401,17 +403,37 @@ export function createBrowserVerificationFlow(
     if (!active) {
       return;
     }
-    if (activeStart) {
+    const requestedOptions = {
+      policyId: startOptions.policyId ?? options.policyId,
+      customerUserRef: startOptions.customerUserRef,
+      metadata: startOptions.metadata,
+      provider: startOptions.provider,
+    };
+    if (activeStart && activeStartOptions) {
+      const isSameStart =
+        activeStartOptions.policyId === requestedOptions.policyId &&
+        activeStartOptions.customerUserRef ===
+          requestedOptions.customerUserRef &&
+        activeStartOptions.metadata === requestedOptions.metadata &&
+        activeStartOptions.provider === requestedOptions.provider;
+      if (!isSameStart) {
+        throw new AuthboundError(
+          "verification_invalid_state",
+          "A verification start is already in progress with different options"
+        );
+      }
       return activeStart;
     }
 
-    const operation = startOnce(startOptions);
+    const operation = startOnce(requestedOptions);
     activeStart = operation;
+    activeStartOptions = requestedOptions;
     try {
       await operation;
     } finally {
       if (activeStart === operation) {
         activeStart = null;
+        activeStartOptions = null;
       }
     }
   }
@@ -424,6 +446,7 @@ export function createBrowserVerificationFlow(
       operationRevision += 1;
       active = false;
       activeStart = null;
+      activeStartOptions = null;
       cleanup();
     },
   };

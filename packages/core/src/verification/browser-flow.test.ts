@@ -242,6 +242,35 @@ describe("createBrowserVerificationFlow", () => {
     );
   });
 
+  it("rejects an overlapping start with different identity options", async () => {
+    const { client } = createClientStub();
+    let resolveStart: (response: CreateVerificationResponse) => void = () => {};
+    client.startVerification = vi.fn(
+      () =>
+        new Promise<CreateVerificationResponse>((resolve) => {
+          resolveStart = resolve;
+        })
+    );
+    const flow = createBrowserVerificationFlow({
+      client,
+      sessionMode: "manual",
+    });
+
+    const firstStart = flow.start({ customerUserRef: "user_first" });
+    await expect(
+      flow.start({ customerUserRef: "user_second" })
+    ).rejects.toMatchObject({ code: "verification_invalid_state" });
+    expect(client.startVerification).toHaveBeenCalledTimes(1);
+
+    resolveStart({
+      verificationId: "vrf_first" as never,
+      authorizationRequestUrl: "openid4vp://first",
+      clientToken: "client_token_first" as never,
+      expiresAt: "2026-05-15T12:01:00.000Z",
+    });
+    await firstStart;
+  });
+
   it("does not let stale finalization mutate a restarted flow", async () => {
     const { client, cleanup, emitStatus } = createClientStub();
     let resolveFinalization: (response: FinalizeVerificationResponse) => void =
