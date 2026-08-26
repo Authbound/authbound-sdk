@@ -228,15 +228,73 @@ const CredentialDefinitionClaimSchema = z.object({
   displayName: z.string(),
 });
 
-const CredentialDefinitionSchema = z.object({
-  object: z.literal("issuer.credential_definition"),
-  id: z.string(),
-  credentialDefinitionId: z.string(),
-  format: PublicCredentialFormatSchema,
-  vct: z.string().optional(),
-  title: z.string(),
-  claims: z.array(CredentialDefinitionClaimSchema),
+export type PublicJson =
+  | null
+  | boolean
+  | number
+  | string
+  | PublicJson[]
+  | { [key: string]: PublicJson };
+
+const PublicJsonSchema: z.ZodType<PublicJson> = z.lazy(() =>
+  z.union([
+    z.null(),
+    z.boolean(),
+    z.number(),
+    z.string(),
+    z.array(PublicJsonSchema),
+    z.record(z.string(), PublicJsonSchema),
+  ])
+);
+
+const CredentialDefinitionRenderingSchema = z.object({
+  simple: z
+    .object({
+      text_color: z.string().optional(),
+      background_color: z.string().optional(),
+    })
+    .optional(),
+  authbound_svg_template_preset: z.string().optional(),
 });
+
+const CredentialDefinitionLifecycleStatusSchema = z.enum([
+  "draft",
+  "published",
+  "archived",
+]);
+
+const CredentialDefinitionBaseSchema = z.object({
+  object: z.literal("issuer.credential_definition"),
+  id: z.string().min(1),
+  credentialDefinitionId: z.string().min(1),
+  format: PublicCredentialFormatSchema,
+  vct: z.string().min(1),
+  title: z.string().min(1),
+  claims: z.array(CredentialDefinitionClaimSchema),
+  aliases: z.array(z.string()),
+  rendering: CredentialDefinitionRenderingSchema.optional(),
+  metadata: z.record(z.string(), PublicJsonSchema).optional(),
+});
+
+const DraftCredentialDefinitionSchema = CredentialDefinitionBaseSchema.extend({
+  lifecycleStatus: z.literal("draft"),
+});
+
+const PublishedCredentialDefinitionSchema =
+  CredentialDefinitionBaseSchema.extend({
+    lifecycleStatus: z.literal("published"),
+  });
+
+const ArchivedCredentialDefinitionSchema =
+  CredentialDefinitionBaseSchema.extend({
+    lifecycleStatus: z.literal("archived"),
+  });
+
+const CredentialDefinitionSchema = z.discriminatedUnion("lifecycleStatus", [
+  DraftCredentialDefinitionSchema,
+  PublishedCredentialDefinitionSchema,
+  ArchivedCredentialDefinitionSchema,
+]);
 
 const CredentialDefinitionListSchema = z.object({
   object: z.literal("list"),
@@ -649,6 +707,26 @@ export type CredentialDefinitionClaim = z.infer<
   typeof CredentialDefinitionClaimSchema
 >;
 
+export type CredentialDefinitionRendering = z.infer<
+  typeof CredentialDefinitionRenderingSchema
+>;
+
+export type CredentialDefinitionLifecycleStatus = z.infer<
+  typeof CredentialDefinitionLifecycleStatusSchema
+>;
+
+export type DraftCredentialDefinition = z.infer<
+  typeof DraftCredentialDefinitionSchema
+>;
+
+export type PublishedCredentialDefinition = z.infer<
+  typeof PublishedCredentialDefinitionSchema
+>;
+
+export type ArchivedCredentialDefinition = z.infer<
+  typeof ArchivedCredentialDefinitionSchema
+>;
+
 export type CredentialDefinition = z.infer<typeof CredentialDefinitionSchema>;
 
 export type CredentialDefinitionList = z.infer<
@@ -691,16 +769,28 @@ export interface CreateCredentialDefinitionOptions {
   vct: string;
   format: CredentialDefinitionAuthoringFormat;
   title: string;
+  claims: CredentialDefinitionClaimInput[];
+  aliases?: string[];
+  rendering?: CredentialDefinitionRendering;
+  metadata?: Record<string, PublicJson>;
+  idempotencyKey?: string;
+}
+
+export interface CreateCredentialDefinitionDraftOptions {
+  credentialDefinitionId: string;
+  vct: string;
+  format: CredentialDefinitionAuthoringFormat;
+  title: string;
   claims?: CredentialDefinitionClaimInput[];
   aliases?: string[];
-  rendering?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
+  rendering?: CredentialDefinitionRendering;
+  metadata?: Record<string, PublicJson>;
   idempotencyKey?: string;
 }
 
 export type UpdateCredentialDefinitionOptions = Partial<
   Omit<
-    CreateCredentialDefinitionOptions,
+    CreateCredentialDefinitionDraftOptions,
     "credentialDefinitionId" | "idempotencyKey"
   >
 >;
@@ -1396,10 +1486,14 @@ class IssuerApi {
 class CredentialDefinitionsApi {
   constructor(private readonly client: AuthboundClient) {}
 
-  async list(): Promise<CredentialDefinitionList> {
+  async list(options?: {
+    lifecycleStatus?: CredentialDefinitionLifecycleStatus;
+  }): Promise<CredentialDefinitionList> {
     const response = await this.client.request<unknown>(
       "GET",
-      "/v1/issuer/credential-definitions"
+      `/v1/issuer/credential-definitions${buildQueryString({
+        lifecycle_status: options?.lifecycleStatus,
+      })}`
     );
     return parseApiResponse(CredentialDefinitionListSchema, response);
   }
@@ -1415,7 +1509,7 @@ class CredentialDefinitionsApi {
 
   async create(
     options: CreateCredentialDefinitionOptions
-  ): Promise<CredentialDefinition> {
+  ): Promise<PublishedCredentialDefinition> {
     assertNonEmpty(options.credentialDefinitionId, "credentialDefinitionId");
     assertNonEmpty(options.vct, "vct");
     assertNonEmpty(options.title, "title");
@@ -1424,20 +1518,59 @@ class CredentialDefinitionsApi {
     const response = await this.client.request<unknown>(
       "POST",
       "/v1/issuer/credential-definitions",
-      body,
+      { ...body, lifecycleStatus: "published" },
       {
         headers: idempotencyKey
           ? { "Idempotency-Key": idempotencyKey }
           : undefined,
       }
     );
-    return parseApiResponse(CredentialDefinitionSchema, response);
+    return parseApiResponse(PublishedCredentialDefinitionSchema, response);
+  }
+
+  async createDraft(
+    options: CreateCredentialDefinitionDraftOptions
+  ): Promise<DraftCredentialDefinition> {
+    assertNonEmpty(options.credentialDefinitionId, "credentialDefinitionId");
+    assertNonEmpty(options.vct, "vct");
+    assertNonEmpty(options.title, "title");
+    assertCredentialDefinitionAuthoringFormat(options.format);
+    const { idempotencyKey, ...body } = options;
+    const response = await this.client.request<unknown>(
+      "POST",
+      "/v1/issuer/credential-definitions",
+      { ...body, lifecycleStatus: "draft" },
+      {
+        headers: idempotencyKey
+          ? { "Idempotency-Key": idempotencyKey }
+          : undefined,
+      }
+    );
+    return parseApiResponse(DraftCredentialDefinitionSchema, response);
+  }
+
+  async publish(
+    credentialDefinitionId: string,
+    options?: { idempotencyKey?: string }
+  ): Promise<PublishedCredentialDefinition> {
+    assertNonEmpty(credentialDefinitionId, "credentialDefinitionId");
+    const response = await this.client.request<unknown>(
+      "POST",
+      `/v1/issuer/credential-definitions/${encodePathSegment(credentialDefinitionId)}/publish`,
+      undefined,
+      {
+        headers: options?.idempotencyKey
+          ? { "Idempotency-Key": options.idempotencyKey }
+          : undefined,
+      }
+    );
+    return parseApiResponse(PublishedCredentialDefinitionSchema, response);
   }
 
   async update(
     credentialDefinitionId: string,
     options: UpdateCredentialDefinitionOptions
-  ): Promise<CredentialDefinition> {
+  ): Promise<DraftCredentialDefinition> {
     assertNonEmpty(credentialDefinitionId, "credentialDefinitionId");
     if (Object.keys(options).length === 0) {
       throw new AuthboundClientError(
@@ -1454,16 +1587,18 @@ class CredentialDefinitionsApi {
       `/v1/issuer/credential-definitions/${encodePathSegment(credentialDefinitionId)}`,
       options
     );
-    return parseApiResponse(CredentialDefinitionSchema, response);
+    return parseApiResponse(DraftCredentialDefinitionSchema, response);
   }
 
-  async archive(credentialDefinitionId: string): Promise<CredentialDefinition> {
+  async archive(
+    credentialDefinitionId: string
+  ): Promise<ArchivedCredentialDefinition> {
     assertNonEmpty(credentialDefinitionId, "credentialDefinitionId");
     const response = await this.client.request<unknown>(
       "POST",
       `/v1/issuer/credential-definitions/${encodePathSegment(credentialDefinitionId)}/archive`
     );
-    return parseApiResponse(CredentialDefinitionSchema, response);
+    return parseApiResponse(ArchivedCredentialDefinitionSchema, response);
   }
 }
 

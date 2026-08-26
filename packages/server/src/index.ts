@@ -136,12 +136,14 @@ export {
   toBrowserVerificationResponse,
 } from "./core/browser-verification";
 export {
+  type ArchivedCredentialDefinition,
   // Client class
   AuthboundClient,
   // Types
   type AuthboundClientConfig,
   AuthboundClientError,
   type CancelVerificationOptions,
+  type CreateCredentialDefinitionDraftOptions,
   type CreateCredentialDefinitionOptions,
   type CreateOpenId4VcIssuanceOfferOptions,
   type CreatePolicyOptions,
@@ -149,9 +151,12 @@ export {
   type CredentialDefinition,
   type CredentialDefinitionClaim,
   type CredentialDefinitionClaimInput,
+  type CredentialDefinitionLifecycleStatus,
   type CredentialDefinitionList,
+  type CredentialDefinitionRendering,
   // Standalone functions
   createVerification,
+  type DraftCredentialDefinition,
   type GetVerificationStatusOptions,
   getVerificationStatus,
   type ListOpenId4VcIssuanceOptions,
@@ -163,7 +168,9 @@ export {
   type Policy,
   type PolicyList,
   type PublicCredentialFormat,
+  type PublicJson,
   type PublicVerificationStatus,
+  type PublishedCredentialDefinition,
   type SignedVerificationResult,
   type UpdateCredentialDefinitionOptions,
   type UpdateOpenId4VcIssuanceOptions,

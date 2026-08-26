@@ -1,4 +1,21 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  expectTypeOf,
+  it,
+  vi,
+} from "vitest";
+
+import type {
+  ArchivedCredentialDefinition,
+  CreateCredentialDefinitionDraftOptions,
+  CreateCredentialDefinitionOptions,
+  DraftCredentialDefinition,
+  PublishedCredentialDefinition,
+  UpdateCredentialDefinitionOptions,
+} from "../index";
 
 import { AuthboundClient, AuthboundClientError } from "./client";
 
@@ -42,6 +59,24 @@ function createClient(): AuthboundClient {
   return new AuthboundClient({ apiKey, apiUrl });
 }
 
+function credentialDefinitionResponse(
+  lifecycleStatus: "draft" | "published" | "archived" = "published",
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return {
+    object: "issuer.credential_definition",
+    id: "employee_badge_v1",
+    credentialDefinitionId: "employee_badge_v1",
+    vct: "urn:vc:authbound:employee-badge:1.0",
+    format: "dc+sd-jwt",
+    title: "Employee Badge",
+    claims: [],
+    aliases: [],
+    lifecycleStatus,
+    ...overrides,
+  };
+}
+
 describe("AuthboundClient issuer APIs", () => {
   beforeEach(() => {
     vi.stubGlobal(
@@ -66,134 +101,103 @@ describe("AuthboundClient issuer APIs", () => {
     ).toThrow(/sk_test_|sk_live_/);
   });
 
-  it("lists credential definitions from the public API endpoint", async () => {
+  it("lists credential definitions with lifecycleStatus mapped to lifecycle_status", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         object: "list",
-        data: [
-          {
-            object: "issuer.credential_definition",
-            id: "pension_credential_v1",
-            credentialDefinitionId: "pension_credential_v1",
-            format: "dc+sd-jwt",
-            vct: "urn:vc:authbound:pension:1.0",
-            title: "Pension Credential",
-            claims: [],
-          },
-        ],
+        data: [credentialDefinitionResponse("draft")],
       })
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await createClient().issuer.credentialDefinitions.list();
+    const result = await createClient().issuer.credentialDefinitions.list({
+      lifecycleStatus: "draft",
+    });
 
-    expect(result.data[0]?.credentialDefinitionId).toBe(
-      "pension_credential_v1"
-    );
+    expect(result.data[0]?.credentialDefinitionId).toBe("employee_badge_v1");
     expect(fetchMock).toHaveBeenCalledWith(
-      `${apiUrl}/v1/issuer/credential-definitions`,
+      `${apiUrl}/v1/issuer/credential-definitions?lifecycle_status=draft`,
       expect.objectContaining({ method: "GET" })
     );
   });
 
-  it("gets a credential definition by ID", async () => {
+  it("parses read-only mso_mdoc credential definitions", async () => {
     const fetchMock = vi.fn(async () =>
-      jsonResponse({
-        object: "issuer.credential_definition",
-        id: "pension_credential_v1",
-        credentialDefinitionId: "pension_credential_v1",
-        format: "dc+sd-jwt",
-        title: "Pension Credential",
-        claims: [],
-      })
+      jsonResponse(
+        credentialDefinitionResponse("published", {
+          id: "mobile_driving_license_v1",
+          credentialDefinitionId: "mobile_driving_license_v1",
+          format: "mso_mdoc",
+          vct: "org.iso.18013.5.1.mDL",
+          title: "Mobile Driving Licence",
+        })
+      )
     );
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await createClient().issuer.credentialDefinitions.get(
-      "pension_credential_v1"
+      "mobile_driving_license_v1"
     );
 
-    expect(result.object).toBe("issuer.credential_definition");
+    expect(result.format).toBe("mso_mdoc");
     expect(fetchMock).toHaveBeenCalledWith(
-      `${apiUrl}/v1/issuer/credential-definitions/pension_credential_v1`,
+      `${apiUrl}/v1/issuer/credential-definitions/mobile_driving_license_v1`,
       expect.objectContaining({ method: "GET" })
     );
   });
 
-  it("creates, updates, and archives credential definitions", async () => {
-    const definition = {
-      object: "issuer.credential_definition",
-      id: "pension_credential_v1",
-      credentialDefinitionId: "pension_credential_v1",
-      format: "dc+sd-jwt",
-      vct: "urn:vc:authbound:pension:1.0",
-      title: "Pension Credential",
-      claims: [
-        {
-          name: "Pension.startDate",
-          path: ["Pension", "startDate"],
-          mandatory: true,
-          displayName: "Start Date",
-        },
-      ],
-    };
+  it("sends explicit lifecycle intent for published and draft creation", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse(definition, 201))
       .mockResolvedValueOnce(
-        jsonResponse({ ...definition, title: "Updated Pension" })
+        jsonResponse(credentialDefinitionResponse("published"), 201)
       )
-      .mockResolvedValueOnce(jsonResponse({ ...definition, archived: true }));
+      .mockResolvedValueOnce(
+        jsonResponse(
+          credentialDefinitionResponse("draft", {
+            id: "employee_badge_v2",
+            credentialDefinitionId: "employee_badge_v2",
+            vct: "urn:vc:authbound:employee-badge:2.0",
+            title: "Employee Badge v2",
+          }),
+          201
+        )
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const client = createClient();
     await client.issuer.credentialDefinitions.create({
-      credentialDefinitionId: "pension_credential_v1",
-      vct: "urn:vc:authbound:pension:1.0",
+      credentialDefinitionId: "employee_badge_v1",
+      vct: "urn:vc:authbound:employee-badge:1.0",
       format: "dc+sd-jwt",
-      title: "Pension Credential",
+      title: "Employee Badge",
       claims: [
         {
-          path: ["Pension", "startDate"],
-          mandatory: true,
-          displayName: "Start Date",
+          path: ["employee_id"],
+          displayName: "Employee ID",
         },
       ],
     });
-    await client.issuer.credentialDefinitions.update("pension_credential_v1", {
-      title: "Updated Pension",
+    await client.issuer.credentialDefinitions.createDraft({
+      credentialDefinitionId: "employee_badge_v2",
+      vct: "urn:vc:authbound:employee-badge:2.0",
+      format: "dc+sd-jwt",
+      title: "Employee Badge v2",
     });
-    await client.issuer.credentialDefinitions.archive("pension_credential_v1");
 
-    expect(
-      fetchMock.mock.calls.map(([url, init]) => [
-        url,
-        (init as RequestInit).method,
-      ])
-    ).toEqual([
-      [`${apiUrl}/v1/issuer/credential-definitions`, "POST"],
-      [
-        `${apiUrl}/v1/issuer/credential-definitions/pension_credential_v1`,
-        "PATCH",
-      ],
-      [
-        `${apiUrl}/v1/issuer/credential-definitions/pension_credential_v1/archive`,
-        "POST",
-      ],
+    const sentJsonBodies = fetchMock.mock.calls.map(([, request]) =>
+      JSON.parse((request as RequestInit).body as string)
+    );
+    expect(sentJsonBodies).toEqual([
+      expect.objectContaining({ lifecycleStatus: "published" }),
+      expect.objectContaining({ lifecycleStatus: "draft" }),
     ]);
   });
 
   it("creates credential definitions with idempotency as a header", async () => {
-    const definition = {
-      object: "issuer.credential_definition",
-      id: "pension_credential_v1",
-      credentialDefinitionId: "pension_credential_v1",
-      format: "dc+sd-jwt",
-      vct: "urn:vc:authbound:pension:1.0",
-      title: "Pension Credential",
-      claims: [],
-    };
-    const fetchMock = vi.fn(async () => jsonResponse(definition, 201));
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(credentialDefinitionResponse("published"), 201)
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     await createClient().issuer.credentialDefinitions.create({
@@ -201,6 +205,7 @@ describe("AuthboundClient issuer APIs", () => {
       vct: "urn:vc:authbound:pension:1.0",
       format: "dc+sd-jwt",
       title: "Pension Credential",
+      claims: [],
       idempotencyKey: "idem_123",
     });
 
@@ -222,7 +227,116 @@ describe("AuthboundClient issuer APIs", () => {
       vct: "urn:vc:authbound:pension:1.0",
       format: "dc+sd-jwt",
       title: "Pension Credential",
+      claims: [],
+      lifecycleStatus: "published",
     });
+  });
+
+  it("publishes through the resource route with idempotency only in the header", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(
+        credentialDefinitionResponse("published", {
+          id: "employee_badge_v2",
+          credentialDefinitionId: "employee_badge_v2",
+          vct: "urn:vc:authbound:employee-badge:2.0",
+        })
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createClient().issuer.credentialDefinitions.publish(
+      "employee_badge_v2",
+      { idempotencyKey: "publish:employee_badge_v2:v1" }
+    );
+
+    const [url, request] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect({
+      url,
+      method: request.method,
+      headers: request.headers,
+    }).toMatchObject({
+      url: `${apiUrl}/v1/issuer/credential-definitions/employee_badge_v2/publish`,
+      method: "POST",
+      headers: expect.objectContaining({
+        "Idempotency-Key": "publish:employee_badge_v2:v1",
+      }),
+    });
+    expect(request.body).toBeUndefined();
+  });
+
+  it.each([
+    "lifecycleStatus",
+    "vct",
+    "aliases",
+    "claims",
+  ])("fails closed when a credential definition response omits %s", async (missingField) => {
+    const response = credentialDefinitionResponse();
+    delete response[missingField];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(response))
+    );
+
+    await expect(
+      createClient().issuer.credentialDefinitions.get("employee_badge_v1")
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "INVALID_RESPONSE",
+    });
+  });
+
+  it("rejects wrong lifecycle responses from update and archive", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(credentialDefinitionResponse("published"))
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(credentialDefinitionResponse("draft"))
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createClient();
+    await expect(
+      client.issuer.credentialDefinitions.update("employee_badge_v2", {
+        title: "Employee Badge v2",
+      })
+    ).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+    await expect(
+      client.issuer.credentialDefinitions.archive("employee_badge_v2")
+    ).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  });
+
+  it("exposes exact lifecycle-specific option and return types", () => {
+    const credentialDefinitions = createClient().issuer.credentialDefinitions;
+
+    expectTypeOf(credentialDefinitions.create)
+      .parameter(0)
+      .toEqualTypeOf<CreateCredentialDefinitionOptions>();
+    expectTypeOf(
+      credentialDefinitions.create
+    ).returns.resolves.toEqualTypeOf<PublishedCredentialDefinition>();
+    expectTypeOf(credentialDefinitions.createDraft)
+      .parameter(0)
+      .toEqualTypeOf<CreateCredentialDefinitionDraftOptions>();
+    expectTypeOf(
+      credentialDefinitions.createDraft
+    ).returns.resolves.toEqualTypeOf<DraftCredentialDefinition>();
+    expectTypeOf(
+      credentialDefinitions.publish
+    ).returns.resolves.toEqualTypeOf<PublishedCredentialDefinition>();
+    expectTypeOf(credentialDefinitions.update)
+      .parameter(1)
+      .toEqualTypeOf<UpdateCredentialDefinitionOptions>();
+    expectTypeOf(
+      credentialDefinitions.update
+    ).returns.resolves.toEqualTypeOf<DraftCredentialDefinition>();
+    expectTypeOf(
+      credentialDefinitions.archive
+    ).returns.resolves.toEqualTypeOf<ArchivedCredentialDefinition>();
   });
 
   it("rejects unsupported mDoc credential definition authoring before sending a request", async () => {
@@ -235,6 +349,7 @@ describe("AuthboundClient issuer APIs", () => {
         vct: "org.iso.18013.5.1.mDL",
         format: "mso_mdoc" as never,
         title: "Mobile Driving Licence",
+        claims: [],
       })
     ).rejects.toMatchObject({
       name: "AuthboundClientError",

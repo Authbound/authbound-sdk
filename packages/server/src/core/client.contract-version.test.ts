@@ -64,4 +64,35 @@ describe("AuthboundClient contract version headers", () => {
       "X-Authbound-Publishable-Key": publishableKey,
     });
   });
+
+  it("sends generated contract headers when publishing a credential definition", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        object: "issuer.credential_definition",
+        id: "employee_badge_v2",
+        credentialDefinitionId: "employee_badge_v2",
+        vct: "urn:vc:authbound:employee-badge:2.0",
+        format: "dc+sd-jwt",
+        title: "Employee Badge v2",
+        claims: [],
+        aliases: [],
+        lifecycleStatus: "published",
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new AuthboundClient({
+      apiKey,
+      apiUrl,
+    }).issuer.credentialDefinitions.publish("employee_badge_v2");
+
+    const [, request] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(request.headers).toMatchObject({
+      "Authbound-Api-Version": AUTHBOUND_API_VERSION,
+      "Authbound-Contract-Revision": AUTHBOUND_CONTRACT_REVISION,
+    });
+  });
 });
