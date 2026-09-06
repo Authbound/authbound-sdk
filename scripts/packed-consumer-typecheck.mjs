@@ -1,9 +1,19 @@
 import { join, resolve, sep } from "node:path";
 
-function diagnosticMessageHead(messageText) {
-  return typeof messageText === "string"
-    ? messageText
-    : (messageText?.messageText ?? "");
+function flattenDiagnosticMessageText(messageText, indentation = 0) {
+  const prefix = indentation === 0 ? "" : `\n${"  ".repeat(indentation)}`;
+  if (typeof messageText === "string") {
+    return `${prefix}${messageText}`;
+  }
+  if (!messageText) {
+    return prefix;
+  }
+
+  let flattened = `${prefix}${messageText.messageText ?? ""}`;
+  for (const next of messageText.next ?? []) {
+    flattened += flattenDiagnosticMessageText(next, indentation + 1);
+  }
+  return flattened;
 }
 
 function externalDiagnosticKey(diagnostic) {
@@ -12,11 +22,11 @@ function externalDiagnosticKey(diagnostic) {
   const packagePath = normalizedPath.slice(
     normalizedPath.lastIndexOf(nodeModulesMarker) + nodeModulesMarker.length
   );
-  const normalizedMessage = diagnosticMessageHead(diagnostic.messageText)
+  const normalizedMessage = flattenDiagnosticMessageText(diagnostic.messageText)
     .split(sep)
     .join("/")
     .replace(/'[^']*\/node_modules\//g, "'")
-    .split(/\r?\n/, 1)[0];
+    .replace(/\r\n?/g, "\n");
   return `${packagePath}|TS${diagnostic.code}|${normalizedMessage}`;
 }
 

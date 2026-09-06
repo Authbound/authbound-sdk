@@ -66,16 +66,16 @@ const NUXT_EXTERNAL_DIAGNOSTIC_BASELINE = Object.freeze([
     "'\"h3\"' has no exported member named 'CorsOptions'. Did you mean 'H3CorsOptions'?",
   ]),
   ...diagnosticBaseline("@types/node/process.d.ts", 2430, [
-    "Interface 'Process' incorrectly extends interface 'NitroStaticBuildFlags'.",
+    "Interface 'Process' incorrectly extends interface 'NitroStaticBuildFlags'.\n  Types of property 'versions' are incompatible.\n    Type 'ProcessVersions' has no properties in common with type '{ nitro?: string | undefined; }'.",
   ]),
   ...diagnosticBaseline("@vue/babel-plugin-jsx/dist/index.d.mts", 7016, [
-    "Could not find a declaration file for module '@babel/core'. '@babel/core/lib/index.js' implicitly has an 'any' type.",
+    "Could not find a declaration file for module '@babel/core'. '@babel/core/lib/index.js' implicitly has an 'any' type.\n  Try `npm i --save-dev @types/babel__core` if it exists or add a new declaration (.d.ts) file containing `declare module '@babel/core';`",
   ]),
   ...diagnosticBaseline(
     "@vue/babel-plugin-resolve-type/dist/index.d.mts",
     7016,
     [
-      "Could not find a declaration file for module '@babel/core'. '@babel/core/lib/index.js' implicitly has an 'any' type.",
+      "Could not find a declaration file for module '@babel/core'. '@babel/core/lib/index.js' implicitly has an 'any' type.\n  Try `npm i --save-dev @types/babel__core` if it exists or add a new declaration (.d.ts) file containing `declare module '@babel/core';`",
     ]
   ),
   ...diagnosticBaseline("cssnano/types/index.d.ts", 2309, [

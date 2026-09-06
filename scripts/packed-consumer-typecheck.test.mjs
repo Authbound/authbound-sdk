@@ -123,6 +123,55 @@ test("allows only exact count-bounded diagnostics from a reviewed external basel
   );
 });
 
+test("rejects a reviewed diagnostic when a nested message-chain cause changes", () => {
+  const knownDiagnostic = {
+    code: 2322,
+    file: {
+      fileName: join(
+        fixtureDirectory,
+        "node_modules",
+        "example-framework",
+        "index.d.ts"
+      ),
+    },
+    messageText: {
+      messageText: "Type 'FrameworkOptions' is not assignable.",
+      next: [{ messageText: "Property 'publicOption' must be a string." }],
+    },
+  };
+  const changedNestedCause = {
+    ...knownDiagnostic,
+    messageText: {
+      ...knownDiagnostic.messageText,
+      next: [{ messageText: "Property 'publicOption' is now untyped." }],
+    },
+  };
+  const reviewedBaseline = [
+    "example-framework/index.d.ts|TS2322|Type 'FrameworkOptions' is not assignable.\n  Property 'publicOption' must be a string.",
+  ];
+
+  assert.deepEqual(
+    partitionPackedConsumerDiagnostics(
+      [knownDiagnostic],
+      fixtureDirectory,
+      reviewedBaseline
+    ),
+    {
+      blocking: [],
+      external: [knownDiagnostic],
+    }
+  );
+  assert.throws(
+    () =>
+      partitionPackedConsumerDiagnostics(
+        [changedNestedCause],
+        fixtureDirectory,
+        reviewedBaseline
+      ),
+    /reviewed external diagnostic baseline was not observed/
+  );
+});
+
 test("rejects a reviewed external baseline when an expected diagnostic disappears", () => {
   const expectedDiagnostic =
     "example-framework/index.d.ts|TS2307|Cannot find module 'optional-framework-types' or its corresponding type declarations.";
