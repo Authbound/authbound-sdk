@@ -31,6 +31,158 @@ import {
   unchangedAdapters,
 } from "./release-set.mjs";
 
+function diagnosticBaseline(filePath, code, messages) {
+  return messages.map((message) => `${filePath}|TS${code}|${message}`);
+}
+
+// Nuxt's declaration graph reports unresolved optional integrations under
+// skipLibCheck: false. Only these reviewed fingerprints are nonblocking.
+const NUXT_EXTERNAL_DIAGNOSTIC_BASELINE = Object.freeze([
+  ...diagnosticBaseline("@nuxt/schema/dist/index.d.mts", 2307, [
+    "Cannot find module '@vue/language-core' or its corresponding type declarations.",
+    "Cannot find module 'css-minimizer-webpack-plugin' or its corresponding type declarations.",
+    "Cannot find module 'esbuild-loader' or its corresponding type declarations.",
+    "Cannot find module 'mini-css-extract-plugin' or its corresponding type declarations.",
+    "Cannot find module 'oxc-transform' or its corresponding type declarations.",
+    "Cannot find module 'pug' or its corresponding type declarations.",
+    "Cannot find module 'vue-loader' or its corresponding type declarations.",
+    "Cannot find module 'webpack' or its corresponding type declarations.",
+    "Cannot find module 'webpack-bundle-analyzer' or its corresponding type declarations.",
+    "Cannot find module 'webpack-dev-middleware' or its corresponding type declarations.",
+    "Cannot find module 'webpack-hot-middleware' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("@nuxt/schema/dist/index.d.mts", 2310, [
+    "Type 'AppConfig' recursively references itself as a base type.",
+    "Type 'ConfigSchema' recursively references itself as a base type.",
+    "Type 'CustomAppConfig' recursively references itself as a base type.",
+    "Type 'ModuleDependencies' recursively references itself as a base type.",
+    "Type 'NuxtConfig' recursively references itself as a base type.",
+    "Type 'NuxtDebugOptions' recursively references itself as a base type.",
+    "Type 'NuxtOptions' recursively references itself as a base type.",
+    "Type 'NuxtPage' recursively references itself as a base type.",
+    "Type 'ViteOptions' recursively references itself as a base type.",
+  ]),
+  ...diagnosticBaseline("@nuxt/schema/dist/index.d.mts", 2724, [
+    "'\"h3\"' has no exported member named 'CorsOptions'. Did you mean 'H3CorsOptions'?",
+  ]),
+  ...diagnosticBaseline("@types/node/process.d.ts", 2430, [
+    "Interface 'Process' incorrectly extends interface 'NitroStaticBuildFlags'.",
+  ]),
+  ...diagnosticBaseline("@vue/babel-plugin-jsx/dist/index.d.mts", 7016, [
+    "Could not find a declaration file for module '@babel/core'. '@babel/core/lib/index.js' implicitly has an 'any' type.",
+  ]),
+  ...diagnosticBaseline(
+    "@vue/babel-plugin-resolve-type/dist/index.d.mts",
+    7016,
+    [
+      "Could not find a declaration file for module '@babel/core'. '@babel/core/lib/index.js' implicitly has an 'any' type.",
+    ]
+  ),
+  ...diagnosticBaseline("cssnano/types/index.d.ts", 2309, [
+    "An export assignment cannot be used in a module with other exported elements.",
+  ]),
+  ...diagnosticBaseline("db0/dist/index.d.mts", 2307, [
+    "Cannot find module '@electric-sql/pglite' or its corresponding type declarations.",
+    "Cannot find module '@libsql/client' or its corresponding type declarations.",
+    "Cannot find module '@planetscale/database' or its corresponding type declarations.",
+    "Cannot find module 'mysql2/promise' or its corresponding type declarations.",
+    "Cannot find module 'pg' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("h3/dist/index.d.ts", 2552, [
+    "Cannot find name 'FetchEvent'. Did you mean 'TouchEvent'?",
+  ]),
+  ...diagnosticBaseline("listhen/dist/index.d.ts", 2307, [
+    "Cannot find module 'jiti/lib/types' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("nitropack/dist/presets/cloudflare/types.d.ts", 2307, [
+    "Cannot find module '@cloudflare/workers-types' or its corresponding type declarations.",
+    "Cannot find module 'cloudflare:workers' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("nitropack/dist/presets/firebase/types.d.ts", 2307, [
+    "Cannot find module 'firebase-functions/v1' or its corresponding type declarations.",
+    "Cannot find module 'firebase-functions/v2/https' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("nitropack/dist/shared/nitro.D682J6aL.d.ts", 2307, [
+    "Cannot find module '@scalar/api-reference' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("nitropack/dist/types/index.d.ts", 2321, [
+    "Excessive stack depth comparing types '{ key: string; exact: false; score: []; catchAll: false; }' and '{ score: MaxTuple<Matches[\"score\"], []>; }'.",
+  ]),
+  ...diagnosticBaseline("unplugin/dist/index.d.mts", 2307, [
+    "Cannot find module '@farmfe/core' or its corresponding type declarations.",
+    "Cannot find module '@rsbuild/core' or its corresponding type declarations.",
+    "Cannot find module '@rspack/core' or its corresponding type declarations.",
+    "Cannot find module 'bun' or its corresponding type declarations.",
+    "Cannot find module 'unloader' or its corresponding type declarations.",
+    "Cannot find module 'webpack' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline(
+    "unstorage/drivers/azure-app-configuration.d.mts",
+    2307,
+    [
+      "Cannot find module '@azure/app-configuration' or its corresponding type declarations.",
+    ]
+  ),
+  ...diagnosticBaseline("unstorage/drivers/azure-cosmos.d.mts", 2307, [
+    "Cannot find module '@azure/cosmos' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/azure-key-vault.d.mts", 2307, [
+    "Cannot find module '@azure/keyvault-secrets' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/azure-storage-blob.d.mts", 2307, [
+    "Cannot find module '@azure/storage-blob' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/azure-storage-table.d.mts", 2307, [
+    "Cannot find module '@azure/data-tables' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/capacitor-preferences.d.mts", 2307, [
+    "Cannot find module '@capacitor/preferences' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/cloudflare-kv-binding.d.mts", 2304, [
+    "Cannot find name 'KVNamespace'.",
+    "Cannot find name 'KVNamespace'.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/cloudflare-r2-binding.d.mts", 2304, [
+    "Cannot find name 'R2Bucket'.",
+    "Cannot find name 'R2Bucket'.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/deno-kv-node.d.mts", 2307, [
+    "Cannot find module '@deno/kv' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/deno-kv.d.mts", 2307, [
+    "Cannot find module '@deno/kv' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/deno-kv.d.mts", 2503, [
+    "Cannot find namespace 'Deno'.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/mongodb.d.mts", 2307, [
+    "Cannot find module 'mongodb' or its corresponding type declarations.",
+    "Cannot find module 'mongodb' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/netlify-blobs.d.mts", 2307, [
+    "Cannot find module '@netlify/blobs' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/planetscale.d.mts", 2307, [
+    "Cannot find module '@planetscale/database' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/uploadthing.d.mts", 2307, [
+    "Cannot find module 'uploadthing/server' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/upstash.d.mts", 2307, [
+    "Cannot find module '@upstash/redis' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/vercel-kv.d.mts", 2307, [
+    "Cannot find module '@upstash/redis' or its corresponding type declarations.",
+    "Cannot find module '@vercel/kv' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("unstorage/drivers/vercel-runtime-cache.d.mts", 2307, [
+    "Cannot find module '@vercel/functions' or its corresponding type declarations.",
+  ]),
+  ...diagnosticBaseline("webpack-virtual-modules/lib/index.d.ts", 2307, [
+    "Cannot find module 'webpack' or its corresponding type declarations.",
+  ]),
+]);
+
 const sdkRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const tempPrefix = join(tmpdir(), "authbound-sdk-packed-consumers-");
 const tempRoot = mkdtempSync(tempPrefix);
@@ -389,7 +541,8 @@ function validateAdapterConsumer(
   const typescript = fixtureRequire("typescript");
   const { blocking, external } = collectPackedConsumerTypeDiagnostics(
     typescript,
-    fixtureDirectory
+    fixtureDirectory,
+    packageName === "@authbound/nuxt" ? NUXT_EXTERNAL_DIAGNOSTIC_BASELINE : []
   );
   if (external.length > 0) {
     console.warn(`${packageName}: ${summarizeExternalDiagnostics(external)}`);

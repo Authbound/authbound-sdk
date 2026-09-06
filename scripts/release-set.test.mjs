@@ -219,9 +219,16 @@ test("Unreleased documents the credential-definition lifecycle breaking changes"
   assert.match(unreleased, /### Breaking changes/);
   assert.match(unreleased, /`create\(\)`[\s\S]*publish by default/);
   assert.match(unreleased, /lifecycle-discriminated complete responses/);
-  assert.match(unreleased, /default listing[\s\S]*published/);
+  assert.match(unreleased, /default listing[\s\S]*owned drafts/);
+  assert.match(
+    unreleased,
+    /`list\(\{ lifecycleStatus: "published" \}\)`[\s\S]*published-only/
+  );
   assert.match(
     unreleased,
     /`createDraft\(\)`[\s\S]*`update\(\)`[\s\S]*`publish\(\)`/
   );
+  assert.match(unreleased, /`expiresAt`/);
+  assert.match(unreleased, /polling[\s\S]*authoritative verification expiry/);
+  assert.match(unreleased, /abort[\s\S]*cleanup/);
 });

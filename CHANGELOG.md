@@ -8,9 +8,10 @@ All customer-visible changes to the Authbound public SDK are recorded here.
 
 - Make credential-definition `create()` publish by default and enforce
   publication readiness more strictly. Credential-definition APIs now require
-  lifecycle-discriminated complete responses, default listing returns only
-  published definitions, and explicit draft workflows use `createDraft()`,
-  `update()`, and `publish()`.
+  lifecycle-discriminated complete responses, while default listing follows the
+  backend active view and can include owned drafts. Use
+  `list({ lifecycleStatus: "published" })` for published-only results, and use
+  `createDraft()`, `update()`, and `publish()` for explicit draft workflows.
 
 ### Changes
 
@@ -18,6 +19,10 @@ All customer-visible changes to the Authbound public SDK are recorded here.
   known owned draft can be published with an idempotency key, while published
   definitions are immutable and archived definitions require a new ID and VCT
   version.
+- Pass verification `expiresAt` through status subscriptions so SSE fallback
+  polling can continue beyond five minutes when valid, stops at the
+  authoritative verification expiry, and preserves request abort and cleanup
+  behavior on reset or unmount.
 
 ## 0.2.2 - 2026-08-26
 
