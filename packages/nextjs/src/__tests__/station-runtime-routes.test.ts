@@ -1,3 +1,4 @@
+import { AUTHBOUND_CONTRACT_REVISION } from "@authbound/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createStationDisclosureRoute,
@@ -10,7 +11,7 @@ import {
 
 const CONTRACT_HEADERS = {
   "Authbound-Api-Version": "v1",
-  "Authbound-Contract-Revision": "v1.2026-07-06.1",
+  "Authbound-Contract-Revision": AUTHBOUND_CONTRACT_REVISION,
 };
 
 function fetchCall(index: number): [string, RequestInit] {

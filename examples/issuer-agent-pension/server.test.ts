@@ -11,6 +11,7 @@ import type {
   SignedVerificationResult,
   Verification,
 } from "@authbound/server";
+import { AuthboundClientError } from "@authbound/server";
 import {
   createPensionCredentialDefinition,
   pensionCredentialClaims,
@@ -52,15 +53,76 @@ async function withAppServer<T>(
 }
 
 function credentialDefinition(
-  credentialDefinitionId: string
+  credentialDefinitionId: string,
+  lifecycleStatus: CredentialDefinition["lifecycleStatus"] = "published",
+  overrides: Partial<CredentialDefinition> = {}
 ): CredentialDefinition {
   return {
     object: "issuer.credential_definition",
-    id: `cd_${credentialDefinitionId}`,
+    id: credentialDefinitionId,
     credentialDefinitionId,
     format: "dc+sd-jwt",
+    vct: "urn:vc:authbound:pension:1.0",
     title: "Pension Credential",
-    claims: [],
+    claims: [
+      {
+        name: "Person.given_name",
+        path: ["Person", "given_name"],
+        mandatory: true,
+        displayName: "Given Name",
+      },
+      {
+        name: "Person.family_name",
+        path: ["Person", "family_name"],
+        mandatory: true,
+        displayName: "Family Name",
+      },
+      {
+        name: "Person.birth_date",
+        path: ["Person", "birth_date"],
+        mandatory: true,
+        displayName: "Birth Date",
+      },
+      {
+        name: "Person.personal_administrative_number",
+        path: ["Person", "personal_administrative_number"],
+        mandatory: true,
+        displayName: "Person Identifier",
+      },
+      {
+        name: "Pension.typeCode",
+        path: ["Pension", "typeCode"],
+        mandatory: true,
+        displayName: "Type Code",
+      },
+      {
+        name: "Pension.typeName",
+        path: ["Pension", "typeName"],
+        mandatory: true,
+        displayName: "Type",
+      },
+      {
+        name: "Pension.startDate",
+        path: ["Pension", "startDate"],
+        mandatory: true,
+        displayName: "Start Date",
+      },
+      {
+        name: "Pension.endDate",
+        path: ["Pension", "endDate"],
+        mandatory: false,
+        displayName: "End Date",
+      },
+      {
+        name: "Pension.provisional",
+        path: ["Pension", "provisional"],
+        mandatory: false,
+        displayName: "Provisional",
+      },
+    ],
+    aliases: ["pension"],
+    lifecycleStatus,
+    ...overrides,
   };
 }
 
@@ -111,7 +173,10 @@ function signedResult(verificationId: string): SignedVerificationResult {
 
 function createMockClient(options: {
   credentialDefinitions?: Partial<
-    Pick<AuthboundClient["issuer"]["credentialDefinitions"], "create" | "get">
+    Pick<
+      AuthboundClient["issuer"]["credentialDefinitions"],
+      "create" | "get" | "publish"
+    >
   >;
   verifications?: Partial<
     Pick<AuthboundClient["verifications"], "create" | "getStatus" | "getResult">
@@ -123,6 +188,8 @@ function createMockClient(options: {
         get: async (credentialDefinitionId) =>
           credentialDefinition(credentialDefinitionId),
         create: async ({ credentialDefinitionId }) =>
+          credentialDefinition(credentialDefinitionId),
+        publish: async (credentialDefinitionId) =>
           credentialDefinition(credentialDefinitionId),
         ...options.credentialDefinitions,
       },
@@ -204,9 +271,11 @@ describe("issuer-agent-pension example", () => {
     const client = createMockClient({
       credentialDefinitions: {
         get: async () => {
-          throw Object.assign(new Error("not found"), {
-            code: "credential_definition_not_found",
-          });
+          throw new AuthboundClientError(
+            "Credential definition not found",
+            "credential_definition_not_found",
+            404
+          );
         },
         create: async (options) => {
           createOptions = options;
@@ -224,6 +293,142 @@ describe("issuer-agent-pension example", () => {
           path.length === 2 && path[0] === "Pension" && path[1] === "@language"
       ),
       false
+    );
+  });
+
+  it("uses one stable create idempotency key across concurrent first use", async () => {
+    const create = mockFunction(
+      async (options: CreateCredentialDefinitionOptions) =>
+        credentialDefinition(options.credentialDefinitionId)
+    );
+    const client = createMockClient({
+      credentialDefinitions: {
+        get: async () => {
+          throw new AuthboundClientError(
+            "Credential definition not found",
+            "credential_definition_not_found",
+            404
+          );
+        },
+        create,
+      },
+    });
+
+    await Promise.all([
+      createPensionCredentialDefinition(client, "pension-credential"),
+      createPensionCredentialDefinition(client, "pension-credential"),
+    ]);
+
+    assert.deepEqual(
+      create.calls.map(([options]) => options.idempotencyKey),
+      ["create:pension-credential:v1", "create:pension-credential:v1"]
+    );
+  });
+
+  it("rethrows untyped not-found-shaped errors without creating", async () => {
+    const untypedNotFound = Object.assign(new Error("not found"), {
+      code: "credential_definition_not_found",
+    });
+    const create = mockFunction(
+      async ({ credentialDefinitionId }: { credentialDefinitionId: string }) =>
+        credentialDefinition(credentialDefinitionId, "published")
+    );
+    const client = createMockClient({
+      credentialDefinitions: {
+        get: async () => {
+          throw untypedNotFound;
+        },
+        create,
+      },
+    });
+
+    await assert.rejects(
+      () => createPensionCredentialDefinition(client, "pension-credential"),
+      (error) => error === untypedNotFound
+    );
+    assert.equal(create.calls.length, 0);
+  });
+
+  it("reuses a published definition", async () => {
+    const get = mockFunction(async () =>
+      credentialDefinition("pension-credential", "published")
+    );
+    const create = mockFunction(
+      async ({ credentialDefinitionId }: { credentialDefinitionId: string }) =>
+        credentialDefinition(credentialDefinitionId, "published")
+    );
+    const publish = mockFunction(async (credentialDefinitionId: string) =>
+      credentialDefinition(credentialDefinitionId, "published")
+    );
+    const client = createMockClient({
+      credentialDefinitions: { get, create, publish },
+    });
+
+    const definition = await createPensionCredentialDefinition(
+      client,
+      "pension-credential"
+    );
+
+    assert.equal(definition.lifecycleStatus, "published");
+    assert.equal(publish.calls.length, 0);
+    assert.equal(create.calls.length, 0);
+  });
+
+  it("publishes a matching owned pension draft", async () => {
+    const publish = mockFunction(
+      async (
+        credentialDefinitionId: string,
+        _options?: { idempotencyKey?: string }
+      ) => credentialDefinition(credentialDefinitionId, "published")
+    );
+    const client = createMockClient({
+      credentialDefinitions: {
+        get: async () => credentialDefinition("pension-credential", "draft"),
+        publish,
+      },
+    });
+
+    await createPensionCredentialDefinition(client, "pension-credential");
+
+    assert.deepEqual(publish.calls, [
+      [
+        "pension-credential",
+        { idempotencyKey: "publish:pension-credential:v1" },
+      ],
+    ]);
+  });
+
+  it("refuses to publish a pension draft with mismatched wallet fields", async () => {
+    const publish = mockFunction(async (credentialDefinitionId: string) =>
+      credentialDefinition(credentialDefinitionId, "published")
+    );
+    const client = createMockClient({
+      credentialDefinitions: {
+        get: async () =>
+          credentialDefinition("pension-credential", "draft", {
+            rendering: { simple: { background_color: "#112233" } },
+          }),
+        publish,
+      },
+    });
+
+    await assert.rejects(
+      () => createPensionCredentialDefinition(client, "pension-credential"),
+      /Inspect the draft and update it before publishing/
+    );
+    assert.equal(publish.calls.length, 0);
+  });
+
+  it("rejects archived definitions with new-version guidance", async () => {
+    const client = createMockClient({
+      credentialDefinitions: {
+        get: async () => credentialDefinition("pension-credential", "archived"),
+      },
+    });
+
+    await assert.rejects(
+      () => createPensionCredentialDefinition(client, "pension-credential"),
+      /Create a new credential definition version/
     );
   });
 

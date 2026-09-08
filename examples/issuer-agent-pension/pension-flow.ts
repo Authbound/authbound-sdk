@@ -1,7 +1,10 @@
+import { isDeepStrictEqual } from "node:util";
 import type {
   AuthboundClient,
   CreateCredentialDefinitionOptions,
+  CredentialDefinition,
 } from "@authbound/server";
+import { AuthboundClientError } from "@authbound/server";
 import type { PensionCredentialFixture } from "./utils.ts";
 
 function pensionCredentialDefinitionPayload(
@@ -57,31 +60,94 @@ function pensionCredentialDefinitionPayload(
 // credentials against the stored definition ID.
 function isCredentialDefinitionNotFound(error: unknown): boolean {
   return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
+    error instanceof AuthboundClientError &&
     error.code === "credential_definition_not_found"
   );
+}
+
+function normalizeClaims(claims: CreateCredentialDefinitionOptions["claims"]) {
+  return claims.map((claim) => ({
+    name: claim.path.join("."),
+    path: claim.path,
+    mandatory: claim.mandatory ?? false,
+    displayName: claim.displayName ?? claim.path.at(-1) ?? claim.path.join("."),
+  }));
+}
+
+function walletFacingDefinition(definition: CredentialDefinition) {
+  return {
+    credentialDefinitionId: definition.credentialDefinitionId,
+    vct: definition.vct,
+    format: definition.format,
+    title: definition.title,
+    aliases: definition.aliases,
+    claims: definition.claims,
+    rendering: definition.rendering,
+  };
+}
+
+function expectedWalletFacingDefinition(
+  input: CreateCredentialDefinitionOptions
+) {
+  return {
+    credentialDefinitionId: input.credentialDefinitionId,
+    vct: input.vct,
+    format: input.format,
+    title: input.title,
+    aliases: input.aliases ?? [],
+    claims: normalizeClaims(input.claims),
+    rendering: input.rendering,
+  };
+}
+
+function assertMatchingOwnedDraft(
+  definition: CredentialDefinition,
+  expected: CreateCredentialDefinitionOptions
+) {
+  if (
+    !isDeepStrictEqual(
+      walletFacingDefinition(definition),
+      expectedWalletFacingDefinition(expected)
+    )
+  ) {
+    throw new Error(
+      "Credential definition draft does not match this example's expected wallet-facing definition. Inspect the draft and update it before publishing; this example will not overwrite it automatically."
+    );
+  }
 }
 
 export async function createPensionCredentialDefinition(
   authboundClient: AuthboundClient,
   credentialDefinitionId: string
 ) {
-  // Reusing the same definition ID keeps the example safe to run repeatedly.
+  const expected = pensionCredentialDefinitionPayload(credentialDefinitionId);
+
   try {
-    return await authboundClient.issuer.credentialDefinitions.get(
+    const definition = await authboundClient.issuer.credentialDefinitions.get(
       credentialDefinitionId
+    );
+    if (definition.lifecycleStatus === "published") {
+      return definition;
+    }
+    if (definition.lifecycleStatus === "draft") {
+      assertMatchingOwnedDraft(definition, expected);
+      return authboundClient.issuer.credentialDefinitions.publish(
+        credentialDefinitionId,
+        { idempotencyKey: `publish:${credentialDefinitionId}:v1` }
+      );
+    }
+    throw new Error(
+      "Credential definition is archived. Create a new credential definition version."
     );
   } catch (error) {
     if (!isCredentialDefinitionNotFound(error)) {
       throw error;
     }
+    return authboundClient.issuer.credentialDefinitions.create({
+      ...expected,
+      idempotencyKey: `create:${credentialDefinitionId}:v1`,
+    });
   }
-
-  return authboundClient.issuer.credentialDefinitions.create(
-    pensionCredentialDefinitionPayload(credentialDefinitionId)
-  );
 }
 
 // The offer payload is just the credential claims. Fixture metadata such as

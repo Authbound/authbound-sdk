@@ -1,6 +1,6 @@
 {
   "name": "@authbound/server",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Authbound server SDK: middleware, API handlers, and JWT utilities for identity/age verification.",
   "type": "module",
   "sideEffects": false,

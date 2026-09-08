@@ -39,6 +39,11 @@ const issuerSdkContract = [
   },
   {
     method: "post",
+    path: "/v1/issuer/credential-definitions/{credentialDefinitionId}/publish",
+    operationId: "publishCredentialDefinition",
+  },
+  {
+    method: "post",
     path: "/v1/openid4vc/issuance/offer",
     operationId: "createOpenId4VcIssuanceOffer",
   },
@@ -120,6 +125,43 @@ describeWithRootOpenApi("public issuer SDK/OpenAPI contract", () => {
       expect(openApi).toContain(`      operationId: ${route.operationId}`);
       expect(openApi).toContain(`    ${route.method}:`);
     }
+  });
+
+  it("documents lifecycle-discriminated credential definition contracts", () => {
+    const openApi = readRootOpenApi();
+    const lifecycleStatus = getSchema(
+      openApi,
+      "CredentialDefinitionLifecycleStatus"
+    );
+    const createRequest = getSchema(
+      openApi,
+      "CreateCredentialDefinitionRequest"
+    );
+    const definitionBase = getSchema(openApi, "CredentialDefinitionBase");
+    const definitionBaseProperties = definitionBase.properties as
+      | Record<string, OpenApiSchema>
+      | undefined;
+
+    expect(lifecycleStatus).toMatchObject({
+      type: "string",
+      enum: ["draft", "published", "archived"],
+    });
+    expect(createRequest.oneOf).toEqual([
+      {
+        $ref: "#/components/schemas/CreatePublishedCredentialDefinitionRequest",
+      },
+      { $ref: "#/components/schemas/CreateDraftCredentialDefinitionRequest" },
+    ]);
+    expect(definitionBase.required).toEqual(
+      expect.arrayContaining(["vct", "claims", "aliases", "lifecycleStatus"])
+    );
+    expect(definitionBaseProperties?.rendering).toEqual({
+      $ref: "#/components/schemas/CredentialDefinitionRendering",
+    });
+    expect(definitionBaseProperties?.metadata).toMatchObject({
+      type: "object",
+      additionalProperties: { $ref: "#/components/schemas/PublicJson" },
+    });
   });
 
   it("documents verification policy authoring shapes used by the SDK", () => {

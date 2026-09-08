@@ -37,7 +37,7 @@ For phone testing, open the same port on your computer's LAN IP, for example `ht
 
 `pension-flow.ts` contains the SDK calls you would copy into your own backend:
 
-- `createPensionCredentialDefinition` creates or reuses the credential definition for this demo.
+- `createPensionCredentialDefinition` reuses the known published pension definition, publishes only this demo's known complete draft, or creates it only when Authbound returns the typed credential-definition not-found error.
 - `createPensionCredentialOffer` creates an OpenID4VCI wallet offer from a JSON pension credential fixture.
 - `createPensionVerificationRequest` creates an EUDI verification request for the pension policy.
 - `getPensionVerificationStatus` polls verification status with the client token.
@@ -52,6 +52,12 @@ For issuance, copy the shape of `createPensionCredentialOffer`: choose a credent
 For verification, configure a policy in Authbound first, then call `authbound.verifications.create` with that policy ID. Status polling uses the returned `clientToken` plus the publishable key; this SDK call does not send the secret API key. This demo stores the `clientToken` server-side, then fetches the signed result from the server only after the verification reaches `verified`.
 
 The JSON fixtures, credential selector, QR rendering, and in-memory `Map` session store are demo-only. A production service would load credential data from its own database, keep policy and credential definition IDs in configuration, and store verification sessions in durable server-side storage.
+
+This example owns the exact complete `pension-credential` definition. Its recovery helper can publish that known draft with `publish:pension-credential:v1`; it never lists drafts or bulk-publishes discovered definitions. An archived definition is not reusable: create a new credential-definition ID and VCT version.
+
+`authbound.issuer.credentialDefinitions.create()` creates and returns a published definition. For intentional staging, call `authbound.issuer.credentialDefinitions.createDraft()` and inspect the owned draft before calling `authbound.issuer.credentialDefinitions.publish()`. Published definitions are immutable, so every change requires a new credential-definition ID and VCT version.
+
+`metadata` is authenticated management metadata, not wallet-discoverable issuer or credential metadata. `rendering` supports only six-digit colors and Authbound-owned presets; it does not accept arbitrary SVG, HTML, CSS, or customer templates.
 
 ## Routes
 

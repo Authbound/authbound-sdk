@@ -40,26 +40,27 @@ jobs:
         env:
           SDK_RELEASE_VERSION: ${{ github.ref_name }}
         run: |
-          node - <<'NODE'
-          const fs = require('node:fs');
-          const path = require('node:path');
+          node --input-type=module - <<'NODE'
+          import {
+            PUBLISHABLE_PACKAGES,
+            RELEASE_VERSION,
+            assertSourceReleaseManifests,
+            loadWorkspaceManifests,
+          } from './scripts/release-set.mjs';
 
+          const manifests = loadWorkspaceManifests();
+          assertSourceReleaseManifests(manifests);
           const expectedVersion = process.env.SDK_RELEASE_VERSION?.replace(/^sdk-v/, '');
-          const packageDirs = ['core', 'server', 'react', 'vue', 'nextjs', 'nuxt'];
-          const mismatches = [];
-
-          for (const packageDir of packageDirs) {
-            const manifestPath = path.join('packages', packageDir, 'package.json');
-            const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-            if (manifest.version !== expectedVersion) {
-              mismatches.push(`${manifest.name}@${manifest.version}`);
-            }
+          if (expectedVersion !== RELEASE_VERSION) {
+            throw new Error(
+              `Release tag ${expectedVersion} does not match release set version ${RELEASE_VERSION}`
+            );
           }
 
-          if (mismatches.length > 0) {
-            throw new Error(
-              `Expected all SDK packages to be ${expectedVersion}; mismatches: ${mismatches.join(', ')}`
-            );
+          for (const packageName of PUBLISHABLE_PACKAGES) {
+            if (manifests[packageName].version !== expectedVersion) {
+              throw new Error(`${packageName} does not match release tag ${expectedVersion}`);
+            }
           }
           NODE
 

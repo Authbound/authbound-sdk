@@ -71,7 +71,32 @@ const offer = await authbound.openId4Vc.issuance.createOffer({
 console.log(offer.offerUri);
 ```
 
-Credential definition metadata is public issuer metadata for wallet discovery. Do not put secrets or personal data in definition titles, aliases, labels, rendering, or metadata.
+`authbound.issuer.credentialDefinitions.create()` creates and returns a published definition. Published definitions are immutable: create a new credential-definition ID and VCT version for every change.
+
+For intentional staging, create and inspect a draft you own before publishing it:
+
+```typescript
+const draft = await authbound.issuer.credentialDefinitions.createDraft({
+  credentialDefinitionId: "employee_badge_v2",
+  vct: "urn:vc:authbound:employee-badge:2.0",
+  format: "dc+sd-jwt",
+  title: "Employee Badge v2",
+  claims: [
+    { path: ["Employee", "given_name"], mandatory: true },
+    { path: ["Employee", "family_name"], mandatory: true },
+    { path: ["Employee", "employee_number"], mandatory: true },
+  ],
+});
+
+await authbound.issuer.credentialDefinitions.publish(
+  draft.credentialDefinitionId,
+  { idempotencyKey: "publish:employee_badge_v2:v1" }
+);
+```
+
+Use `authbound.issuer.credentialDefinitions.list({ lifecycleStatus: "draft" })` only for discovery and inspection. Do not bulk-publish discovered drafts; only a runnable service that owns the exact complete definition may publish its known draft. An archived definition requires a new credential-definition ID and VCT version.
+
+`metadata` is authenticated management metadata, not wallet-discoverable issuer or credential metadata. Do not put secrets or personal data in definition titles, aliases, labels, rendering, or metadata. `rendering` accepts six-digit colors and Authbound-owned presets only, not arbitrary SVG, HTML, CSS, or customer templates.
 
 ## Verification Policies
 

@@ -4,6 +4,30 @@ All customer-visible changes to the Authbound public SDK are recorded here.
 
 ## Unreleased
 
+### Breaking changes
+
+- Make credential-definition `create()` publish by default and enforce
+  publication readiness more strictly. Credential-definition APIs now require
+  lifecycle-discriminated complete responses, while default listing follows the
+  backend active view and can include owned drafts. Use
+  `list({ lifecycleStatus: "published" })` for published-only results, and use
+  `createDraft()`, `update()`, and `publish()` for explicit draft workflows.
+
+### Changes
+
+- Release core, server, React, Vue, Next.js, and Nuxt together at `0.3.0` so
+  every framework adapter resolves the updated runtime contracts.
+- Preserve structured unsupported and missing claim names from public API
+  errors so issuer integrations can correct rejected credential payloads.
+- Document credential-definition lifecycle recovery for issuer examples: a
+  known owned draft can be published with an idempotency key, and concurrent
+  first-use creation reuses a deterministic key. Published definitions are
+  immutable and archived definitions require a new ID and VCT version.
+- Pass verification `expiresAt` through status subscriptions so SSE fallback
+  polling can continue beyond five minutes when valid, stops at the
+  authoritative verification expiry, and preserves request abort and cleanup
+  behavior on reset or unmount.
+
 ## 0.2.2 - 2026-08-26
 
 ### Changes

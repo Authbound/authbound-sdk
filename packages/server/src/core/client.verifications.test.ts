@@ -891,6 +891,240 @@ describe("AuthboundClient verifications API", () => {
     });
   });
 
+  it.each([
+    {
+      boundary: "authenticated requests",
+      invoke: () =>
+        createClient().issuer.credentialDefinitions.publish(
+          "employee_badge_v1"
+        ),
+    },
+    {
+      boundary: "the standalone status helper",
+      invoke: () =>
+        getVerificationStatus({
+          apiUrl,
+          verificationId: "vrf_123",
+          clientToken: "client_token_123",
+          publishableKey,
+        }),
+    },
+  ])("preserves strict public validation details from $boundary", async ({
+    invoke,
+  }) => {
+    const details = {
+      issues: [
+        {
+          path: "claims",
+          message: "At least one claim is required",
+        },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          {
+            object: "error",
+            code: "credential_definition_not_publishable",
+            message: "Credential definition is not publishable",
+            details,
+          },
+          400
+        )
+      )
+    );
+
+    await expect(invoke()).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "credential_definition_not_publishable",
+      statusCode: 400,
+      details,
+    });
+  });
+
+  it("preserves structured public claim-name details", async () => {
+    const details = {
+      unsupportedClaimNames: ["Person.nickname"],
+      missingMandatoryClaims: ["Person.family_name"],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          {
+            object: "error",
+            code: "invalid_request",
+            message: "Credential claims are invalid",
+            details,
+          },
+          400
+        )
+      )
+    );
+
+    await expect(
+      createClient().issuer.credentialDefinitions.publish("employee_badge_v1")
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "invalid_request",
+      statusCode: 400,
+      details,
+    });
+  });
+
+  it.each([
+    [
+      "an extra issue property",
+      {
+        issues: [
+          {
+            path: "claims",
+            message: "At least one claim is required",
+            raw: "sk_live_sensitive_issue_value",
+          },
+        ],
+      },
+    ],
+    [
+      "an extra details property",
+      {
+        issues: [
+          {
+            path: "claims",
+            message: "At least one claim is required",
+          },
+        ],
+        raw: "sk_live_sensitive_details_value",
+      },
+    ],
+    ["raw details", { raw: "sk_live_sensitive_raw_value" }],
+    [
+      "an empty issue path",
+      {
+        issues: [
+          {
+            path: "",
+            message: "sk_live_sensitive_malformed_value",
+          },
+        ],
+      },
+    ],
+    [
+      "an oversized issue path",
+      {
+        issues: [
+          {
+            path: "p".repeat(513),
+            message: "sk_live_sensitive_path_value",
+          },
+        ],
+      },
+    ],
+    [
+      "an oversized issue message",
+      {
+        issues: [
+          {
+            path: "claims",
+            message: `sk_live_sensitive_message_value${"x".repeat(257)}`,
+          },
+        ],
+      },
+    ],
+    [
+      "too many issues",
+      {
+        issues: Array.from({ length: 257 }, () => ({
+          path: "claims",
+          message: "sk_live_sensitive_oversized_value",
+        })),
+      },
+    ],
+  ])("falls back to the sanitized debug summary for %s", async (_, details) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          {
+            object: "error",
+            code: "credential_definition_not_publishable",
+            message: "Credential definition is not publishable",
+            details,
+          },
+          400
+        )
+      )
+    );
+
+    let thrown: unknown;
+    try {
+      await createClient().issuer.credentialDefinitions.publish(
+        "employee_badge_v1"
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(AuthboundClientError);
+    expect(thrown).toMatchObject({
+      code: "credential_definition_not_publishable",
+      details: {
+        object: "error",
+        code: "credential_definition_not_publishable",
+        message: "Credential definition is not publishable",
+        hasClientToken: false,
+        hasResultToken: false,
+        hasWebhookSecret: false,
+      },
+    });
+    expect(JSON.stringify(thrown)).not.toContain("sk_live_sensitive");
+  });
+
+  it("applies malformed-detail fallback at the standalone status boundary", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          {
+            object: "error",
+            code: "credential_definition_not_publishable",
+            message: "Credential definition is not publishable",
+            details: {
+              raw: "sk_live_sensitive_standalone_value",
+            },
+          },
+          400
+        )
+      )
+    );
+
+    let thrown: unknown;
+    try {
+      await getVerificationStatus({
+        apiUrl,
+        verificationId: "vrf_123",
+        clientToken: "client_token_123",
+        publishableKey,
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(AuthboundClientError);
+    expect(thrown).toMatchObject({
+      code: "credential_definition_not_publishable",
+      details: {
+        object: "error",
+        code: "credential_definition_not_publishable",
+        message: "Credential definition is not publishable",
+      },
+    });
+    expect(JSON.stringify(thrown)).not.toContain(
+      "sk_live_sensitive_standalone_value"
+    );
+  });
+
   it("redacts sensitive fields from API error details", async () => {
     vi.stubGlobal(
       "fetch",
