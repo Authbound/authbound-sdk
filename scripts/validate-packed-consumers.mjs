@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -12,16 +13,21 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-
+import {
+  assertReviewedRegistryResolution,
+  credentialFreeEnvironment,
+  readOnlyNodeArguments,
+  reviewedPackageOverrides,
+} from "./packed-consumer-lock.mjs";
 import {
   collectPackedConsumerTypeDiagnostics,
   summarizeExternalDiagnostics,
 } from "./packed-consumer-typecheck.mjs";
 import {
   ADAPTER_PACKAGES,
-  AFFECTED_PACKAGES,
   assertInternalPins,
   loadWorkspaceManifests,
+  PUBLISHABLE_PACKAGES,
   packageDirectory,
   RELEASE_VERSION,
 } from "./release-set.mjs";
@@ -38,24 +44,12 @@ const NUXT_EXTERNAL_DIAGNOSTIC_BASELINE = Object.freeze([
     "Cannot find module 'css-minimizer-webpack-plugin' or its corresponding type declarations.",
     "Cannot find module 'esbuild-loader' or its corresponding type declarations.",
     "Cannot find module 'mini-css-extract-plugin' or its corresponding type declarations.",
-    "Cannot find module 'oxc-transform' or its corresponding type declarations.",
     "Cannot find module 'pug' or its corresponding type declarations.",
     "Cannot find module 'vue-loader' or its corresponding type declarations.",
     "Cannot find module 'webpack' or its corresponding type declarations.",
     "Cannot find module 'webpack-bundle-analyzer' or its corresponding type declarations.",
     "Cannot find module 'webpack-dev-middleware' or its corresponding type declarations.",
     "Cannot find module 'webpack-hot-middleware' or its corresponding type declarations.",
-  ]),
-  ...diagnosticBaseline("@nuxt/schema/dist/index.d.mts", 2310, [
-    "Type 'AppConfig' recursively references itself as a base type.",
-    "Type 'ConfigSchema' recursively references itself as a base type.",
-    "Type 'CustomAppConfig' recursively references itself as a base type.",
-    "Type 'ModuleDependencies' recursively references itself as a base type.",
-    "Type 'NuxtConfig' recursively references itself as a base type.",
-    "Type 'NuxtDebugOptions' recursively references itself as a base type.",
-    "Type 'NuxtOptions' recursively references itself as a base type.",
-    "Type 'NuxtPage' recursively references itself as a base type.",
-    "Type 'ViteOptions' recursively references itself as a base type.",
   ]),
   ...diagnosticBaseline("@nuxt/schema/dist/index.d.mts", 2724, [
     "'\"h3\"' has no exported member named 'CorsOptions'. Did you mean 'H3CorsOptions'?",
@@ -73,9 +67,6 @@ const NUXT_EXTERNAL_DIAGNOSTIC_BASELINE = Object.freeze([
       "Could not find a declaration file for module '@babel/core'. '@babel/core/lib/index.js' implicitly has an 'any' type.\n  Try `npm i --save-dev @types/babel__core` if it exists or add a new declaration (.d.ts) file containing `declare module '@babel/core';`",
     ]
   ),
-  ...diagnosticBaseline("cssnano/types/index.d.ts", 2309, [
-    "An export assignment cannot be used in a module with other exported elements.",
-  ]),
   ...diagnosticBaseline("db0/dist/index.d.mts", 2307, [
     "Cannot find module '@electric-sql/pglite' or its corresponding type declarations.",
     "Cannot find module '@libsql/client' or its corresponding type declarations.",
@@ -103,9 +94,12 @@ const NUXT_EXTERNAL_DIAGNOSTIC_BASELINE = Object.freeze([
   ...diagnosticBaseline("nitropack/dist/types/index.d.ts", 2321, [
     "Excessive stack depth comparing types '{ key: string; exact: false; score: []; catchAll: false; }' and '{ score: MaxTuple<Matches[\"score\"], []>; }'.",
   ]),
+  ...diagnosticBaseline("ofetch/dist/shared/ofetch.BbrTaNPp.d.mts", 2307, [
+    "Cannot find module 'undici' or its corresponding type declarations.",
+  ]),
   ...diagnosticBaseline("unplugin/dist/index.d.mts", 2307, [
     "Cannot find module '@farmfe/core' or its corresponding type declarations.",
-    "Cannot find module '@rsbuild/core' or its corresponding type declarations.",
+    "Cannot find module 'rolldown' or its corresponding type declarations.",
     "Cannot find module '@rspack/core' or its corresponding type declarations.",
     "Cannot find module 'bun' or its corresponding type declarations.",
     "Cannot find module 'unloader' or its corresponding type declarations.",
@@ -192,7 +186,7 @@ function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: options.cwd ?? sdkRoot,
     encoding: "utf8",
-    env: { ...process.env, ...options.env },
+    env: options.env ?? process.env,
   });
   if (result.status !== 0) {
     const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
@@ -211,14 +205,13 @@ function readPackedManifest(tarballPath) {
   return JSON.parse(run("tar", ["-xOf", tarballPath, "package/package.json"]));
 }
 
-function packPackage(packageName, sourceDirectory, outputDirectory, env) {
+function packPackage(packageName, sourceDirectory, outputDirectory) {
   const tarballPath = join(
     outputDirectory,
     `${packageDirectory(packageName)}-${readFileManifest(sourceDirectory).version}.tgz`
   );
   run("pnpm", ["pack", "--out", tarballPath], {
     cwd: sourceDirectory,
-    env,
   });
   if (!existsSync(tarballPath)) {
     throw new Error(`${packageName} did not produce ${tarballPath}`);
@@ -378,7 +371,11 @@ function validateAdapterConsumer(
   packageName,
   affectedTarballs,
   adapterTarball,
-  adapterManifest
+  adapterManifest,
+  reviewedLockfile,
+  packageStoreDirectory,
+  packageManagerEnvironment,
+  runtimeEnvironment
 ) {
   const fixtureDirectory = join(
     tempRoot,
@@ -406,10 +403,20 @@ function validateAdapterConsumer(
     },
   };
   writeJson(join(fixtureDirectory, "package.json"), manifest);
-  const releaseOverrides = AFFECTED_PACKAGES.map(
-    (dependency) =>
-      `  '${dependency}@${RELEASE_VERSION}': file:${affectedTarballs[dependency]}`
-  ).join("\n");
+  const releaseOverrides = [
+    ...Object.entries(reviewedPackageOverrides(reviewedLockfile)).filter(
+      ([dependency]) => !dependency.startsWith("@authbound/")
+    ),
+    ...PUBLISHABLE_PACKAGES.map((dependency) => [
+      `${dependency}@${RELEASE_VERSION}`,
+      `file:${affectedTarballs[dependency]}`,
+    ]),
+  ]
+    .map(
+      ([dependency, version]) =>
+        `  ${JSON.stringify(dependency)}: ${JSON.stringify(version)}`
+    )
+    .join("\n");
   writeFileSync(
     join(fixtureDirectory, "pnpm-workspace.yaml"),
     `overrides:\n${releaseOverrides}\n`
@@ -444,9 +451,43 @@ function validateAdapterConsumer(
     dependencyTreeFixture(packageName, expectedInternalDependencies)
   );
 
-  run("pnpm", ["install", "--ignore-scripts", "--no-frozen-lockfile"], {
-    cwd: fixtureDirectory,
-  });
+  run(
+    "pnpm",
+    [
+      "install",
+      "--lockfile-only",
+      "--ignore-scripts",
+      "--no-frozen-lockfile",
+      "--store-dir",
+      packageStoreDirectory,
+    ],
+    { cwd: fixtureDirectory, env: packageManagerEnvironment }
+  );
+  const allowedLocalIntegrities = new Map(
+    Object.entries(affectedTarballs).map(([dependency, tarballPath]) => [
+      dependency,
+      `sha512-${createHash("sha512")
+        .update(readFileSync(tarballPath))
+        .digest("base64")}`,
+    ])
+  );
+  const registryPackageCount = assertReviewedRegistryResolution(
+    reviewedLockfile,
+    readFileSync(join(fixtureDirectory, "pnpm-lock.yaml"), "utf8"),
+    allowedLocalIntegrities
+  );
+  run(
+    "pnpm",
+    [
+      "install",
+      "--offline",
+      "--frozen-lockfile",
+      "--ignore-scripts",
+      "--store-dir",
+      packageStoreDirectory,
+    ],
+    { cwd: fixtureDirectory, env: packageManagerEnvironment }
+  );
   const fixtureRequire = createRequire(join(fixtureDirectory, "package.json"));
   const typescript = fixtureRequire("typescript");
   const { blocking, external } = collectPackedConsumerTypeDiagnostics(
@@ -469,19 +510,50 @@ function validateAdapterConsumer(
       )}`
     );
   }
-  run(process.execPath, ["dependency-tree.mjs"], { cwd: fixtureDirectory });
-  run(process.execPath, ["runtime.mjs"], { cwd: fixtureDirectory });
+  const resolvedFixtureDirectory = realpathSync(fixtureDirectory);
+  run(
+    process.execPath,
+    readOnlyNodeArguments(resolvedFixtureDirectory, "dependency-tree.mjs"),
+    {
+      cwd: fixtureDirectory,
+      env: runtimeEnvironment,
+    }
+  );
+  run(
+    process.execPath,
+    readOnlyNodeArguments(resolvedFixtureDirectory, "runtime.mjs"),
+    {
+      cwd: fixtureDirectory,
+      env: runtimeEnvironment,
+    }
+  );
   console.log(
-    `${packageName}@${RELEASE_VERSION} passed dependency-tree, type, and runtime checks with aligned Authbound dependencies`
+    `${packageName}@${RELEASE_VERSION} passed dependency-tree, type, and runtime checks with ${registryPackageCount} reviewed registry packages and aligned Authbound dependencies`
   );
 }
 
 try {
+  const reviewedLockfile = readFileSync(
+    join(sdkRoot, "pnpm-lock.yaml"),
+    "utf8"
+  );
+  const runtimeEnvironment = credentialFreeEnvironment(process.env, tempRoot);
+  mkdirSync(runtimeEnvironment.HOME, { recursive: true });
+  mkdirSync(runtimeEnvironment.TMPDIR, { recursive: true });
+  const npmConfigPath = join(tempRoot, "empty.npmrc");
+  writeFileSync(npmConfigPath, "");
+  const packageStoreDirectory = run("pnpm", ["store", "path"]);
+  const packageManagerEnvironment = {
+    ...runtimeEnvironment,
+    npm_config_registry: "https://registry.npmjs.org/",
+    npm_config_userconfig: npmConfigPath,
+    npm_config_verify_store_integrity: "true",
+  };
   const manifests = loadWorkspaceManifests(sdkRoot);
   const tarballDirectory = join(tempRoot, "tarballs");
   mkdirSync(tarballDirectory, { recursive: true });
   const affectedTarballs = Object.fromEntries(
-    AFFECTED_PACKAGES.map((packageName) => [
+    PUBLISHABLE_PACKAGES.map((packageName) => [
       packageName,
       packPackage(
         packageName,
@@ -491,24 +563,19 @@ try {
     ])
   );
   const packedAffectedManifests = Object.fromEntries(
-    AFFECTED_PACKAGES.map((packageName) => [
+    PUBLISHABLE_PACKAGES.map((packageName) => [
       packageName,
       readPackedManifest(affectedTarballs[packageName]),
     ])
   );
-  for (const packageName of AFFECTED_PACKAGES) {
+  for (const packageName of PUBLISHABLE_PACKAGES) {
     const manifest = packedAffectedManifests[packageName];
     if (manifest.version !== RELEASE_VERSION) {
       throw new Error(
         `${packageName} packed version must be ${RELEASE_VERSION}; got ${manifest.version}`
       );
     }
-    assertInternalPins(
-      packedAffectedManifests,
-      packageName,
-      RELEASE_VERSION,
-      AFFECTED_PACKAGES
-    );
+    assertInternalPins(packedAffectedManifests, packageName, RELEASE_VERSION);
   }
   console.log(
     `Affected tarballs contain exact ${RELEASE_VERSION} versions and internal pins`
@@ -519,7 +586,11 @@ try {
       packageName,
       affectedTarballs,
       affectedTarballs[packageName],
-      packedAffectedManifests[packageName]
+      packedAffectedManifests[packageName],
+      reviewedLockfile,
+      packageStoreDirectory,
+      packageManagerEnvironment,
+      runtimeEnvironment
     );
   }
 } finally {

@@ -21,8 +21,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -44,7 +42,7 @@ jobs:
         run: |
           node --input-type=module - <<'NODE'
           import {
-            AFFECTED_PACKAGES,
+            PUBLISHABLE_PACKAGES,
             RELEASE_VERSION,
             assertSourceReleaseManifests,
             loadWorkspaceManifests,
@@ -59,7 +57,7 @@ jobs:
             );
           }
 
-          for (const packageName of AFFECTED_PACKAGES) {
+          for (const packageName of PUBLISHABLE_PACKAGES) {
             if (manifests[packageName].version !== expectedVersion) {
               throw new Error(`${packageName} does not match release tag ${expectedVersion}`);
             }

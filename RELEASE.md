@@ -57,27 +57,33 @@ Use short conventional prefixes so release notes stay scannable:
    resolves the exact release-version Authbound dependencies without workspace
    links or live Authbound requests.
 6. Commit the version and changelog update.
-7. Tag the exact release commit:
+7. Before tagging, confirm the matching backend credential-definition lifecycle
+   change is merged and deployed to staging. Run deployed smoke checks that
+   prove SDK 0.2.2 request compatibility and the release candidate's lifecycle
+   flow against that deployment, then record the staging evidence. Do not tag or
+   publish until this backend-first gate passes. The approved backend rollout
+   requires no additional timed pause after this proof.
+8. Tag the exact release commit:
 
    ```bash
    git tag -a sdk-v0.3.0 -m "Authbound SDK 0.3.0"
    git push origin main sdk-v0.3.0
    ```
 
-8. Wait for the `SDK Release Check` workflow to pass on the tag.
-9. From the mono repo root, run:
+9. Wait for the `SDK Release Check` workflow to pass on the tag.
+10. From the mono repo root, run:
 
    ```bash
    pnpm sdk:publish -- --dry-run
    ```
 
-10. After approval, publish manually from the mono repo root:
+11. After approval, publish manually from the mono repo root:
 
    ```bash
    pnpm sdk:publish -- --tag latest
    ```
 
-11. Record the SDK commit, tag, npm version, and publish result in the platform
+12. Record the SDK commit, tag, npm version, and publish result in the platform
     release evidence.
 
 ## CI Boundary

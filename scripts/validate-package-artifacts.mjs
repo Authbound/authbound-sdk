@@ -3,10 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, normalize } from "node:path";
 
 import {
-  AFFECTED_PACKAGES,
-  assertChangedPublishablePackagesIncluded,
   assertSourceReleaseManifests,
-  BASE_RELEASE_TAG,
   loadWorkspaceManifests,
   PUBLISHABLE_PACKAGES,
   packageDirectory,
@@ -214,35 +211,6 @@ let hasFailure = false;
 try {
   const manifests = loadWorkspaceManifests();
   assertSourceReleaseManifests(manifests);
-
-  const changedFiles = spawnSync(
-    "git",
-    ["diff", "--name-only", BASE_RELEASE_TAG, "--", "packages"],
-    { encoding: "utf8" }
-  );
-  if (changedFiles.status !== 0) {
-    throw new Error(
-      changedFiles.stderr.trim() ||
-        `git diff against ${BASE_RELEASE_TAG} failed with ${changedFiles.status}`
-    );
-  }
-  const untrackedFiles = spawnSync(
-    "git",
-    ["ls-files", "--others", "--exclude-standard", "--", "packages"],
-    { encoding: "utf8" }
-  );
-  if (untrackedFiles.status !== 0) {
-    throw new Error(
-      untrackedFiles.stderr.trim() ||
-        `git ls-files for untracked packages failed with ${untrackedFiles.status}`
-    );
-  }
-  assertChangedPublishablePackagesIncluded(
-    [changedFiles.stdout, untrackedFiles.stdout]
-      .flatMap((output) => output.trim().split(/\r?\n/))
-      .filter(Boolean),
-    AFFECTED_PACKAGES
-  );
 } catch (error) {
   hasFailure = true;
   console.error(error instanceof Error ? error.message : String(error));

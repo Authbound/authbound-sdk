@@ -3,14 +3,9 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import {
-  AFFECTED_PACKAGES,
-  assertChangedPublishablePackagesIncluded,
   assertInternalPins,
   assertSourceReleaseManifests,
-  PUBLISHABLE_PACKAGES,
   RELEASE_VERSION,
-  resolveAffectedReleaseSet,
-  unchangedAdapters,
 } from "./release-set.mjs";
 
 function createManifests({ serverCoreVersion = RELEASE_VERSION } = {}) {
@@ -56,14 +51,11 @@ function createManifests({ serverCoreVersion = RELEASE_VERSION } = {}) {
   };
 }
 
-function createSourceManifests(affectedPackages = AFFECTED_PACKAGES) {
+function createSourceManifests() {
   const manifests = createManifests();
-  const affected = new Set(affectedPackages);
 
   for (const manifest of Object.values(manifests)) {
-    if (affected.has(manifest.name)) {
-      manifest.version = RELEASE_VERSION;
-    }
+    manifest.version = RELEASE_VERSION;
     for (const dependency of Object.keys(manifest.dependencies)) {
       if (dependency.startsWith("@authbound/")) {
         manifest.dependencies[dependency] = "workspace:*";
@@ -74,25 +66,6 @@ function createSourceManifests(affectedPackages = AFFECTED_PACKAGES) {
   return manifests;
 }
 
-test("releases every interdependent publishable package in dependency order", () => {
-  const manifests = createManifests();
-
-  assert.deepEqual(
-    resolveAffectedReleaseSet(manifests, AFFECTED_PACKAGES),
-    PUBLISHABLE_PACKAGES
-  );
-  assert.deepEqual(AFFECTED_PACKAGES, PUBLISHABLE_PACKAGES);
-});
-
-test("adds affected internal prerequisites to the dependency closure", () => {
-  const manifests = createManifests();
-
-  assert.deepEqual(
-    resolveAffectedReleaseSet(manifests, ["@authbound/server"]),
-    ["@authbound/core", "@authbound/server"]
-  );
-});
-
 test("rejects a stale affected internal dependency pin", () => {
   const manifests = createManifests({ serverCoreVersion: "0.2.2" });
 
@@ -102,74 +75,20 @@ test("rejects a stale affected internal dependency pin", () => {
   );
 });
 
-test("includes every framework adapter in the coherent release set", () => {
-  const manifests = createSourceManifests();
-
-  assert.deepEqual(unchangedAdapters(manifests), []);
-});
-
 test("accepts fully aligned source manifests", () => {
   const manifests = createSourceManifests();
 
   assert.doesNotThrow(() => assertSourceReleaseManifests(manifests));
 });
 
-test("rejects a changed publishable package omitted from the affected set", () => {
-  const releaseSetWithoutReact = AFFECTED_PACKAGES.filter(
-    (packageName) => packageName !== "@authbound/react"
-  );
+test("rejects any package version outside the coherent release", () => {
+  const manifests = createSourceManifests();
+  manifests["@authbound/react"].version = "0.2.2";
 
   assert.throws(
-    () =>
-      assertChangedPublishablePackagesIncluded(
-        ["packages/react/src/index.ts"],
-        releaseSetWithoutReact
-      ),
-    /@authbound\/react changed but is omitted from the affected release set/
+    () => assertSourceReleaseManifests(manifests),
+    /@authbound\/react must be 0\.3\.0; got 0\.2\.2/
   );
-});
-
-test("ignores package documentation changes when deriving publishable code changes", () => {
-  assert.doesNotThrow(() =>
-    assertChangedPublishablePackagesIncluded(
-      ["packages/react/README.md", "RELEASE.md"],
-      AFFECTED_PACKAGES
-    )
-  );
-});
-
-test("ignores package test fixtures when deriving publishable code changes", () => {
-  assert.doesNotThrow(() =>
-    assertChangedPublishablePackagesIncluded(
-      [
-        "packages/react/src/__tests__/provider.test.tsx",
-        "packages/vue/src/plugin.test.ts",
-        "packages/nextjs/src/server.spec.ts",
-      ],
-      AFFECTED_PACKAGES
-    )
-  );
-});
-
-test("still rejects production source, manifest, and export artifact changes", () => {
-  const releaseSetWithoutReact = AFFECTED_PACKAGES.filter(
-    (packageName) => packageName !== "@authbound/react"
-  );
-
-  for (const changedPath of [
-    "packages/react/src/index.tsx",
-    "packages/react/package.json",
-    "packages/react/styles.css",
-  ]) {
-    assert.throws(
-      () =>
-        assertChangedPublishablePackagesIncluded(
-          [changedPath],
-          releaseSetWithoutReact
-        ),
-      /@authbound\/react changed but is omitted from the affected release set/
-    );
-  }
 });
 
 test("packed consumers check concrete adapter values and dependency declarations", () => {
@@ -190,18 +109,10 @@ test("packed consumers check concrete adapter values and dependency declarations
   assert.match(source, /routes:\s*\{/);
   assert.doesNotMatch(source, /createCompatibilityAdapterTarball/);
   assert.match(source, /for \(const packageName of ADAPTER_PACKAGES\)/);
-});
-
-test("release workflow fetches the base tag history", () => {
-  const workflow = readFileSync(
-    new URL("../.github/workflows/sdk-release-check.yml", import.meta.url),
-    "utf8"
-  );
-
-  assert.match(
-    workflow,
-    /uses: actions\/checkout@v4\n\s+with:\n\s+fetch-depth: 0/
-  );
+  assert.match(source, /assertReviewedRegistryResolution/);
+  assert.match(source, /"--lockfile-only"/);
+  assert.match(source, /"--offline",\s*"--frozen-lockfile"/);
+  assert.match(source, /env: runtimeEnvironment/);
 });
 
 test("Unreleased documents the credential-definition lifecycle breaking changes", () => {
@@ -226,4 +137,17 @@ test("Unreleased documents the credential-definition lifecycle breaking changes"
   assert.match(unreleased, /`expiresAt`/);
   assert.match(unreleased, /polling[\s\S]*authoritative verification expiry/);
   assert.match(unreleased, /abort[\s\S]*cleanup/);
+});
+
+test("release checklist blocks tagging until backend-first staging proof is recorded", () => {
+  const release = readFileSync(
+    new URL("../RELEASE.md", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(release, /backend[\s\S]*deployed to staging/i);
+  assert.match(release, /deployed smoke/i);
+  assert.match(release, /SDK 0\.2\.2[\s\S]*request compatibility/i);
+  assert.match(release, /release candidate[\s\S]*lifecycle/i);
+  assert.match(release, /record[\s\S]*staging evidence/i);
 });
