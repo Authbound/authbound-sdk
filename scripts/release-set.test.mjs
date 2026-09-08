@@ -7,6 +7,7 @@ import {
   assertChangedPublishablePackagesIncluded,
   assertInternalPins,
   assertSourceReleaseManifests,
+  PUBLISHABLE_PACKAGES,
   RELEASE_VERSION,
   resolveAffectedReleaseSet,
   unchangedAdapters,
@@ -73,17 +74,14 @@ function createSourceManifests(affectedPackages = AFFECTED_PACKAGES) {
   return manifests;
 }
 
-test("resolves the explicit release set in dependency order", () => {
+test("releases every interdependent publishable package in dependency order", () => {
   const manifests = createManifests();
 
   assert.deepEqual(
-    resolveAffectedReleaseSet(manifests, [
-      "@authbound/core",
-      "@authbound/server",
-    ]),
-    ["@authbound/core", "@authbound/server"]
+    resolveAffectedReleaseSet(manifests, AFFECTED_PACKAGES),
+    PUBLISHABLE_PACKAGES
   );
-  assert.deepEqual(AFFECTED_PACKAGES, ["@authbound/core", "@authbound/server"]);
+  assert.deepEqual(AFFECTED_PACKAGES, PUBLISHABLE_PACKAGES);
 });
 
 test("adds affected internal prerequisites to the dependency closure", () => {
@@ -104,37 +102,28 @@ test("rejects a stale affected internal dependency pin", () => {
   );
 });
 
-test("allows unchanged adapters to retain their compatible base pins", () => {
-  const manifests = createManifests();
+test("includes every framework adapter in the coherent release set", () => {
+  const manifests = createSourceManifests();
 
-  assert.deepEqual(unchangedAdapters(manifests), [
-    "@authbound/nextjs",
-    "@authbound/nuxt",
-    "@authbound/react",
-    "@authbound/vue",
-  ]);
+  assert.deepEqual(unchangedAdapters(manifests), []);
 });
 
-test("allows an adapter to be promoted into the affected release set", () => {
-  const affectedPackages = [...AFFECTED_PACKAGES, "@authbound/react"];
-  const manifests = createSourceManifests(affectedPackages);
+test("accepts fully aligned source manifests", () => {
+  const manifests = createSourceManifests();
 
-  assert.deepEqual(unchangedAdapters(manifests, affectedPackages), [
-    "@authbound/nextjs",
-    "@authbound/nuxt",
-    "@authbound/vue",
-  ]);
-  assert.doesNotThrow(() =>
-    assertSourceReleaseManifests(manifests, affectedPackages)
-  );
+  assert.doesNotThrow(() => assertSourceReleaseManifests(manifests));
 });
 
 test("rejects a changed publishable package omitted from the affected set", () => {
+  const releaseSetWithoutReact = AFFECTED_PACKAGES.filter(
+    (packageName) => packageName !== "@authbound/react"
+  );
+
   assert.throws(
     () =>
       assertChangedPublishablePackagesIncluded(
         ["packages/react/src/index.ts"],
-        AFFECTED_PACKAGES
+        releaseSetWithoutReact
       ),
     /@authbound\/react changed but is omitted from the affected release set/
   );
@@ -163,6 +152,10 @@ test("ignores package test fixtures when deriving publishable code changes", () 
 });
 
 test("still rejects production source, manifest, and export artifact changes", () => {
+  const releaseSetWithoutReact = AFFECTED_PACKAGES.filter(
+    (packageName) => packageName !== "@authbound/react"
+  );
+
   for (const changedPath of [
     "packages/react/src/index.tsx",
     "packages/react/package.json",
@@ -172,7 +165,7 @@ test("still rejects production source, manifest, and export artifact changes", (
       () =>
         assertChangedPublishablePackagesIncluded(
           [changedPath],
-          AFFECTED_PACKAGES
+          releaseSetWithoutReact
         ),
       /@authbound\/react changed but is omitted from the affected release set/
     );
@@ -195,6 +188,8 @@ test("packed consumers check concrete adapter values and dependency declarations
     /const adapterExport = \$\{adapterTypeValues\[packageName\]\} satisfies AdapterExport/
   );
   assert.match(source, /routes:\s*\{/);
+  assert.doesNotMatch(source, /createCompatibilityAdapterTarball/);
+  assert.match(source, /for \(const packageName of ADAPTER_PACKAGES\)/);
 });
 
 test("release workflow fetches the base tag history", () => {

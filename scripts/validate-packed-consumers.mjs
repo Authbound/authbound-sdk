@@ -1,6 +1,5 @@
 import { spawnSync } from "node:child_process";
 import {
-  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -19,16 +18,12 @@ import {
   summarizeExternalDiagnostics,
 } from "./packed-consumer-typecheck.mjs";
 import {
+  ADAPTER_PACKAGES,
   AFFECTED_PACKAGES,
   assertInternalPins,
-  BASE_RELEASE_TAG,
-  BASE_VERSION,
-  classifyPublishablePackageChange,
-  expectedUnchangedAdapters,
   loadWorkspaceManifests,
   packageDirectory,
   RELEASE_VERSION,
-  unchangedAdapters,
 } from "./release-set.mjs";
 
 function diagnosticBaseline(filePath, code, messages) {
@@ -237,95 +232,6 @@ function readFileManifest(packageDirectoryPath) {
   );
 }
 
-function baseManifest(packageName) {
-  const manifestPath = `packages/${packageDirectory(packageName)}/package.json`;
-  return JSON.parse(
-    run("git", ["show", `${BASE_RELEASE_TAG}:${manifestPath}`])
-  );
-}
-
-function materializeBaseManifest(packageName) {
-  const manifest = baseManifest(packageName);
-  for (const field of ["dependencies", "optionalDependencies"]) {
-    for (const [dependency, range] of Object.entries(manifest[field] ?? {})) {
-      if (
-        dependency.startsWith("@authbound/") &&
-        range.startsWith("workspace:")
-      ) {
-        manifest[field][dependency] = baseManifest(dependency).version;
-      }
-    }
-  }
-  if (manifest.scripts) {
-    delete manifest.scripts.prepack;
-  }
-  return manifest;
-}
-
-function assertAdapterSourceAndExportsUnchanged(packageName) {
-  const directory = `packages/${packageDirectory(packageName)}`;
-  const changedFiles = run("git", [
-    "diff",
-    "--name-only",
-    BASE_RELEASE_TAG,
-    "--",
-    directory,
-  ])
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .filter(
-      (filePath) => classifyPublishablePackageChange(filePath) === packageName
-    );
-
-  if (changedFiles.length > 0) {
-    throw new Error(
-      `${packageName} cannot remain unchanged because tracked source/export files changed: ${changedFiles.join(", ")}`
-    );
-  }
-}
-
-function createCompatibilityAdapterTarball(packageName, outputDirectory) {
-  assertAdapterSourceAndExportsUnchanged(packageName);
-  const directoryName = packageDirectory(packageName);
-  const sourceDirectory = join(sdkRoot, "packages", directoryName);
-  const compatibilityDirectory = join(
-    tempRoot,
-    "compatibility-sources",
-    directoryName
-  );
-  cpSync(sourceDirectory, compatibilityDirectory, {
-    recursive: true,
-    filter: (source) => {
-      const basename = source.split(sep).at(-1);
-      return basename !== "node_modules" && basename !== ".turbo";
-    },
-  });
-
-  const manifest = materializeBaseManifest(packageName);
-  writeJson(join(compatibilityDirectory, "package.json"), manifest);
-  const tarballPath = packPackage(
-    packageName,
-    compatibilityDirectory,
-    outputDirectory,
-    { npm_config_ignore_scripts: "true" }
-  );
-  const packedManifest = readPackedManifest(tarballPath);
-
-  for (const field of ["dependencies", "optionalDependencies"]) {
-    for (const [dependency, range] of Object.entries(
-      packedManifest[field] ?? {}
-    )) {
-      if (dependency.startsWith("@authbound/") && range !== BASE_VERSION) {
-        throw new Error(
-          `${packageName} compatibility tarball ${dependency} must be pinned to ${BASE_VERSION}; got ${range}`
-        );
-      }
-    }
-  }
-
-  return { manifest: packedManifest, tarballPath };
-}
-
 const adapterTypeImports = {
   "@authbound/nextjs":
     'import type { AuthboundConfig as AdapterExport } from "@authbound/nextjs";',
@@ -500,9 +406,13 @@ function validateAdapterConsumer(
     },
   };
   writeJson(join(fixtureDirectory, "package.json"), manifest);
+  const releaseOverrides = AFFECTED_PACKAGES.map(
+    (dependency) =>
+      `  '${dependency}@${RELEASE_VERSION}': file:${affectedTarballs[dependency]}`
+  ).join("\n");
   writeFileSync(
     join(fixtureDirectory, "pnpm-workspace.yaml"),
-    `overrides:\n  '@authbound/core@${RELEASE_VERSION}': file:${affectedTarballs["@authbound/core"]}\n`
+    `overrides:\n${releaseOverrides}\n`
   );
   writeJson(join(fixtureDirectory, "tsconfig.json"), {
     compilerOptions: {
@@ -562,20 +472,12 @@ function validateAdapterConsumer(
   run(process.execPath, ["dependency-tree.mjs"], { cwd: fixtureDirectory });
   run(process.execPath, ["runtime.mjs"], { cwd: fixtureDirectory });
   console.log(
-    `${packageName}@${BASE_VERSION} passed side-by-side dependency-tree, type, and runtime checks with core/server@${RELEASE_VERSION}`
+    `${packageName}@${RELEASE_VERSION} passed dependency-tree, type, and runtime checks with aligned Authbound dependencies`
   );
 }
 
 try {
   const manifests = loadWorkspaceManifests(sdkRoot);
-  const expectedAdapters = expectedUnchangedAdapters(AFFECTED_PACKAGES).sort();
-  const adapters = unchangedAdapters(manifests, AFFECTED_PACKAGES);
-  if (JSON.stringify(adapters) !== JSON.stringify(expectedAdapters)) {
-    throw new Error(
-      `Expected unchanged adapters ${expectedAdapters.join(", ")}; got ${adapters.join(", ")}`
-    );
-  }
-
   const tarballDirectory = join(tempRoot, "tarballs");
   mkdirSync(tarballDirectory, { recursive: true });
   const affectedTarballs = Object.fromEntries(
@@ -612,16 +514,12 @@ try {
     `Affected tarballs contain exact ${RELEASE_VERSION} versions and internal pins`
   );
 
-  for (const packageName of adapters) {
-    const { manifest, tarballPath } = createCompatibilityAdapterTarball(
-      packageName,
-      tarballDirectory
-    );
+  for (const packageName of ADAPTER_PACKAGES) {
     validateAdapterConsumer(
       packageName,
       affectedTarballs,
-      tarballPath,
-      manifest
+      affectedTarballs[packageName],
+      packedAffectedManifests[packageName]
     );
   }
 } finally {

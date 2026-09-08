@@ -98,5 +98,8 @@ export async function ensureEmployeeCredentialDefinition(
     }
   }
 
-  return authboundClient.issuer.credentialDefinitions.create(expected);
+  return authboundClient.issuer.credentialDefinitions.create({
+    ...expected,
+    idempotencyKey: `create:${credentialDefinitionId}:v1`,
+  });
 }

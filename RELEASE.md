@@ -6,11 +6,10 @@ release repeatable.
 
 ## Version Policy
 
-- `scripts/release-set.mjs` is the source of truth for the affected package set,
-  dependency closure, release version, and compatible unchanged adapters.
-- Only affected packages are versioned and published for a release. Unchanged
-  adapters retain their existing version after the packed-consumer gate proves
-  source/export, dependency-tree, type, and runtime compatibility.
+- `scripts/release-set.mjs` is the source of truth for the dependency-closed
+  package set and release version.
+- Publish the interdependent Authbound packages as one coherent version set so
+  framework adapters cannot resolve an older core or server runtime.
 - Compatible fixes use patch releases; breaking pre-1.0 changes use minor
   releases with a separate release plan.
 - The current breaking-contract baseline is `0.3.0`; compatible fixes use
@@ -41,10 +40,10 @@ Use short conventional prefixes so release notes stay scannable:
 ## Release Checklist
 
 1. Merge all SDK fixes intended for the release into `main`.
-2. Update the affected package set and release version in
-   `scripts/release-set.mjs`, then bump exactly those package manifests. Keep
-   internal source dependencies as `workspace:*`; packed manifests must rewrite
-   affected internal dependencies to the exact release version.
+2. Update the release version in `scripts/release-set.mjs`, then bump every
+   package in its dependency-closed release set. Keep internal source
+   dependencies as `workspace:*`; packed manifests must rewrite them to the
+   exact release version.
 3. Update `CHANGELOG.md` with the customer-visible changes.
 4. Run:
 
@@ -53,10 +52,10 @@ Use short conventional prefixes so release notes stay scannable:
    pnpm release:check
    ```
 
-5. Confirm `release:check` packed the affected packages into an isolated
-   consumer, compiled the public lifecycle APIs, and proved each unchanged
-   adapter side-by-side against its base-version dependency tree without
-   workspace links or live Authbound requests.
+5. Confirm `release:check` packed the release set into isolated consumers,
+   compiled the public lifecycle APIs, and proved each framework adapter
+   resolves the exact release-version Authbound dependencies without workspace
+   links or live Authbound requests.
 6. Commit the version and changelog update.
 7. Tag the exact release commit:
 

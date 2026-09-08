@@ -296,6 +296,35 @@ describe("issuer-agent-pension example", () => {
     );
   });
 
+  it("uses one stable create idempotency key across concurrent first use", async () => {
+    const create = mockFunction(
+      async (options: CreateCredentialDefinitionOptions) =>
+        credentialDefinition(options.credentialDefinitionId)
+    );
+    const client = createMockClient({
+      credentialDefinitions: {
+        get: async () => {
+          throw new AuthboundClientError(
+            "Credential definition not found",
+            "credential_definition_not_found",
+            404
+          );
+        },
+        create,
+      },
+    });
+
+    await Promise.all([
+      createPensionCredentialDefinition(client, "pension-credential"),
+      createPensionCredentialDefinition(client, "pension-credential"),
+    ]);
+
+    assert.deepEqual(
+      create.calls.map(([options]) => options.idempotencyKey),
+      ["create:pension-credential:v1", "create:pension-credential:v1"]
+    );
+  });
+
   it("rethrows untyped not-found-shaped errors without creating", async () => {
     const untypedNotFound = Object.assign(new Error("not found"), {
       code: "credential_definition_not_found",

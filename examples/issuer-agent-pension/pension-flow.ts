@@ -143,7 +143,10 @@ export async function createPensionCredentialDefinition(
     if (!isCredentialDefinitionNotFound(error)) {
       throw error;
     }
-    return authboundClient.issuer.credentialDefinitions.create(expected);
+    return authboundClient.issuer.credentialDefinitions.create({
+      ...expected,
+      idempotencyKey: `create:${credentialDefinitionId}:v1`,
+    });
   }
 }
 

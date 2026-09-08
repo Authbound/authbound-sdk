@@ -236,6 +236,20 @@ const PublicValidationDetailsSchema = z
   })
   .strict();
 
+const PublicClaimNamesSchema = z.array(z.string().max(256)).max(256);
+
+const PublicClaimNameDetailsSchema = z
+  .object({
+    unsupportedClaimNames: PublicClaimNamesSchema.optional(),
+    missingMandatoryClaims: PublicClaimNamesSchema.optional(),
+  })
+  .strict();
+
+const PublicErrorDetailsSchema = z.union([
+  PublicValidationDetailsSchema,
+  PublicClaimNameDetailsSchema,
+]);
+
 const CredentialDefinitionClaimSchema = z
   .object({
     name: z.string().max(256),
@@ -1588,7 +1602,7 @@ function errorDetailsFromApiResponse(
   publicError: Record<string, unknown> | undefined,
   body: unknown
 ): unknown {
-  const parsed = PublicValidationDetailsSchema.safeParse(publicError?.details);
+  const parsed = PublicErrorDetailsSchema.safeParse(publicError?.details);
   return parsed.success ? parsed.data : summarizeForDebug(body);
 }
 

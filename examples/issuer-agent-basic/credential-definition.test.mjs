@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { AuthboundClientError } from "@authbound/server";
 import { ensureEmployeeCredentialDefinition } from "./credential-definition.mjs";
 
 function mockFunction(implementation) {
@@ -65,6 +66,39 @@ function createClient(definition, publish) {
 }
 
 describe("issuer-agent-basic credential-definition recovery", () => {
+  it("uses one stable create idempotency key across concurrent first use", async () => {
+    const create = mockFunction(async (options) =>
+      employeeDefinition({
+        credentialDefinitionId: options.credentialDefinitionId,
+        lifecycleStatus: "published",
+      })
+    );
+    const client = {
+      issuer: {
+        credentialDefinitions: {
+          get: async () => {
+            throw new AuthboundClientError(
+              "Credential definition not found",
+              "credential_definition_not_found",
+              404
+            );
+          },
+          create,
+        },
+      },
+    };
+
+    await Promise.all([
+      ensureEmployeeCredentialDefinition(client, "employee_badge_v1"),
+      ensureEmployeeCredentialDefinition(client, "employee_badge_v1"),
+    ]);
+
+    assert.deepEqual(
+      create.calls.map(([options]) => options.idempotencyKey),
+      ["create:employee_badge_v1:v1", "create:employee_badge_v1:v1"]
+    );
+  });
+
   it("publishes a matching owned employee draft", async () => {
     const publish = mockFunction(async (credentialDefinitionId) => ({
       ...employeeDefinition({ lifecycleStatus: "published" }),

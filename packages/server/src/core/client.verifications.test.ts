@@ -943,6 +943,36 @@ describe("AuthboundClient verifications API", () => {
     });
   });
 
+  it("preserves structured public claim-name details", async () => {
+    const details = {
+      unsupportedClaimNames: ["Person.nickname"],
+      missingMandatoryClaims: ["Person.family_name"],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          {
+            object: "error",
+            code: "invalid_request",
+            message: "Credential claims are invalid",
+            details,
+          },
+          400
+        )
+      )
+    );
+
+    await expect(
+      createClient().issuer.credentialDefinitions.publish("employee_badge_v1")
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "invalid_request",
+      statusCode: 400,
+      details,
+    });
+  });
+
   it.each([
     [
       "an extra issue property",

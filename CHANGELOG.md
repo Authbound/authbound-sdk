@@ -15,10 +15,14 @@ All customer-visible changes to the Authbound public SDK are recorded here.
 
 ### Changes
 
+- Release core, server, React, Vue, Next.js, and Nuxt together at `0.3.0` so
+  every framework adapter resolves the updated runtime contracts.
+- Preserve structured unsupported and missing claim names from public API
+  errors so issuer integrations can correct rejected credential payloads.
 - Document credential-definition lifecycle recovery for issuer examples: a
-  known owned draft can be published with an idempotency key, while published
-  definitions are immutable and archived definitions require a new ID and VCT
-  version.
+  known owned draft can be published with an idempotency key, and concurrent
+  first-use creation reuses a deterministic key. Published definitions are
+  immutable and archived definitions require a new ID and VCT version.
 - Pass verification `expiresAt` through status subscriptions so SSE fallback
   polling can continue beyond five minutes when valid, stops at the
   authoritative verification expiry, and preserves request abort and cleanup

@@ -4,10 +4,6 @@ import { join } from "node:path";
 export const BASE_RELEASE_TAG = "sdk-v0.2.2";
 export const BASE_VERSION = "0.2.2";
 export const RELEASE_VERSION = "0.3.0";
-export const AFFECTED_PACKAGES = Object.freeze([
-  "@authbound/core",
-  "@authbound/server",
-]);
 export const PUBLISHABLE_PACKAGES = Object.freeze([
   "@authbound/core",
   "@authbound/server",
@@ -16,6 +12,7 @@ export const PUBLISHABLE_PACKAGES = Object.freeze([
   "@authbound/nextjs",
   "@authbound/nuxt",
 ]);
+export const AFFECTED_PACKAGES = PUBLISHABLE_PACKAGES;
 export const ADAPTER_PACKAGES = Object.freeze([
   "@authbound/nextjs",
   "@authbound/nuxt",
