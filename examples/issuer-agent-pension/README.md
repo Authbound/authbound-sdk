@@ -23,7 +23,7 @@ cd examples/issuer-agent-pension
 cp .env.example .env.local
 ```
 
-Set `AUTHBOUND_SECRET_KEY` and `AUTHBOUND_PUBLISHABLE_KEY` in `.env.local`, then:
+Set `AUTHBOUND_SECRET_KEY` and `AUTHBOUND_PUBLISHABLE_KEY` in `.env.local`. Set `AUTHBOUND_API_URL` to target your deployment, then:
 
 ```sh
 pnpm dev
@@ -73,3 +73,31 @@ This example owns the exact complete `pension-credential` definition. Its recove
 See `.env.example`. Verification status polling requires `AUTHBOUND_PUBLISHABLE_KEY`.
 
 Verification uses policy `pol_authbound_pension_v1` with provider `eudi`.
+
+### API environment
+
+Set `AUTHBOUND_API_URL` to your API deployment and use credentials for that
+environment. See `.env.example` for the Authbound staging URL. Keep
+`AUTHBOUND_SECRET_KEY` in the server's environment or `.env.local`.
+
+### SDK and API versions
+
+Run this example with its workspace SDK dependencies. This checkout uses server
+SDK 0.3.0 and API contract revision `v1.2026-08-26.1`, including credential-definition
+lifecycle operations. Do not substitute SDK 0.2.2 into this source: older responses
+can omit lifecycle status. A missing status indicates incompatible versions, not
+an archived definition. Use an API deployment supporting the workspace contract;
+this example does not bypass lifecycle validation.
+
+### Findy Wallet Tester
+
+The Python tester's existing Authbound provider calls this demo's `POST /offer`
+and `POST /verify`. Configure its Authbound `base_url` with the reachable **demo
+URL**, not the raw Gateway URL. The tester does not use the JavaScript SDK or need
+the demo's API keys. The demo uses the SDK and server-side keys to obtain the
+wallet links consumed by the tester.
+
+Updating this repository does not update a hosted demo automatically. Its operator
+must deploy the updated source and configure the keys and API URLs. The routes
+remain compatible with the tester; the source and version of a separately hosted
+Findynet instance must be confirmed with its operator.

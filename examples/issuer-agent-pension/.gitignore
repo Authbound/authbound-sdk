@@ -1,2 +1,3 @@
+# Local environment configuration and installed dependencies
 .env.local
 node_modules/

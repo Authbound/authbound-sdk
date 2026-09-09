@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterEach, describe, it } from "node:test";
+import { afterEach, describe, it, mock } from "node:test";
 import type {
   ApiVerificationStatus,
   AuthboundClient,
@@ -211,6 +211,8 @@ function createMockClient(options: {
 
 describe("issuer-agent-pension example", () => {
   afterEach(() => {
+    mock.restoreAll();
+    delete process.env.AUTHBOUND_API_URL;
     delete process.env.AUTHBOUND_SECRET_KEY;
     delete process.env.AUTHBOUND_PUBLISHABLE_KEY;
   });
@@ -430,6 +432,102 @@ describe("issuer-agent-pension example", () => {
       () => createPensionCredentialDefinition(client, "pension-credential"),
       /Create a new credential definition version/
     );
+  });
+
+  for (const lifecycleStatus of [undefined, "unexpected"]) {
+    it(`rejects incompatible lifecycle status ${String(lifecycleStatus)} without publishing`, async () => {
+      const publish = mockFunction(async () =>
+        credentialDefinition("pension-credential")
+      );
+      const create = mockFunction(async () =>
+        credentialDefinition("pension-credential")
+      );
+      const client = createMockClient({
+        credentialDefinitions: {
+          get: async () =>
+            ({
+              ...credentialDefinition("pension-credential"),
+              lifecycleStatus,
+            }) as unknown as CredentialDefinition,
+          publish,
+          create,
+        },
+      });
+      await assert.rejects(
+        () => createPensionCredentialDefinition(client, "pension-credential"),
+        /compatible SDK and API versions/
+      );
+      assert.equal(publish.calls.length, 0);
+      assert.equal(create.calls.length, 0);
+    });
+  }
+
+  it("uses one configured API and secret key for issuance and verification", async () => {
+    process.env.AUTHBOUND_SECRET_KEY = "sk_test_demo_placeholder";
+    process.env.AUTHBOUND_API_URL = "https://api.example.test";
+    const originalFetch = globalThis.fetch;
+    const requests: Request[] = [];
+    mock.method(
+      globalThis,
+      "fetch",
+      async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+        const request = new Request(input, init);
+        if (request.url.startsWith("https://api.example.test/")) {
+          requests.push(request);
+          if (request.method === "GET") {
+            return Response.json(credentialDefinition("pension-credential"));
+          }
+          if (
+            new URL(request.url).pathname === "/v1/openid4vc/issuance/offer"
+          ) {
+            return Response.json(issuanceOffer());
+          }
+          return Response.json({
+            object: "verification",
+            id: "vrf_test",
+            status: "created",
+            policy_id: "pol_authbound_pension_v1",
+            env_mode: "test",
+            created_at: "2026-01-01T00:00:00.000Z",
+            expires_at: "2999-01-01T00:00:00.000Z",
+            client_token: "client_token_test",
+            client_action: {
+              expires_at: "2999-01-01T00:00:00.000Z",
+              kind: "qr",
+              data: "openid4vp://authorize?request_uri=https%3A%2F%2Fexample.test",
+            },
+          });
+        }
+        return originalFetch(input, init);
+      }
+    );
+    await withAppServer(createApp(), async (baseUrl) => {
+      const offer = await fetch(`${baseUrl}/offer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: "kael" }),
+      });
+      const presentation = await fetch(`${baseUrl}/verify`, { method: "POST" });
+      assert.equal(offer.status, 201);
+      assert.equal(presentation.status, 201);
+      assert.deepEqual(
+        requests.map((request) => [
+          request.method,
+          new URL(request.url).pathname,
+        ]),
+        [
+          ["GET", "/v1/issuer/credential-definitions/pension-credential"],
+          ["POST", "/v1/openid4vc/issuance/offer"],
+          ["POST", "/v1/verifications"],
+        ]
+      );
+      for (const request of requests) {
+        assert.equal(
+          request.headers.get("X-Authbound-Key"),
+          "sk_test_demo_placeholder"
+        );
+      }
+    });
   });
 
   it("omits JSON-LD language metadata from Authbound issuance claims", async () => {

@@ -136,8 +136,13 @@ export async function createPensionCredentialDefinition(
         { idempotencyKey: `publish:${credentialDefinitionId}:v1` }
       );
     }
+    if (definition.lifecycleStatus === "archived") {
+      throw new Error(
+        "Credential definition is archived. Create a new credential definition version."
+      );
+    }
     throw new Error(
-      "Credential definition is archived. Create a new credential definition version."
+      "Credential definition lifecycle status is missing or unsupported. Use compatible SDK and API versions before issuing credentials."
     );
   } catch (error) {
     if (!isCredentialDefinitionNotFound(error)) {
