@@ -74,17 +74,11 @@ See `.env.example`. Verification status polling requires `AUTHBOUND_PUBLISHABLE_
 
 Verification uses policy `pol_authbound_pension_v1` with provider `eudi`.
 
-### One API client configuration
+### API environment
 
-Issuance and verification use the same `AUTHBOUND_SECRET_KEY` and
-`AUTHBOUND_API_URL`. Use one secret key authorized for issuer read/write and
-verification read/write operations in the selected environment. Obtain the API
-URL from your operator and configure it locally; no testbed URL is prescribed.
-Keep the secret key in the server's environment or `.env.local`.
-
-The existing `AUTHBOUND_PUBLISHABLE_KEY` is a public identifier used for
-verification status polling, not another secret API key. It must belong to the
-same environment as the secret key.
+Set `AUTHBOUND_API_URL` to your API deployment and use credentials for that
+environment. See `.env.example` for the Authbound staging URL. Keep
+`AUTHBOUND_SECRET_KEY` in the server's environment or `.env.local`.
 
 ### SDK and API versions
 
