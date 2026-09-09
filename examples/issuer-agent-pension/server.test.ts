@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterEach, describe, it } from "node:test";
+import { afterEach, describe, it, mock } from "node:test";
 import type {
   ApiVerificationStatus,
   AuthboundClient,
@@ -211,8 +211,11 @@ function createMockClient(options: {
 
 describe("issuer-agent-pension example", () => {
   afterEach(() => {
+    mock.restoreAll();
     delete process.env.AUTHBOUND_SECRET_KEY;
     delete process.env.AUTHBOUND_PUBLISHABLE_KEY;
+    delete process.env.AUTHBOUND_ISSUANCE_SECRET_KEY;
+    delete process.env.AUTHBOUND_ISSUANCE_API_URL;
   });
 
   it("loads pension type codes from JSON fixtures", async () => {
@@ -432,6 +435,130 @@ describe("issuer-agent-pension example", () => {
     );
   });
 
+  for (const lifecycleStatus of [undefined, "unexpected"]) {
+    it(`rejects incompatible lifecycle status ${String(lifecycleStatus)} without publishing`, async () => {
+      const publish = mockFunction(async () =>
+        credentialDefinition("pension-credential")
+      );
+      const create = mockFunction(async () =>
+        credentialDefinition("pension-credential")
+      );
+      const client = createMockClient({
+        credentialDefinitions: {
+          get: async () =>
+            ({
+              ...credentialDefinition("pension-credential"),
+              lifecycleStatus,
+            }) as unknown as CredentialDefinition,
+          publish,
+          create,
+        },
+      });
+      await assert.rejects(
+        () => createPensionCredentialDefinition(client, "pension-credential"),
+        /compatible SDK and API versions/
+      );
+      assert.equal(publish.calls.length, 0);
+      assert.equal(create.calls.length, 0);
+    });
+  }
+
+  it("uses only the issuance client to create an offer", async () => {
+    const get = mockFunction(async () =>
+      credentialDefinition("pension-credential")
+    );
+    const app = createApp({
+      createClient: () => {
+        throw new Error("Verification client must not be used");
+      },
+      createIssuanceClient: () =>
+        createMockClient({ credentialDefinitions: { get } }),
+    });
+    await withAppServer(app, async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/offer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: "kael" }),
+      });
+      assert.equal(response.status, 201);
+      assert.equal(
+        (await response.json()).offer.offerUri,
+        issuanceOffer().offerUri
+      );
+      assert.equal(get.calls.length, 1);
+    });
+  });
+
+  it("sends issuance requests to its configured API with its own key", async () => {
+    process.env.AUTHBOUND_ISSUANCE_SECRET_KEY = "sk_test_issuance_placeholder";
+    process.env.AUTHBOUND_ISSUANCE_API_URL = "https://issuer.example.test";
+    process.env.AUTHBOUND_SECRET_KEY = "sk_test_verification_placeholder";
+    const originalFetch = globalThis.fetch;
+    const requests: Request[] = [];
+    mock.method(
+      globalThis,
+      "fetch",
+      async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+        const request = new Request(input, init);
+        if (request.url.startsWith("https://issuer.example.test/")) {
+          requests.push(request);
+          return Response.json(
+            request.method === "GET"
+              ? credentialDefinition("pension-credential")
+              : issuanceOffer()
+          );
+        }
+        return originalFetch(input, init);
+      }
+    );
+    await withAppServer(createApp(), async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/offer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: "kael" }),
+      });
+      assert.equal(response.status, 201);
+      assert.deepEqual(
+        requests.map((request) => [
+          request.method,
+          new URL(request.url).pathname,
+        ]),
+        [
+          ["GET", "/v1/issuer/credential-definitions/pension-credential"],
+          ["POST", "/v1/openid4vc/issuance/offer"],
+        ]
+      );
+      for (const request of requests) {
+        assert.equal(
+          request.headers.get("X-Authbound-Key"),
+          "sk_test_issuance_placeholder"
+        );
+      }
+    });
+  });
+
+  for (const missing of [
+    "AUTHBOUND_ISSUANCE_SECRET_KEY",
+    "AUTHBOUND_ISSUANCE_API_URL",
+  ]) {
+    it(`fails closed when ${missing} is blank without using the verification client`, async () => {
+      process.env.AUTHBOUND_ISSUANCE_SECRET_KEY = "sk_test_placeholder";
+      process.env.AUTHBOUND_ISSUANCE_API_URL = "https://issuer.example.test";
+      process.env[missing] = "   ";
+      const createClient = mockFunction(() => createMockClient({}));
+      const app = createApp({ createClient });
+      await withAppServer(app, async (baseUrl) => {
+        const response = await fetch(`${baseUrl}/offer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: "kael" }),
+        });
+        assert.equal(response.status, 500);
+        assert.equal(createClient.calls.length, 0);
+      });
+    });
+  }
+
   it("omits JSON-LD language metadata from Authbound issuance claims", async () => {
     const [credential] = await listCredentials();
 
@@ -502,6 +629,7 @@ describe("issuer-agent-pension example", () => {
     );
     const app = createApp({
       createClient: () => createMockClient({ verifications: { create } }),
+      createIssuanceClient: () => createMockClient({}),
     });
 
     await withAppServer(app, async (baseUrl) => {
@@ -609,6 +737,9 @@ describe("issuer-agent-pension example", () => {
         createMockClient({
           verifications: { create, getStatus, getResult },
         }),
+      createIssuanceClient: () => {
+        throw new Error("Issuance client must not be used");
+      },
     });
 
     await withAppServer(app, async (baseUrl) => {

@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
+  AuthboundClient,
   type AuthboundClient as AuthboundClientInstance,
   toBrowserVerificationResponse,
 } from "@authbound/server";
@@ -40,6 +41,7 @@ type CreateClient = () =>
 
 export interface CreateAppOptions {
   createClient?: CreateClient;
+  createIssuanceClient?: CreateClient;
   verificationSessions?: VerificationSessionStore;
 }
 
@@ -128,18 +130,25 @@ async function createDefaultClient(): Promise<AuthboundClientInstance> {
     throw new Error("AUTHBOUND_SECRET_KEY is required");
   }
 
-  const { AuthboundClient } = (await import(
-    "@authbound/server"
-  )) as unknown as {
-    AuthboundClient: new (options: {
-      apiKey: string;
-      apiUrl?: string;
-      debug?: boolean;
-    }) => AuthboundClientInstance;
-  };
   return new AuthboundClient({
     apiKey,
     apiUrl: process.env.AUTHBOUND_API_URL,
+    debug: process.env.AUTHBOUND_DEBUG === "true",
+  });
+}
+
+async function createDefaultIssuanceClient(): Promise<AuthboundClientInstance> {
+  const apiKey = process.env.AUTHBOUND_ISSUANCE_SECRET_KEY?.trim();
+  const apiUrl = process.env.AUTHBOUND_ISSUANCE_API_URL?.trim();
+  if (!apiKey) {
+    throw new Error("AUTHBOUND_ISSUANCE_SECRET_KEY is required");
+  }
+  if (!apiUrl) {
+    throw new Error("AUTHBOUND_ISSUANCE_API_URL is required");
+  }
+  return new AuthboundClient({
+    apiKey,
+    apiUrl,
     debug: process.env.AUTHBOUND_DEBUG === "true",
   });
 }
@@ -358,6 +367,8 @@ export function createApp(options: CreateAppOptions = {}) {
   const app = express();
   const verificationSessions = options.verificationSessions ?? new Map();
   const createClient = options.createClient ?? createDefaultClient;
+  const createIssuanceClient =
+    options.createIssuanceClient ?? createDefaultIssuanceClient;
 
   app.use(express.json({ limit: "64kb" }));
   app.use(express.static(fileURLToPath(new URL("./public", import.meta.url))));
@@ -382,7 +393,9 @@ export function createApp(options: CreateAppOptions = {}) {
         if (!slug) {
           throw new DemoRequestError("Missing pension credential slug", 400);
         }
-        response.status(201).json(await createOffer(slug, createClient));
+        response
+          .status(201)
+          .json(await createOffer(slug, createIssuanceClient));
       })
     )
     .all(methodNotAllowed("POST", "/offer"));

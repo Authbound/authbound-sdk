@@ -23,7 +23,7 @@ cd examples/issuer-agent-pension
 cp .env.example .env.local
 ```
 
-Set `AUTHBOUND_SECRET_KEY` and `AUTHBOUND_PUBLISHABLE_KEY` in `.env.local`, then:
+Set the verification keys (`AUTHBOUND_SECRET_KEY`, `AUTHBOUND_PUBLISHABLE_KEY`) and issuance settings (`AUTHBOUND_ISSUANCE_SECRET_KEY`, `AUTHBOUND_ISSUANCE_API_URL`) in `.env.local`, then:
 
 ```sh
 pnpm dev
@@ -73,3 +73,39 @@ This example owns the exact complete `pension-credential` definition. Its recove
 See `.env.example`. Verification status polling requires `AUTHBOUND_PUBLISHABLE_KEY`.
 
 Verification uses policy `pol_authbound_pension_v1` with provider `eudi`.
+
+### Separate issuance and verification
+
+`POST /offer`, including credential-definition lookup and publication, uses only
+`AUTHBOUND_ISSUANCE_SECRET_KEY` and `AUTHBOUND_ISSUANCE_API_URL`. Both are required;
+missing issuance configuration fails rather than using the verification credentials.
+Existing deployments must set these two variables before updating this example.
+
+`POST /verify`, `GET /status`, and `GET /result` retain `AUTHBOUND_SECRET_KEY`,
+`AUTHBOUND_API_URL`, and `AUTHBOUND_PUBLISHABLE_KEY`. For an entirely isolated
+testbed run, set both API URLs to `https://testbed-api.authbound.io` and use keys
+provisioned for that environment. The issuance key needs issuer read/write access;
+the verification key needs verification read/write access. Keep keys in the
+server's environment or `.env.local`, never in browser code or committed files.
+
+### SDK and API versions
+
+Run this example with its workspace SDK dependencies. This checkout uses server
+SDK 0.3.0 and API contract revision `v1.2026-08-26.1`, including credential-definition
+lifecycle operations. Do not substitute SDK 0.2.2 into this source: older responses
+can omit lifecycle status. A missing status indicates incompatible versions, not
+an archived definition. Use an API deployment supporting the workspace contract;
+this example does not bypass lifecycle validation.
+
+### Findy Wallet Tester
+
+The Python tester's existing Authbound provider calls this demo's `POST /offer`
+and `POST /verify`. Configure its Authbound `base_url` with the reachable **demo
+URL**, not the raw Gateway URL. The tester does not use the JavaScript SDK or need
+the demo's API keys. The demo uses the SDK and server-side keys to obtain the
+wallet links consumed by the tester.
+
+Updating this repository does not update a hosted demo automatically. Its operator
+must deploy the updated source and configure the keys and API URLs. The routes
+remain compatible with the tester; the source and version of a separately hosted
+Findynet instance must be confirmed with its operator.
