@@ -23,7 +23,7 @@ cd examples/issuer-agent-pension
 cp .env.example .env.local
 ```
 
-Set the verification keys (`AUTHBOUND_SECRET_KEY`, `AUTHBOUND_PUBLISHABLE_KEY`) and issuance settings (`AUTHBOUND_ISSUANCE_SECRET_KEY`, `AUTHBOUND_ISSUANCE_API_URL`) in `.env.local`, then:
+Set `AUTHBOUND_SECRET_KEY` and `AUTHBOUND_PUBLISHABLE_KEY` in `.env.local`. Set `AUTHBOUND_API_URL` to target your deployment, then:
 
 ```sh
 pnpm dev
@@ -74,20 +74,17 @@ See `.env.example`. Verification status polling requires `AUTHBOUND_PUBLISHABLE_
 
 Verification uses policy `pol_authbound_pension_v1` with provider `eudi`.
 
-### Separate issuance and verification
+### One API client configuration
 
-`POST /offer`, including credential-definition lookup and publication, uses only
-`AUTHBOUND_ISSUANCE_SECRET_KEY` and `AUTHBOUND_ISSUANCE_API_URL`. Both are required;
-missing issuance configuration fails rather than using the verification credentials.
-Existing deployments must set these two variables before updating this example.
+Issuance and verification use the same `AUTHBOUND_SECRET_KEY` and
+`AUTHBOUND_API_URL`. Use one secret key authorized for issuer read/write and
+verification read/write operations in the selected environment. Obtain the API
+URL from your operator and configure it locally; no testbed URL is prescribed.
+Keep the secret key in the server's environment or `.env.local`.
 
-`POST /verify`, `GET /status`, and `GET /result` retain `AUTHBOUND_SECRET_KEY`,
-`AUTHBOUND_API_URL`, and `AUTHBOUND_PUBLISHABLE_KEY`. For an isolated test
-environment, set each API URL to the corresponding deployment and use keys
-provisioned for that environment. Obtain deployment URLs from your operator.
-The issuance key needs issuer read/write access;
-the verification key needs verification read/write access. Keep keys in the
-server's environment or `.env.local`, never in browser code or committed files.
+The existing `AUTHBOUND_PUBLISHABLE_KEY` is a public identifier used for
+verification status polling, not another secret API key. It must belong to the
+same environment as the secret key.
 
 ### SDK and API versions
 
