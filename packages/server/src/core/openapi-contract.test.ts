@@ -158,7 +158,10 @@ describeWithRootOpenApi("public issuer SDK/OpenAPI contract", () => {
     expect(definitionBaseProperties?.rendering).toEqual({
       $ref: "#/components/schemas/CredentialDefinitionRendering",
     });
-    expect(definitionBaseProperties?.metadata).toMatchObject({
+    expect(definitionBaseProperties?.metadata).toEqual({
+      $ref: "#/components/schemas/PublicMetadata",
+    });
+    expect(getSchema(openApi, "PublicMetadata")).toMatchObject({
       type: "object",
       additionalProperties: { $ref: "#/components/schemas/PublicJson" },
     });
