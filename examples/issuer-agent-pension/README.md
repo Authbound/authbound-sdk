@@ -82,9 +82,10 @@ missing issuance configuration fails rather than using the verification credenti
 Existing deployments must set these two variables before updating this example.
 
 `POST /verify`, `GET /status`, and `GET /result` retain `AUTHBOUND_SECRET_KEY`,
-`AUTHBOUND_API_URL`, and `AUTHBOUND_PUBLISHABLE_KEY`. For an entirely isolated
-testbed run, set both API URLs to `https://testbed-api.authbound.io` and use keys
-provisioned for that environment. The issuance key needs issuer read/write access;
+`AUTHBOUND_API_URL`, and `AUTHBOUND_PUBLISHABLE_KEY`. For an isolated test
+environment, set each API URL to the corresponding deployment and use keys
+provisioned for that environment. Obtain deployment URLs from your operator.
+The issuance key needs issuer read/write access;
 the verification key needs verification read/write access. Keep keys in the
 server's environment or `.env.local`, never in browser code or committed files.
 
