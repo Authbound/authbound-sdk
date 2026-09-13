@@ -138,6 +138,7 @@ describeWithRootOpenApi("public issuer SDK/OpenAPI contract", () => {
       "CreateCredentialDefinitionRequest"
     );
     const definitionBase = getSchema(openApi, "CredentialDefinitionBase");
+    const publicMetadata = getSchema(openApi, "PublicMetadata");
     const definitionBaseProperties = definitionBase.properties as
       | Record<string, OpenApiSchema>
       | undefined;
@@ -161,9 +162,15 @@ describeWithRootOpenApi("public issuer SDK/OpenAPI contract", () => {
     expect(definitionBaseProperties?.metadata).toEqual({
       $ref: "#/components/schemas/PublicMetadata",
     });
-    expect(getSchema(openApi, "PublicMetadata")).toMatchObject({
+    expect(publicMetadata).toMatchObject({
       type: "object",
+      maxProperties: 128,
+      propertyNames: {
+        not: { enum: ["__proto__", "prototype", "constructor"] },
+      },
       additionalProperties: { $ref: "#/components/schemas/PublicJson" },
+      "x-authbound-max-depth": 8,
+      "x-authbound-max-nodes": 1024,
     });
   });
 

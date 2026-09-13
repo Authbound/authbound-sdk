@@ -483,8 +483,10 @@ const OpenId4VcIssuanceOfferSchema = z.object({
   status: OpenId4VcIssuanceStatusSchema,
   credentialDefinitionId: z.string(),
   credentials: z.array(OpenId4VcIssuanceCredentialSchema),
-  offerUri: z.string(),
-  offerQrUri: z.string(),
+  offerUri: z.string().nullable(),
+  offerQrUri: z.string().nullable(),
+  credentialStatus: z.enum(["valid", "revoked"]).nullable().optional(),
+  revokedAt: z.string().nullable().optional(),
   credentialIssuer: z.string(),
   issuanceMode: z.enum(["InTime", "Deferred"]),
   txCodeRequired: z.boolean(),
@@ -878,6 +880,7 @@ export interface CreateOpenId4VcIssuanceOfferOptions {
   credentialDefinitionId?: string;
   vct?: string;
   claims: Record<string, unknown>;
+  grantType?: "pre_authorized_code" | "authorization_code";
   issuanceMode?: "InTime" | "Deferred";
   txCode?: string;
   urlScheme?: "openid-credential-offer://" | "haip://";
@@ -1821,6 +1824,15 @@ class OpenId4VcIssuanceApi {
     const response = await this.client.request<unknown>(
       "POST",
       `/v1/openid4vc/issuance/${encodePathSegment(issuanceId)}/cancel`
+    );
+    return parseApiResponse(OpenId4VcIssuanceOfferSchema, response);
+  }
+
+  async revoke(issuanceId: string): Promise<OpenId4VcIssuanceOffer> {
+    assertNonEmpty(issuanceId, "issuanceId");
+    const response = await this.client.request<unknown>(
+      "POST",
+      `/v1/openid4vc/issuance/${encodePathSegment(issuanceId)}/revoke`
     );
     return parseApiResponse(OpenId4VcIssuanceOfferSchema, response);
   }

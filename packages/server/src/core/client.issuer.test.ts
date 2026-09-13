@@ -719,6 +719,103 @@ describe("AuthboundClient issuer APIs", () => {
     });
   });
 
+  it.each([
+    "pre_authorized_code",
+    "authorization_code",
+  ] as const)("sends OpenID4VC issuance grant type %s", async (grantType) => {
+    const fetchMock = vi.fn(async () => jsonResponse(offerResponse));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createClient().openId4Vc.issuance.createOffer({
+      credentialDefinitionId: "event-ticket-admission-v1",
+      claims: { event_id: "event_123", ticket_id: "ticket_123" },
+      grantType,
+    });
+
+    const [, request] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(request.headers).toMatchObject({
+      "Authbound-Contract-Revision": "v1.2026-09-01.1",
+    });
+    expect(JSON.parse(request.body as string)).toMatchObject({
+      grantType,
+    });
+  });
+
+  it.each([
+    { credentialStatus: null, revokedAt: null },
+    { credentialStatus: "valid" as const, revokedAt: null },
+    { credentialStatus: "revoked" as const, revokedAt: timestamp },
+  ])("parses nullable customer-controlled issuance status $credentialStatus", async ({
+    credentialStatus,
+    revokedAt,
+  }) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          ...offerResponse,
+          credentialDefinitionId: "event-ticket-admission-v1",
+          offerUri: null,
+          offerQrUri: null,
+          credentialStatus,
+          revokedAt,
+        })
+      )
+    );
+
+    const result = await createClient().openId4Vc.issuance.get(
+      "iss_customer_controlled"
+    );
+
+    expect(result).toMatchObject({
+      offerUri: null,
+      offerQrUri: null,
+      credentialStatus,
+      revokedAt,
+    });
+  });
+
+  it("preserves hosted issuance responses without credential status fields", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(offerResponse))
+    );
+
+    const result = await createClient().openId4Vc.issuance.get("iss_hosted");
+
+    expect(result.credentialStatus).toBeUndefined();
+    expect(result.revokedAt).toBeUndefined();
+  });
+
+  it("rejects invalid issuance credential status and omitted offer links", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({ ...offerResponse, credentialStatus: "suspended" })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ ...offerResponse, offerUri: undefined })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createClient();
+    await expect(
+      client.openId4Vc.issuance.get("iss_bad_status")
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "INVALID_RESPONSE",
+    });
+    await expect(
+      client.openId4Vc.issuance.get("iss_missing_offer")
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "INVALID_RESPONSE",
+    });
+  });
+
   it("lists, gets, updates, and cancels issuance sessions with the public paths", async () => {
     const fetchMock = vi
       .fn()
@@ -754,6 +851,93 @@ describe("AuthboundClient issuer APIs", () => {
       [`${apiUrl}/v1/openid4vc/issuance/iss_123`, "PATCH"],
       [`${apiUrl}/v1/openid4vc/issuance/iss_123/cancel`, "POST"],
     ]);
+  });
+
+  it("revokes an issuance through the encoded public path and parses the updated resource", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        ...offerResponse,
+        status: "credential_issued",
+        offerUri: null,
+        offerQrUri: null,
+        credentialStatus: "revoked",
+        revokedAt: timestamp,
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await createClient().openId4Vc.issuance.revoke("iss_1/2");
+
+    expect(result).toMatchObject({
+      status: "credential_issued",
+      credentialStatus: "revoked",
+      revokedAt: timestamp,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${apiUrl}/v1/openid4vc/issuance/iss_1%2F2/revoke`,
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("validates revoke IDs and preserves public error mapping", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(
+        {
+          object: "error",
+          code: "issuance_not_revocable",
+          message: "Issuance request conflicts with the current state",
+        },
+        409
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      createClient().openId4Vc.issuance.revoke("")
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "VALIDATION_ERROR",
+      statusCode: 400,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await expect(
+      createClient().openId4Vc.issuance.revoke("iss_123")
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "issuance_not_revocable",
+      statusCode: 409,
+    });
+  });
+
+  it("preserves unsupported issuance option errors and their public parameter", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          {
+            object: "error",
+            code: "unsupported_issuance_option",
+            message: "Issuance option is not supported",
+            param: "issuance_mode",
+          },
+          400
+        )
+      )
+    );
+
+    await expect(
+      createClient().openId4Vc.issuance.createOffer({
+        credentialDefinitionId: "event-ticket-admission-v1",
+        claims: { event_id: "event_123", ticket_id: "ticket_123" },
+        issuanceMode: "Deferred",
+      })
+    ).rejects.toMatchObject({
+      name: "AuthboundClientError",
+      code: "unsupported_issuance_option",
+      statusCode: 400,
+      details: expect.objectContaining({ param: "issuance_mode" }),
+    });
   });
 
   it("fails closed when the API response does not match the public schema", async () => {
