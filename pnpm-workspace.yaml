@@ -12,7 +12,7 @@ catalog:
   '@types/node': 24.10.1
   tsup: 8.5.0
   typescript: 5.9.2
-  vitest: 4.0.8
+  vitest: 4.1.11
   vue: 3.5.34
   zod: 4.1.12
   sass: ^1.92.1
@@ -23,3 +23,10 @@ catalogs:
     '@types/react-dom': 19.2.0
     react: 19.2.0
     react-dom: 19.2.0
+
+# Security fixes within the existing dependency major versions.
+overrides:
+  'tar@7': '7.5.22'
+  'next@16': '16.3.3'
+  '@nuxt/devtools@3': '3.3.1'
+  shell-quote: '1.10.0'
