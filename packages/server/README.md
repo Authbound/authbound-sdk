@@ -109,7 +109,6 @@ const policy = await authbound.policies.create({
   purpose: "Workspace access",
   credentialDefinitionId: "employee_badge_v1",
   requestedClaims: ["Employee.employee_number", "Employee.department"],
-  returnAttrs: ["Employee.employee_number"],
   idempotencyKey: "policy:employee-badge-check:v1",
 });
 
@@ -119,6 +118,8 @@ const verification = await authbound.verifications.create({
   idempotencyKey: "verification:employee_1001:badge",
 });
 ```
+
+Each selected claim is requested, required, and returned after verification. To require an exact value, use an object such as `{ claim: "Employee.department", values: ["Finance"] }` in `requestedClaims`. Values can be strings, safe integers, or booleans. The returned `policy.returnAttrs` is read-only metadata; passing it to `policies.create` is rejected. Existing saved policies retain their stored output selection.
 
 ## Quick Start
 

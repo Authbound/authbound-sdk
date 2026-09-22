@@ -249,7 +249,6 @@ const policy = await authbound.policies.create({
   purpose: "Pension benefit enrollment",
   credentialDefinitionId: "pension_credential_v1",
   requestedClaims: ["Pension.startDate", "Pension.provider"],
-  returnAttrs: ["Pension.startDate"],
   idempotencyKey: "policy:pension-eligibility:v1",
 });
 
@@ -259,6 +258,8 @@ const verification = await authbound.verifications.create({
   idempotencyKey: "verify_user_123",
 });
 ```
+
+Every selected claim is requested, required, and returned on success. Add an exact-value requirement with `{ claim: "age_over_18", values: [true] }`; allowed values are strings, safe integers, or booleans. `policy.returnAttrs` reports the compiled output keys and is not accepted as a creation option. Existing policy IDs retain their stored output selection.
 
 ## Verifications
 

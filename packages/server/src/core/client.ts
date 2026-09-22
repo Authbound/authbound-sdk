@@ -545,12 +545,15 @@ export interface ListVerificationsOptions {
   endingBefore?: string;
 }
 
+export type PolicyRequestedClaim =
+  | string
+  | { claim: string; values?: (string | number | boolean)[] };
+
 export interface CreatePolicyOptions {
   name: string;
   description?: string;
   purpose?: string;
-  requestedClaims: string[];
-  returnAttrs: string[];
+  requestedClaims: PolicyRequestedClaim[];
   attestationType?: string;
   credentialDefinitionId?: string;
   vct?: string;
@@ -1492,6 +1495,16 @@ function assertProviderPreference(
   return parsed.data;
 }
 
+function assertNoLegacyReturnAttrs(options: CreatePolicyOptions): void {
+  if ("returnAttrs" in options) {
+    throw new AuthboundClientError(
+      "returnAttrs is no longer accepted: selected claims are requested, required, and returned together",
+      "VALIDATION_ERROR",
+      400
+    );
+  }
+}
+
 function assertCreatePolicyTarget(options: CreatePolicyOptions): void {
   const targetCount = [
     options.attestationType,
@@ -1846,6 +1859,7 @@ class PoliciesApi {
   constructor(private readonly client: AuthboundClient) {}
 
   async create(options: CreatePolicyOptions): Promise<Policy> {
+    assertNoLegacyReturnAttrs(options);
     assertNonEmpty(options.name, "name");
     assertCreatePolicyTarget(options);
 
@@ -1854,7 +1868,6 @@ class PoliciesApi {
       ...(options.description ? { description: options.description } : {}),
       ...(options.purpose ? { purpose: options.purpose } : {}),
       requested_claims: options.requestedClaims,
-      return_attrs: options.returnAttrs,
       ...(options.attestationType
         ? {
             attestation_type: options.attestationType,

@@ -56,7 +56,6 @@ describe("AuthboundClient policies API", () => {
       name: "Pension policy",
       purpose: "Check pension eligibility",
       requestedClaims: ["Person.given_name", "Pension.startDate"],
-      returnAttrs: ["Pension.startDate"],
       credentialDefinitionId: "pension_credential_v1",
       idempotencyKey: "idem_123",
     });
@@ -86,7 +85,6 @@ describe("AuthboundClient policies API", () => {
       name: "Pension policy",
       purpose: "Check pension eligibility",
       requested_claims: ["Person.given_name", "Pension.startDate"],
-      return_attrs: ["Pension.startDate"],
       credential_definition_id: "pension_credential_v1",
     });
   });
@@ -131,12 +129,56 @@ describe("AuthboundClient policies API", () => {
       createClient().policies.create({
         name: "Ambiguous",
         requestedClaims: ["age_over_18"],
-        returnAttrs: ["age_over_18"],
         attestationType: "pid",
         credentialDefinitionId: "pid_v1",
       })
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects legacy returnAttrs input with an actionable error", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(policyResponse));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const staleOptions = {
+      name: "Pension policy",
+      requestedClaims: ["Person.given_name"],
+      returnAttrs: [],
+      credentialDefinitionId: "pension_credential_v1",
+    };
+
+    await expect(
+      createClient().policies.create(staleOptions)
+    ).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: expect.stringContaining("returnAttrs is no longer accepted"),
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("sends claim objects with typed values", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(policyResponse, 201));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createClient().policies.create({
+      name: "Age gate",
+      requestedClaims: [{ claim: "age_over_18", values: [true] }],
+      attestationType: "pid",
+      ecosystem: "authbound",
+      format: "dc+sd-jwt",
+    });
+
+    const [, request] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(JSON.parse(request.body as string)).toEqual({
+      name: "Age gate",
+      requested_claims: [{ claim: "age_over_18", values: [true] }],
+      attestation_type: "pid",
+      ecosystem: "authbound",
+      format: "dc+sd-jwt",
+    });
   });
 
   it("rejects non-SD-JWT formats for custom credential policies", async () => {
@@ -147,7 +189,6 @@ describe("AuthboundClient policies API", () => {
       createClient().policies.create({
         name: "Custom mdoc",
         requestedClaims: ["Document.number"],
-        returnAttrs: ["Document.number"],
         vct: "urn:vc:authbound:custom:1.0",
         format: "mso_mdoc",
       })
