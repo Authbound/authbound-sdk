@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AuthboundClient } from "./client";
+import { AuthboundClient, type CreatePolicyOptions } from "./client";
 
 const apiKey = `sk_test_${"x".repeat(32)}`;
 const apiUrl = "https://api.example.com";
@@ -194,5 +194,71 @@ describe("AuthboundClient policies API", () => {
       })
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it.each(
+    [
+      null,
+      [],
+      [""],
+      ["   "],
+      ["x".repeat(257)],
+      Array.from({ length: 257 }, (_, i) => `field${i}`),
+      [null],
+      [{}],
+      [{ claim: "x", values: [] }],
+      [{ claim: "x", values: new Array(101).fill(true) }],
+      ...[
+        Number.NaN,
+        Number.POSITIVE_INFINITY,
+        Number.NEGATIVE_INFINITY,
+        1.5,
+        Number.MAX_SAFE_INTEGER + 1,
+        null,
+        undefined,
+        {},
+        [],
+        1n,
+        new Date(),
+        "x".repeat(2049),
+      ].map((value) => [{ claim: "x", values: [value] }]),
+      ["birthdate", "birth_date"],
+      ["x", { claim: " x " }],
+      [{ claim: "age_over_18", values: [true, false] }],
+      [{ claim: "ticket_valid", values: [false] }],
+    ].map((requestedClaims) => ({ requestedClaims }))
+  )("rejects malformed or ambiguous requestedClaims before HTTP, case %#", async ({
+    requestedClaims,
+  }) => {
+    const options = {
+      name: "Example",
+      vct: "urn:example:custom",
+      requestedClaims,
+    } as unknown as CreatePolicyOptions;
+    await expect(createClient().policies.create(options)).rejects.toMatchObject(
+      { code: "VALIDATION_ERROR", statusCode: 400 }
+    );
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("preserves primitive values and strips unsupported object keys like the API", async () => {
+    const options = {
+      name: "Example",
+      vct: "urn:example:custom",
+      requestedClaims: [
+        {
+          claim: "custom",
+          values: ["", " FI ", true, false, 0, Number.MAX_SAFE_INTEGER],
+          ignored: "unused",
+        },
+      ],
+    };
+    await createClient().policies.create(options);
+    const request = vi.mocked(fetch).mock.calls[0]?.[1];
+    expect(JSON.parse(request?.body as string).requested_claims).toEqual([
+      {
+        claim: "custom",
+        values: ["", " FI ", true, false, 0, Number.MAX_SAFE_INTEGER],
+      },
+    ]);
   });
 });
