@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export const RELEASE_VERSION = "0.3.0";
+export const RELEASE_VERSION = "0.4.0";
 export const PUBLISHABLE_PACKAGES = Object.freeze([
   "@authbound/core",
   "@authbound/server",

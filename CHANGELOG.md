@@ -2,7 +2,28 @@
 
 All customer-visible changes to the Authbound public SDK are recorded here.
 
-## Unreleased
+## 0.4.0 - Unreleased
+
+### Breaking changes
+
+- Remove `returnAttrs` from `policies.create()`. Every selected claim is now
+  requested, required, and returned. Existing saved policies keep their stored
+  output selections. Create a new policy to change its requirements.
+- The matching API rejects `return_attrs` on policy creation. Upgrade policy
+  creation clients together with that API deployment.
+- EUDI PID nationality results retain the credential's array shape. Consumers
+  of those results must handle an array; Authbound PID scalar nationality is
+  unchanged.
+
+### Changes
+
+- Accept typed policy requirements such as
+  `{ claim: "age_over_18", values: [true] }` in `requestedClaims`.
+- Validate requested claims and primitive constraints before sending a request,
+  including duplicate output names and unsafe numeric values.
+- Release all six interdependent packages together at `0.4.0`.
+
+## 0.3.0
 
 ### Breaking changes
 
