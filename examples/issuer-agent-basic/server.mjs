@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { AuthboundClient, AuthboundClientError } from "@authbound/server";
+import { resolvePort } from "./config.mjs";
 import { ensureEmployeeCredentialDefinition } from "./credential-definition.mjs";
 
 const apiKey = process.env.AUTHBOUND_SECRET_KEY;
@@ -128,6 +129,8 @@ const server = createServer(async (request, response) => {
   }
 });
 
-server.listen(3000, () => {
-  console.log("Issuer example running at http://localhost:3000");
+const port = resolvePort(process.env.PORT);
+
+server.listen(port, () => {
+  console.log(`Issuer example running at http://localhost:${port}`);
 });

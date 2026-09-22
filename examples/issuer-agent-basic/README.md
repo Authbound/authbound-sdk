@@ -7,10 +7,23 @@ Small Node server that creates an Authbound credential definition, maps app data
 ```sh
 pnpm install
 cp .env.example .env
-AUTHBOUND_SECRET_KEY=sk_test_... pnpm dev
+# now set AUTHBOUND_SECRET_KEY in .env
+pnpm dev
 ```
 
+`pnpm dev` loads `.env` from this folder when it exists (Node's `--env-file-if-exists=.env`), so you do not need to export environment variables in your shell.
+
 Open `http://localhost:3000`, click **Create wallet offer**, then encode the returned `offerUri` as a QR code or open it with a compatible wallet.
+
+If port 3000 is already in use (for example by the Authbound dashboard), set `PORT=3334` in `.env` and open `http://localhost:3334` instead. `PORT` must be a whole number between 1 and 65535; any other value stops startup with a clear error.
+
+## Configuration
+
+`.env` is local configuration for this example only and is git-ignored:
+
+- `AUTHBOUND_SECRET_KEY` (required): server-side secret key for the Authbound environment you are calling. Keep it on the server.
+- `AUTHBOUND_API_URL` (optional): the Authbound API deployment to call. When unset, the SDK uses its default production URL; set it to target a local or staging API.
+- `PORT` (optional): the port for this example's own local web server. Defaults to 3000.
 
 ## What It Shows
 
