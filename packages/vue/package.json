@@ -42,7 +42,7 @@
     "@types/qrcode": "^1.5.5",
     "typescript": "5.9.2",
     "tsup": "8.5.0",
-    "vitest": "4.0.8"
+    "vitest": "4.1.11"
   },
   "scripts": {
     "build": "tsup src/index.ts --dts --format esm,cjs --clean --no-config && cp src/styles/variables.css dist/styles.css",
