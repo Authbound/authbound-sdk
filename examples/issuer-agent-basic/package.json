@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "predev": "pnpm --filter @authbound/server build",
-    "dev": "node server.mjs",
+    "dev": "node --env-file-if-exists=.env server.mjs",
     "check": "node --check server.mjs",
     "test": "node --test *.test.mjs"
   },

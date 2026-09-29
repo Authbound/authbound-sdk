@@ -49,6 +49,7 @@ function VerifyContent() {
       </nav>
 
       <AuthboundProvider
+        gatewayUrl={process.env.NEXT_PUBLIC_AUTHBOUND_API_URL}
         policyId={asPolicyId(policyId)}
         publishableKey={publishableKey}
       >

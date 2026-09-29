@@ -185,16 +185,17 @@ describeWithRootOpenApi("public issuer SDK/OpenAPI contract", () => {
       | Record<string, OpenApiSchema>
       | undefined;
 
-    expect(createPolicyRequest.required).toEqual([
-      "name",
-      "requested_claims",
-      "return_attrs",
-    ]);
+    expect(createPolicyRequest.required).toEqual(["name", "requested_claims"]);
+    expect(createPolicyRequest.not).toEqual({ required: ["return_attrs"] });
+    expect(createPolicyProperties?.return_attrs).toBeUndefined();
     expect(createPolicyProperties?.credential_definition_id).toMatchObject({
       type: "string",
     });
     expect(createPolicyProperties?.requested_claims).toMatchObject({
       type: "array",
+      items: {
+        oneOf: [{ type: "string" }, { type: "object", required: ["claim"] }],
+      },
     });
     expect(policy.required).toContain("verification_config_id");
     expect(policyProperties?.object).toMatchObject({

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "cd ../.. && biome check examples/next-example",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@authbound/nextjs": "workspace:*",

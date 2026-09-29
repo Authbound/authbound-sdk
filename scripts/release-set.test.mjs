@@ -70,8 +70,8 @@ test("rejects a stale affected internal dependency pin", () => {
   const manifests = createManifests({ serverCoreVersion: "0.2.2" });
 
   assert.throws(
-    () => assertInternalPins(manifests, "@authbound/server", "0.3.0"),
-    /@authbound\/core must be pinned to 0\.3\.0/
+    () => assertInternalPins(manifests, "@authbound/server", RELEASE_VERSION),
+    /@authbound\/core must be pinned to 0\.4\.0/
   );
 });
 
@@ -87,7 +87,7 @@ test("rejects any package version outside the coherent release", () => {
 
   assert.throws(
     () => assertSourceReleaseManifests(manifests),
-    /@authbound\/react must be 0\.3\.0; got 0\.2\.2/
+    /@authbound\/react must be 0\.4\.0; got 0\.2\.2/
   );
 });
 
@@ -115,12 +115,15 @@ test("packed consumers check concrete adapter values and dependency declarations
   assert.match(source, /env: runtimeEnvironment/);
 });
 
-test("Unreleased documents the credential-definition lifecycle breaking changes", () => {
+test("The 0.3.0 notes document credential-definition lifecycle breaking changes", () => {
   const changelog = readFileSync(
     new URL("../CHANGELOG.md", import.meta.url),
     "utf8"
   );
-  const unreleased = changelog.slice(0, changelog.indexOf("## 0.2.2"));
+  const unreleased = changelog.slice(
+    changelog.indexOf("## 0.3.0"),
+    changelog.indexOf("## 0.2.2")
+  );
 
   assert.match(unreleased, /### Breaking changes/);
   assert.match(unreleased, /`create\(\)`[\s\S]*publish by default/);

@@ -545,12 +545,15 @@ export interface ListVerificationsOptions {
   endingBefore?: string;
 }
 
+export type PolicyRequestedClaim =
+  | string
+  | { claim: string; values?: (string | number | boolean)[] };
+
 export interface CreatePolicyOptions {
   name: string;
   description?: string;
   purpose?: string;
-  requestedClaims: string[];
-  returnAttrs: string[];
+  requestedClaims: PolicyRequestedClaim[];
   attestationType?: string;
   credentialDefinitionId?: string;
   vct?: string;
@@ -1492,6 +1495,94 @@ function assertProviderPreference(
   return parsed.data;
 }
 
+function assertNoLegacyReturnAttrs(options: CreatePolicyOptions): void {
+  if ("returnAttrs" in options) {
+    throw new AuthboundClientError(
+      "returnAttrs is no longer accepted: selected claims are requested, required, and returned together",
+      "VALIDATION_ERROR",
+      400
+    );
+  }
+}
+
+const policyClaimAliases = new Map([
+  ["birthdate", "birth_date"],
+  ["date_of_birth", "birth_date"],
+  ["nationalities", "nationality"],
+  ["driving_privileges", "driving_license"],
+  ["age_equal_or_over.18", "age_over_18"],
+]);
+const policyClaimNameSchema = z
+  .string()
+  .min(1)
+  .max(256)
+  .refine((name) => name.trim().length > 0);
+const policyRequestedClaimsSchema = z
+  .array(
+    z.union([
+      policyClaimNameSchema,
+      z.object({
+        claim: policyClaimNameSchema,
+        values: z
+          .array(
+            z.union([
+              z.string().max(2048),
+              z
+                .number()
+                .int()
+                .min(Number.MIN_SAFE_INTEGER)
+                .max(Number.MAX_SAFE_INTEGER),
+              z.boolean(),
+            ])
+          )
+          .min(1)
+          .max(100)
+          .optional(),
+      }),
+    ])
+  )
+  .min(1)
+  .max(256)
+  .superRefine((claims, context) => {
+    const seen = new Set<string>();
+    for (const [index, claim] of claims.entries()) {
+      const name = (typeof claim === "string" ? claim : claim.claim).trim();
+      const key = policyClaimAliases.get(name) ?? name;
+      if (seen.has(key)) {
+        context.addIssue({
+          code: "custom",
+          path: [index],
+          message: `Duplicate output claim: ${key}`,
+        });
+      }
+      seen.add(key);
+      if (
+        (key === "age_over_18" || key === "ticket_valid") &&
+        typeof claim !== "string" &&
+        claim.values?.some((value) => value !== true)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: [index, "values"],
+          message: `${key} requires true`,
+        });
+      }
+    }
+  });
+
+function parsePolicyRequestedClaims(value: unknown): PolicyRequestedClaim[] {
+  const parsed = policyRequestedClaimsSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new AuthboundClientError(
+      "Invalid requestedClaims: select unique claims and use string, safe integer, or boolean values",
+      "VALIDATION_ERROR",
+      400,
+      parsed.error.format()
+    );
+  }
+  return parsed.data;
+}
+
 function assertCreatePolicyTarget(options: CreatePolicyOptions): void {
   const targetCount = [
     options.attestationType,
@@ -1846,15 +1937,16 @@ class PoliciesApi {
   constructor(private readonly client: AuthboundClient) {}
 
   async create(options: CreatePolicyOptions): Promise<Policy> {
+    assertNoLegacyReturnAttrs(options);
     assertNonEmpty(options.name, "name");
     assertCreatePolicyTarget(options);
+    const requestedClaims = parsePolicyRequestedClaims(options.requestedClaims);
 
     const requestBody = {
       name: options.name,
       ...(options.description ? { description: options.description } : {}),
       ...(options.purpose ? { purpose: options.purpose } : {}),
-      requested_claims: options.requestedClaims,
-      return_attrs: options.returnAttrs,
+      requested_claims: requestedClaims,
       ...(options.attestationType
         ? {
             attestation_type: options.attestationType,

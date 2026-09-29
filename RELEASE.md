@@ -12,10 +12,29 @@ release repeatable.
   framework adapters cannot resolve an older core or server runtime.
 - Compatible fixes use patch releases; breaking pre-1.0 changes use minor
   releases with a separate release plan.
-- The current breaking-contract baseline is `0.3.0`; compatible fixes use
-  later `0.3.x` patch releases.
-- SDK tags use `sdk-v<version>`, for example `sdk-v0.3.0`.
+- The published baseline is `0.3.0`; the next breaking release candidate is
+  `0.4.0`. Compatible fixes after that release use `0.4.x` patch releases.
+- SDK tags use `sdk-v<version>`, for example `sdk-v0.4.0`.
 - Breaking SDK changes require a separate release plan before publishing.
+
+### 0.4.0 Breaking-Change Plan
+
+Upgrade all six packages together. Remove `returnAttrs` from calls to
+`policies.create()`; select only the claims the application needs. Selected
+claims are required and returned automatically. Existing saved policies retain
+their stored output selections. Use `{ claim, values }` entries for typed value
+requirements. EUDI PID nationality output is an array; custom scalar fields and
+Authbound PID scalar nationality remain scalar.
+
+The matching API rejects the old `return_attrs` creation field. Before release,
+merge the policy API changes, deploy that exact commit to staging, and record
+candidate SDK smoke evidence for policy creation, typed constraints, retrieval,
+and rejection of malformed constraints. Confirm the existing immigration demo
+policies still verify with the demo's pinned SDK; the demo does not create
+policies. Existing verification and issuance clients do not need a forced upgrade.
+Coordinate the API rollout and the policy-creation client upgrade; do not publish
+or promote until local release checks and hosted CI pass. Record exact API/SDK
+commits, staging evidence, package versions, and the npm publication result.
 
 ### Historical 0.2.0 Breaking-Change Plan
 
@@ -66,8 +85,8 @@ Use short conventional prefixes so release notes stay scannable:
 8. Tag the exact release commit:
 
    ```bash
-   git tag -a sdk-v0.3.0 -m "Authbound SDK 0.3.0"
-   git push origin main sdk-v0.3.0
+   git tag -a sdk-v0.4.0 -m "Authbound SDK 0.4.0"
+   git push origin main sdk-v0.4.0
    ```
 
 9. Wait for the `SDK Release Check` workflow to pass on the tag.

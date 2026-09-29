@@ -37,6 +37,10 @@ NEXT_PUBLIC_AUTHBOUND_PK=pk_test_...
 NEXT_PUBLIC_AUTHBOUND_POLICY_ID=pol_authbound_pension_v1
 ```
 
+For staging or another gateway, set both `AUTHBOUND_API_URL` and
+`NEXT_PUBLIC_AUTHBOUND_API_URL` to the same URL. The server creates verifications;
+the browser connects to that gateway for status updates.
+
 ### 3. Run the development server
 
 ```bash
@@ -52,7 +56,7 @@ src/
 ├── app/
 │   ├── api/
 │   │   └── authbound/
-│   │       └── [...authbound]/
+│   │       └── [[...authbound]]/
 │   │           └── route.ts    # API handlers for session, callback, status
 │   ├── dashboard/
 │   │   └── page.tsx            # Protected: requires verified identity

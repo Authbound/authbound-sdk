@@ -82,8 +82,14 @@ environment. See `.env.example` for the Authbound staging URL. Keep
 
 ### SDK and API versions
 
-Run this example with its workspace SDK dependencies. This checkout uses server
-SDK 0.3.0 and API contract revision `v1.2026-08-26.1`, including credential-definition
+Run this example with its workspace SDK dependencies: `package.json` uses
+`workspace:*`, so `@authbound/server` resolves to the SDK source in this checkout,
+currently the 0.4.0 candidate, and not necessarily the version published on npm.
+When building outside this workspace, pin an SDK release that includes
+credential-definition lifecycle operations.
+
+The workspace candidate sends API contract revision `v1.2026-09-01.1`
+(see `packages/server/src/generated/api-contract.ts`), including credential-definition
 lifecycle operations. Do not substitute SDK 0.2.2 into this source: older responses
 can omit lifecycle status. A missing status indicates incompatible versions, not
 an archived definition. Use an API deployment supporting the workspace contract;

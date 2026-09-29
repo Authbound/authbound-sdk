@@ -268,6 +268,13 @@ const definition = {
   claims: [{ path: ["employeeId"], mandatory: true }],
 } satisfies CreateCredentialDefinitionOptions;
 
+void client.policies.create({
+  name: "Adult membership",
+  requestedClaims: [{ claim: "age_over_18", values: [true] }, "given_name"],
+  attestationType: "pid",
+  ecosystem: "authbound",
+  format: "dc+sd-jwt",
+});
 void client.issuer.credentialDefinitions.create(definition);
 void client.issuer.credentialDefinitions.createDraft(definition);
 void client.issuer.credentialDefinitions.publish("employee_badge_v2");
