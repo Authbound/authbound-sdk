@@ -12,12 +12,27 @@ release repeatable.
   framework adapters cannot resolve an older core or server runtime.
 - Compatible fixes use patch releases; breaking pre-1.0 changes use minor
   releases with a separate release plan.
-- The published baseline is `0.3.0`; the next breaking release candidate is
-  `0.4.0`. Compatible fixes after that release use `0.4.x` patch releases.
-- SDK tags use `sdk-v<version>`, for example `sdk-v0.4.0`.
+- The published baseline is `0.4.0`; the next breaking release candidate is
+  `0.5.0`. Compatible fixes after that release use `0.5.x` patch releases.
+- SDK tags use `sdk-v<version>`, for example `sdk-v0.5.0`.
 - Breaking SDK changes require a separate release plan before publishing.
 
-### 0.4.0 Breaking-Change Plan
+### 0.5.0 Breaking-Change Plan
+
+Upgrade all six packages together. SDK 0.5.0 sends contract revision
+`v1.2026-10-24.1`; read `claimsStatus`, `claims`, and `claimsSalt` from
+`getResult()` instead of `assertions`, and stop reading `verified_outputs` from
+webhooks. Replace `provider: "vcs"` with `"auto"` or `"eudi"`. Existing SDK
+session cookies lose their `minAge` evidence, so age-gated users verify again.
+
+The API serves `v1.2026-10-24.1` and `v1.2026-09-01.1` side by side, so SDK
+0.4.x clients keep working while integrations upgrade. Before tagging, confirm
+the API deployment serves `v1.2026-10-24.1`, then record end-to-end evidence
+that a verified result returns the requested claims and that
+`verifyClaimsDigest` accepts them. The API supports `v1.2026-09-01.1` until the
+SDK release after 0.5.0, and removes it in the release after that.
+
+### Historical 0.4.0 Breaking-Change Plan
 
 Upgrade all six packages together. Remove `returnAttrs` from calls to
 `policies.create()`; select only the claims the application needs. Selected
@@ -85,8 +100,8 @@ Use short conventional prefixes so release notes stay scannable:
 8. Tag the exact release commit:
 
    ```bash
-   git tag -a sdk-v0.4.0 -m "Authbound SDK 0.4.0"
-   git push origin main sdk-v0.4.0
+   git tag -a sdk-v0.5.0 -m "Authbound SDK 0.5.0"
+   git push origin main sdk-v0.5.0
    ```
 
 9. Wait for the `SDK Release Check` workflow to pass on the tag.
