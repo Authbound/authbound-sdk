@@ -50,6 +50,7 @@ import {
   PublicVerificationSchema as VerificationSchema,
   PublicVerificationStatusSnapshotSchema as VerificationStatusSchema,
 } from "@authbound/core";
+import { createRemoteJWKSet, type JWTVerifyGetKey } from "jose";
 import { z } from "zod";
 import {
   AUTHBOUND_API_VERSION,
@@ -58,6 +59,7 @@ import {
   AUTHBOUND_CONTRACT_REVISION_HEADER,
 } from "../generated/api-contract";
 import { redactSensitiveText } from "./error-utils";
+import { type VerifiedResultToken, verifyResultToken } from "./result-token";
 import { verifyWebhookSignature } from "./webhooks";
 
 // ============================================================================
@@ -89,6 +91,12 @@ export interface AuthboundClientConfig {
    * Defaults to false.
    */
   debug?: boolean;
+
+  /**
+   * The `iss` your Authbound deployment signs result tokens with, checked by
+   * `verifications.verifyResultToken`. Defaults to the origin of `apiUrl`.
+   */
+  resultIssuer?: string;
 }
 
 const DEFAULT_API_URL = "https://api.authbound.io";
@@ -1239,6 +1247,8 @@ export class AuthboundClient {
   private readonly apiUrl: string;
   private readonly timeout: number;
   private readonly debug: boolean;
+  private readonly resultIssuer: string;
+  private resultKeys: JWTVerifyGetKey | undefined;
 
   /**
    * Verification APIs.
@@ -1286,6 +1296,7 @@ export class AuthboundClient {
     this.apiUrl = config.apiUrl ?? DEFAULT_API_URL;
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT;
     this.debug = config.debug ?? false;
+    this.resultIssuer = config.resultIssuer ?? new URL(this.apiUrl).origin;
 
     // Initialize sub-APIs
     this.verifications = new VerificationsApi(this);
@@ -1294,6 +1305,16 @@ export class AuthboundClient {
     this.webhooks = new WebhooksApi();
     this.issuer = new IssuerApi(this);
     this.openId4Vc = new OpenId4VcApi(this);
+  }
+
+  /**
+   * The result signing keys from `/v1/jwks`, fetched on first use and cached
+   * by jose, and the expected result token issuer.
+   * @internal
+   */
+  resultTokenTrust(): { keys: JWTVerifyGetKey; issuer: string } {
+    this.resultKeys ??= createRemoteJWKSet(new URL(`${this.apiUrl}/v1/jwks`));
+    return { keys: this.resultKeys, issuer: this.resultIssuer };
   }
 
   /**
@@ -2156,6 +2177,24 @@ class VerificationsApi {
       }
     );
     return parseApiResponse(VerificationSchema, response, mapVerification);
+  }
+
+  /**
+   * Verify a result token from `getResult()` against the deployment's
+   * `/v1/jwks`: ES256 signature, `iss`, `sub` equal to `verificationId`,
+   * `aud` when `audience` is given, and `exp`. Pass the returned token to
+   * `verifyClaimsDigest` to check the claims it commits to.
+   *
+   * @throws ResultTokenVerificationError when any check fails.
+   */
+  verifyResultToken(
+    resultToken: string,
+    options: { verificationId: string; audience?: string }
+  ): Promise<VerifiedResultToken> {
+    return verifyResultToken(resultToken, {
+      ...this.client.resultTokenTrust(),
+      ...options,
+    });
   }
 
   /**

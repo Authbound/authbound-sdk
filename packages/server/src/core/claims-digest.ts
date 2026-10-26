@@ -1,4 +1,7 @@
-import { decodeJwt } from "jose";
+import {
+  isVerifiedResultToken,
+  type VerifiedResultToken,
+} from "./result-token";
 
 // In a `u` regex a surrogate pair is one code point, so only unpaired halves match.
 const LONE_SURROGATE = /[\uD800-\uDFFF]/u;
@@ -52,21 +55,28 @@ async function sha256Hex(input: string): Promise<string> {
 
 /**
  * Check that `claims` and `claimsSalt` from a verification result are the
- * ones the result token commits to: its `claims_sha256` must equal the
+ * ones a verified result token commits to: its `claims_sha256` must equal the
  * SHA-256 of the RFC 8785 canonical JSON `{"claims": claims, "salt": claimsSalt}`.
  *
- * This does not verify the token signature. When the token reaches you other
- * than in the same secret-key result response, verify it against `/v1/jwks`
- * first.
+ * Pass the token `verifyResultToken` (or `client.verifications.verifyResultToken`)
+ * returned, so the digest comes from a token whose signature was checked. A
+ * match then proves the claims are the ones Authbound signed for, also when
+ * you stored them or received them from someone else.
  *
- * @throws TypeError when the claims contain a value JSON cannot represent.
+ * @throws TypeError when `resultToken` was not returned by `verifyResultToken`,
+ *   or when the claims contain a value JSON cannot represent.
  */
 export async function verifyClaimsDigest(
   claims: Record<string, unknown>,
   claimsSalt: string,
-  resultToken: string
+  resultToken: VerifiedResultToken
 ): Promise<boolean> {
-  const expected = decodeJwt(resultToken).claims_sha256;
+  if (!isVerifiedResultToken(resultToken)) {
+    throw new TypeError(
+      "verifyClaimsDigest needs a token from verifyResultToken"
+    );
+  }
+  const expected = resultToken.payload.claims_sha256;
   const actual = await sha256Hex(canonicalJson({ claims, salt: claimsSalt }));
-  return typeof expected === "string" && expected === actual;
+  return expected !== null && expected === actual;
 }

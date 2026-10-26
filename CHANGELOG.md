@@ -24,13 +24,43 @@ All customer-visible changes to the Authbound public SDK are recorded here.
   with M at least `minAge`, or by a birth date at least `minAge` years before
   today in UTC. Sessions created by earlier SDK versions no longer satisfy
   `minAge`; users verify again.
+- Remove `calculateAge`, `calculateAgeFromDob`, `Dob`, `DobSchema`, `Sex` and
+  `SexSchema`. Use `meetsMinimumAge` on disclosed age claims instead of
+  deriving an age.
+
+### Migrating from 0.4
+
+```ts
+// 0.4
+const result = await client.verifications.getResult(id);
+if (result.assertions?.age_over_18 === true) grantAccess();
+
+// 0.5: claims keep their disclosed paths and are readable for 15 minutes.
+const result = await client.verifications.getResult(id);
+if (result.claimsStatus === "available" && meetsMinimumAge(result.claims, 18)) {
+  grantAccess();
+}
+```
+
+Webhook handlers that read `event.data.object.verified_outputs` call
+`getResult()` for the claims instead. Code that read `verification.age` from
+the SDK session checks `meetsMinimumAge(verification.ageClaims, minAge)`.
 
 ### Changes
 
-- Add `verifyClaimsDigest(claims, claimsSalt, resultToken)` to
-  `@authbound/server` and `@authbound/server/edge`. It checks the result
-  token's `claims_sha256` against the RFC 8785 canonical JSON of the claims and
-  salt.
+- Add `client.verifications.verifyResultToken(resultToken, { verificationId })`
+  and a standalone `verifyResultToken(resultToken, { keys, issuer,
+  verificationId })`. They check the ES256 signature against the deployment's
+  `/v1/jwks`, `iss`, `sub`, optionally `aud`, and `exp`, and throw
+  `ResultTokenVerificationError` otherwise. `resultIssuer` sets the expected
+  `iss` when it is not the origin of `apiUrl`.
+- Add `verifyClaimsDigest(claims, claimsSalt, verifiedResultToken)`. It checks
+  a verified token's `claims_sha256` against the RFC 8785 canonical JSON of the
+  claims and salt, and refuses a token `verifyResultToken` did not return.
+- Export `meetsMinimumAge` from `@authbound/server`, and `ClaimsStatus` and
+  `ClaimsStatusSchema` from `@authbound/core`.
+  `@authbound/nextjs/server` re-exports `verifyResultToken`,
+  `verifyClaimsDigest` and `meetsMinimumAge`.
 - Reject browser status payloads that include `claims` or `claims_salt`.
 - Accept server-owned `providerOptions` in the Next.js, Express and Hono
   handlers, sent with every verification they create. Customer-controlled EUDI

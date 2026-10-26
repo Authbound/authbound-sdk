@@ -74,7 +74,6 @@ export {
   type AuthboundConfig,
   type AuthboundVerificationContext,
   type CookieOptions,
-  calculateAge,
   checkRequirements,
   clearVerificationCookie,
   // Advanced handlers

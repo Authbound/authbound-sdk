@@ -72,12 +72,10 @@ export type {
   AuthboundVerificationContext,
   CookieOptions,
   CreateVerificationResponse,
-  Dob,
   LastError,
   MiddlewareResult,
   ProtectedRouteConfig,
   RoutesConfig,
-  Sex,
   VerificationEventObject,
   VerificationEventStatus,
   VerificationRequirements,
@@ -93,17 +91,13 @@ export {
   AuthboundClaimsSchema,
   AuthboundConfigSchema,
   CookieOptionsSchema,
-  calculateAge,
-  calculateAgeFromDob,
   checkRequirements,
-  DobSchema,
   getDefaultCookieOptions,
   LastErrorSchema,
   mapVerificationEventStatusToVerificationStatus,
   ProtectedRouteConfigSchema,
   parseConfig,
   RoutesConfigSchema,
-  SexSchema,
   VerificationEventObjectSchema,
   VerificationEventStatusSchema,
   VerificationRequirementsSchema,
@@ -127,6 +121,7 @@ export {
   type VerificationProviderOptions,
   VerificationProviderOptionsSchema,
 } from "@authbound/core";
+export { meetsMinimumAge } from "./core/age-claims";
 export {
   BrowserVerificationResponseError,
   type BrowserVerificationSource,
@@ -194,6 +189,13 @@ export {
   processWebhookHandlerKernel,
   signOutHandlerKernel,
 } from "./core/handler-kernel";
+export {
+  type ResultTokenPayload,
+  ResultTokenVerificationError,
+  type VerifiedResultToken,
+  type VerifyResultTokenOptions,
+  verifyResultToken,
+} from "./core/result-token";
 
 // ============================================================================
 // Webhook Verification

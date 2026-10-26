@@ -57,12 +57,10 @@ export type {
   AuthboundVerificationContext,
   CookieOptions,
   CreateVerificationResponse,
-  Dob,
   LastError,
   MiddlewareResult,
   ProtectedRouteConfig,
   RoutesConfig,
-  Sex,
   VerificationEventObject,
   VerificationEventStatus,
   VerificationRequirements,
@@ -74,7 +72,6 @@ export type {
 } from "../core/types";
 // Re-export core utilities
 export {
-  calculateAge,
   checkRequirements,
   getDefaultCookieOptions,
   parseConfig,

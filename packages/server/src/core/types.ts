@@ -20,21 +20,6 @@ export const AssuranceLevelSchema = z.enum([
 
 export type AssuranceLevel = z.infer<typeof AssuranceLevelSchema>;
 
-export type Dob = {
-  day: number;
-  month: number;
-  year: number;
-};
-
-export const DobSchema = z.object({
-  day: z.number().int().min(1).max(31),
-  month: z.number().int().min(1).max(12),
-  year: z.number().int(),
-});
-
-export type Sex = "male" | "female" | "unspecified";
-export const SexSchema = z.enum(["male", "female", "unspecified"]);
-
 export type LastError = {
   code: string;
   reason: string;
@@ -391,25 +376,6 @@ export interface MiddlewareResult {
 // ============================================================================
 
 /**
- * Calculate age from an ISO date string.
- */
-export function calculateAge(dateOfBirth: string): number {
-  const today = new Date();
-  const birthDate = new Date(dateOfBirth);
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-
-  if (
-    monthDiff < 0 ||
-    (monthDiff === 0 && today.getDate() < birthDate.getDate())
-  ) {
-    age--;
-  }
-
-  return age;
-}
-
-/**
  * Check if verification requirements are met
  */
 export function checkRequirements(
@@ -470,50 +436,6 @@ export function getDefaultCookieOptions(): Required<CookieOptions> {
     sameSite: "lax",
     httpOnly: true,
   };
-}
-
-/**
- * Calculate age from a DOB (Date of Birth) object.
- * Validates that the date is valid (e.g., rejects February 31st).
- *
- * @throws Error if the date is invalid
- */
-export function calculateAgeFromDob(dob: Dob): number {
-  if (dob.month < 1 || dob.month > 12) {
-    throw new Error(
-      `Invalid month: ${dob.month}. Month must be between 1 and 12.`
-    );
-  }
-  if (dob.day < 1 || dob.day > 31) {
-    throw new Error(`Invalid day: ${dob.day}. Day must be between 1 and 31.`);
-  }
-
-  const today = new Date();
-  const birthDate = new Date(dob.year, dob.month - 1, dob.day);
-
-  // Validate that the Date constructor didn't silently roll over
-  // (e.g., Feb 31 becomes March 2 or 3)
-  if (
-    birthDate.getFullYear() !== dob.year ||
-    birthDate.getMonth() !== dob.month - 1 ||
-    birthDate.getDate() !== dob.day
-  ) {
-    throw new Error(
-      `Invalid date: ${dob.year}-${String(dob.month).padStart(2, "0")}-${String(dob.day).padStart(2, "0")} does not exist.`
-    );
-  }
-
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-
-  if (
-    monthDiff < 0 ||
-    (monthDiff === 0 && today.getDate() < birthDate.getDate())
-  ) {
-    age--;
-  }
-
-  return age;
 }
 
 /**

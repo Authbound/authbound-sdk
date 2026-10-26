@@ -519,6 +519,11 @@ function summarizeWebhookEvent(event: WebhookEvent): Record<string, unknown> {
 export { asPolicyId } from "@authbound/core";
 export {
   generateWebhookSignature,
+  meetsMinimumAge,
+  ResultTokenVerificationError,
+  type VerifiedResultToken,
+  verifyClaimsDigest,
+  verifyResultToken,
   verifyWebhookSignature,
   verifyWebhookSignatureDetailed,
   type WebhookSignatureOptions,
@@ -1786,7 +1791,6 @@ export {
   type AuthboundConfig,
   type AuthboundVerificationContext,
   type CookieOptions,
-  calculateAge,
   checkRequirements,
   // JWT
   createToken,

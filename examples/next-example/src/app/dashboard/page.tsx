@@ -6,28 +6,44 @@ import { authboundConfig } from "@/authbound.config";
 
 /**
  * Claims are pulled from the secret-key result, never from webhooks, and are
- * readable for 15 minutes after the verification completes. The result token
- * commits to them through its claims_sha256 digest.
+ * readable for 15 minutes after the verification completes. They are shown
+ * only when the result token verifies against Authbound's /v1/jwks and its
+ * claims_sha256 digest matches them.
  */
 async function readVerifiedClaims(verificationId: string) {
   const client = new AuthboundClient({
     apiKey: authboundConfig.apiKey,
     apiUrl: authboundConfig.apiUrl,
+    resultIssuer: process.env.AUTHBOUND_RESULT_ISSUER,
   });
-  const result = await client.verifications.getResult(verificationId);
-  if (!(result.claims && result.claimsSalt)) {
-    return { claimsStatus: result.claimsStatus };
+  try {
+    const result = await client.verifications.getResult(verificationId);
+    if (!(result.claims && result.claimsSalt)) {
+      return { claimsStatus: result.claimsStatus };
+    }
+    const resultToken = await client.verifications.verifyResultToken(
+      result.resultToken,
+      { verificationId }
+    );
+    const digestVerified = await verifyClaimsDigest(
+      result.claims,
+      result.claimsSalt,
+      resultToken
+    );
+    return {
+      claimsStatus: result.claimsStatus,
+      digestVerified,
+      claims: digestVerified ? result.claims : undefined,
+    };
+  } catch (error) {
+    // A failed read or a token that does not verify hides the claims, but the
+    // rest of the page still renders.
+    console.error(
+      "[Authbound] Verified claims unavailable:",
+      error instanceof Error ? error.name : "unknown error"
+    );
+    return { claimsStatus: "unavailable" };
   }
-  const digestVerified = await verifyClaimsDigest(
-    result.claims,
-    result.claimsSalt,
-    result.resultToken
-  );
-  return {
-    claimsStatus: result.claimsStatus,
-    digestVerified,
-    claims: digestVerified ? result.claims : undefined,
-  };
 }
 
 export default async function DashboardPage() {

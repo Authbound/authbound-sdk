@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, it, mock } from "node:test";
@@ -12,7 +12,7 @@ import type {
   SignedVerificationResult,
   Verification,
 } from "@authbound/server";
-import { AuthboundClientError } from "@authbound/server";
+import { AuthboundClientError, verifyResultToken } from "@authbound/server";
 import {
   createPensionCredentialDefinition,
   pensionCredentialClaims,
@@ -176,15 +176,44 @@ function signedResult(verificationId: string): SignedVerificationResult {
 // Single-key objects, so JSON.stringify already produces the RFC 8785 form.
 const pensionClaims = { pension: { typeCode: "KE" } };
 const pensionClaimsSalt = "pension_claims_salt";
+const resultIssuer = "https://api.authbound.test";
+const resultSigner = generateKeyPairSync("ec", { namedCurve: "P-256" });
+const forgingSigner = generateKeyPairSync("ec", { namedCurve: "P-256" });
 
-function resultTokenFor(claims: Record<string, unknown>, salt: string) {
+// An ES256 result token, as Authbound signs it, over the claims digest.
+function resultTokenFor(
+  claims: Record<string, unknown>,
+  overrides: { sub?: string; exp?: number; signer?: typeof resultSigner } = {}
+) {
   const claimsSha256 = createHash("sha256")
-    .update(JSON.stringify({ claims, salt }))
+    .update(JSON.stringify({ claims, salt: pensionClaimsSalt }))
     .digest("hex");
+  const now = Math.floor(Date.now() / 1000);
   const encode = (value: unknown) =>
     Buffer.from(JSON.stringify(value)).toString("base64url");
-  return `${encode({ alg: "ES256" })}.${encode({ claims_sha256: claimsSha256 })}.signature`;
+  const signingInput = `${encode({ alg: "ES256", kid: "result-1" })}.${encode({
+    iss: resultIssuer,
+    sub: overrides.sub ?? "vrf_claims",
+    iat: now,
+    exp: overrides.exp ?? now + 3600,
+    status: "verified",
+    claims_sha256: claimsSha256,
+  })}`;
+  const signature = sign("sha256", Buffer.from(signingInput), {
+    key: (overrides.signer ?? resultSigner).privateKey,
+    dsaEncoding: "ieee-p1363",
+  }).toString("base64url");
+  return `${signingInput}.${signature}`;
 }
+
+// The real SDK verifier against this test's published result key.
+const verifyResultTokenWithTestKey: AuthboundClient["verifications"]["verifyResultToken"] =
+  (resultToken, options) =>
+    verifyResultToken(resultToken, {
+      ...options,
+      keys: async () => resultSigner.publicKey,
+      issuer: resultIssuer,
+    });
 
 function createMockClient(options: {
   credentialDefinitions?: Partial<
@@ -194,7 +223,10 @@ function createMockClient(options: {
     >
   >;
   verifications?: Partial<
-    Pick<AuthboundClient["verifications"], "create" | "getStatus" | "getResult">
+    Pick<
+      AuthboundClient["verifications"],
+      "create" | "getStatus" | "getResult" | "verifyResultToken"
+    >
   >;
 }): AuthboundClient {
   const mockClient = {
@@ -218,6 +250,7 @@ function createMockClient(options: {
       create: async () => verification(),
       getStatus: async () => verificationStatus(),
       getResult: async (verificationId) => signedResult(verificationId),
+      verifyResultToken: verifyResultTokenWithTestKey,
       ...options.verifications,
     },
   };
@@ -747,13 +780,36 @@ describe("issuer-agent-pension example", () => {
     });
   });
 
-  it("returns verified claims only when they match the result token digest", async () => {
+  it("returns claims only when a verified result token commits to them", async () => {
     process.env.AUTHBOUND_PUBLISHABLE_KEY = "pk_test_123";
-    const resultToken = resultTokenFor(pensionClaims, pensionClaimsSalt);
+    const now = Math.floor(Date.now() / 1000);
 
-    for (const [claims, expectedStatus] of [
-      [pensionClaims, 200],
-      [{ pension: { typeCode: "TK" } }, 502],
+    for (const [name, claims, resultToken, expectedStatus] of [
+      ["matching", pensionClaims, resultTokenFor(pensionClaims), 200],
+      [
+        "tampered claims",
+        { pension: { typeCode: "TK" } },
+        resultTokenFor(pensionClaims),
+        502,
+      ],
+      [
+        "forged signature",
+        pensionClaims,
+        resultTokenFor(pensionClaims, { signer: forgingSigner }),
+        502,
+      ],
+      [
+        "another verification",
+        pensionClaims,
+        resultTokenFor(pensionClaims, { sub: "vrf_other" }),
+        502,
+      ],
+      [
+        "expired token",
+        pensionClaims,
+        resultTokenFor(pensionClaims, { exp: now - 1 }),
+        502,
+      ],
     ] as const) {
       const create = mockFunction(async () =>
         verification({
@@ -792,9 +848,14 @@ describe("issuer-agent-pension example", () => {
         await fetch(`${baseUrl}/status?id=vrf_claims`);
         const response = await fetch(`${baseUrl}/result?id=vrf_claims`);
 
-        assert.equal(response.status, expectedStatus);
+        assert.equal(response.status, expectedStatus, name);
         if (expectedStatus === 200) {
-          assert.deepEqual((await response.json()).claims, pensionClaims);
+          assert.deepEqual(await response.json(), {
+            verificationId: "vrf_claims",
+            status: "verified",
+            claimsStatus: "available",
+            claims: pensionClaims,
+          });
         }
       });
     }

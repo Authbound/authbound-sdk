@@ -315,10 +315,15 @@ const client = new AuthboundClient({ apiKey: process.env.AUTHBOUND_SECRET_KEY! }
 const result = await client.verifications.getResult(verificationId);
 
 if (result.claims && result.claimsSalt) {
-  const unaltered = await verifyClaimsDigest(
+  // Throws ResultTokenVerificationError for a forged, expired or foreign token.
+  const resultToken = await client.verifications.verifyResultToken(
+    result.resultToken,
+    { verificationId }
+  );
+  const signedForThese = await verifyClaimsDigest(
     result.claims,
     result.claimsSalt,
-    result.resultToken
+    resultToken
   );
 }
 ```
@@ -326,9 +331,17 @@ if (result.claims && result.claimsSalt) {
 Claims are keyed by their disclosed paths, for example
 `{ age_equal_or_over: { "18": true } }` from an SD-JWT VC PID or
 `{ "eu.europa.ec.av.1": { age_over_18: true } }` from an age verification
-attestation. `verifyClaimsDigest` checks the RFC 8785 digest the token commits
-to; it does not verify the token signature, which you can check against
-`/v1/jwks`.
+attestation.
+
+`verifyResultToken` checks the ES256 signature against the deployment's
+`/v1/jwks`, the issuer, that `sub` is this verification, and `exp`. Result
+tokens are valid for one hour from each read. Set `resultIssuer` on the client
+when your deployment's `iss` is not the origin of `apiUrl`. `verifyClaimsDigest`
+then checks the claims against the verified token's `claims_sha256` (RFC 8785
+JSON of claims and salt). Together they matter when claims are stored, or come
+to you from someone other than the API: within one TLS response from the API
+they add no further assurance. To verify with keys you manage yourself, use
+the standalone `verifyResultToken(token, { keys, issuer, verificationId })`.
 
 ## API Reference
 

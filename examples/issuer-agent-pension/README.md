@@ -41,7 +41,7 @@ For phone testing, open the same port on your computer's LAN IP, for example `ht
 - `createPensionCredentialOffer` creates an OpenID4VCI wallet offer from a JSON pension credential fixture.
 - `createPensionVerificationRequest` creates an EUDI verification request for the pension policy.
 - `getPensionVerificationStatus` polls verification status with the client token.
-- `getPensionVerificationResult` fetches the signed verification result after verification succeeds. The demo server returns its `claims` only after `verifyClaimsDigest` confirms they match the result token's `claims_sha256`.
+- `getPensionVerificationResult` fetches the signed verification result after verification succeeds. The demo server verifies the result token with `verifyResultToken` and returns the `claims` only after `verifyClaimsDigest` confirms they match its `claims_sha256`. The browser never receives the result token or the claims salt. Set `AUTHBOUND_RESULT_ISSUER` when the deployment's result token `iss` is not the origin of `AUTHBOUND_API_URL`.
 
 `server.ts` adds the local demo UI, QR rendering, and short-lived in-memory session storage for client tokens. Result fetching is bound to that in-memory session so the server secret key is not exposed as a generic result lookup endpoint.
 
