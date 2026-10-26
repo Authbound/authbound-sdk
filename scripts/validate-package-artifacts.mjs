@@ -21,7 +21,7 @@ const expectedExportKeys = {
   nuxt: ["."],
 };
 const generatedMetadataSource =
-  "Generated from Authbound mono @authbound/api-contract by scripts/generate-api-contract-artifacts.ts";
+  "The latest public contract revision of the Authbound API (@authbound/api-contract)";
 const generatedMetadataFiles = [
   "packages/core/src/generated/api-contract.ts",
   "packages/server/src/generated/api-contract.ts",
@@ -279,7 +279,7 @@ const generatedMetadata = readFileSync(firstGeneratedMetadataPath, "utf8");
 if (!generatedMetadata.includes(generatedMetadataSource)) {
   hasFailure = true;
   console.error(
-    `${firstGeneratedMetadataPath} is missing generated metadata provenance`
+    `${firstGeneratedMetadataPath} is missing contract metadata provenance`
   );
 }
 
