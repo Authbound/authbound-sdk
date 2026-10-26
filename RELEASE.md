@@ -29,8 +29,10 @@ The API serves `v1.2026-10-24.1` and `v1.2026-09-01.1` side by side, so SDK
 0.4.x clients keep working while integrations upgrade. Before tagging, confirm
 the API deployment serves `v1.2026-10-24.1`, then record end-to-end evidence
 that a verified result returns the requested claims and that
-`verifyClaimsDigest` accepts them. The API supports `v1.2026-09-01.1` until the
-SDK release after 0.5.0, and removes it in the release after that.
+`verifyClaimsDigest` accepts them. During the alpha, the API supports
+`v1.2026-09-01.1` until its retirement is announced in `CHANGELOG.md` with
+advance notice. Retirement is an explicit decision, not tied to SDK release
+numbers; a formal deprecation window starts with 1.0.
 
 ### Historical 0.4.0 Breaking-Change Plan
 
