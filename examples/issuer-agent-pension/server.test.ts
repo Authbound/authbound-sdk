@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, it, mock } from "node:test";
@@ -11,7 +12,7 @@ import type {
   SignedVerificationResult,
   Verification,
 } from "@authbound/server";
-import { AuthboundClientError } from "@authbound/server";
+import { AuthboundClientError, verifyResultToken } from "@authbound/server";
 import {
   createPensionCredentialDefinition,
   pensionCredentialClaims,
@@ -168,8 +169,51 @@ function signedResult(verificationId: string): SignedVerificationResult {
     verificationId,
     status: "verified",
     resultToken: "result_token",
+    claimsStatus: "none",
   };
 }
+
+// Single-key objects, so JSON.stringify already produces the RFC 8785 form.
+const pensionClaims = { pension: { typeCode: "KE" } };
+const pensionClaimsSalt = "pension_claims_salt";
+const resultIssuer = "https://api.authbound.test";
+const resultSigner = generateKeyPairSync("ec", { namedCurve: "P-256" });
+const forgingSigner = generateKeyPairSync("ec", { namedCurve: "P-256" });
+
+// An ES256 result token, as Authbound signs it, over the claims digest.
+function resultTokenFor(
+  claims: Record<string, unknown>,
+  overrides: { sub?: string; exp?: number; signer?: typeof resultSigner } = {}
+) {
+  const claimsSha256 = createHash("sha256")
+    .update(JSON.stringify({ claims, salt: pensionClaimsSalt }))
+    .digest("hex");
+  const now = Math.floor(Date.now() / 1000);
+  const encode = (value: unknown) =>
+    Buffer.from(JSON.stringify(value)).toString("base64url");
+  const signingInput = `${encode({ alg: "ES256", kid: "result-1" })}.${encode({
+    iss: resultIssuer,
+    sub: overrides.sub ?? "vrf_claims",
+    iat: now,
+    exp: overrides.exp ?? now + 3600,
+    status: "verified",
+    claims_sha256: claimsSha256,
+  })}`;
+  const signature = sign("sha256", Buffer.from(signingInput), {
+    key: (overrides.signer ?? resultSigner).privateKey,
+    dsaEncoding: "ieee-p1363",
+  }).toString("base64url");
+  return `${signingInput}.${signature}`;
+}
+
+// The real SDK verifier against this test's published result key.
+const verifyResultTokenWithTestKey: AuthboundClient["verifications"]["verifyResultToken"] =
+  (resultToken, options) =>
+    verifyResultToken(resultToken, {
+      ...options,
+      keys: async () => resultSigner.publicKey,
+      issuer: resultIssuer,
+    });
 
 function createMockClient(options: {
   credentialDefinitions?: Partial<
@@ -179,7 +223,10 @@ function createMockClient(options: {
     >
   >;
   verifications?: Partial<
-    Pick<AuthboundClient["verifications"], "create" | "getStatus" | "getResult">
+    Pick<
+      AuthboundClient["verifications"],
+      "create" | "getStatus" | "getResult" | "verifyResultToken"
+    >
   >;
 }): AuthboundClient {
   const mockClient = {
@@ -203,6 +250,7 @@ function createMockClient(options: {
       create: async () => verification(),
       getStatus: async () => verificationStatus(),
       getResult: async (verificationId) => signedResult(verificationId),
+      verifyResultToken: verifyResultTokenWithTestKey,
       ...options.verifications,
     },
   };
@@ -730,6 +778,87 @@ describe("issuer-agent-pension example", () => {
       assert.equal(verifiedResultResponse.ok, true);
       assert.equal(getResult.calls.length, 1);
     });
+  });
+
+  it("returns claims only when a verified result token commits to them", async () => {
+    process.env.AUTHBOUND_PUBLISHABLE_KEY = "pk_test_123";
+    const now = Math.floor(Date.now() / 1000);
+
+    for (const [name, claims, resultToken, expectedStatus] of [
+      ["matching", pensionClaims, resultTokenFor(pensionClaims), 200],
+      [
+        "tampered claims",
+        { pension: { typeCode: "TK" } },
+        resultTokenFor(pensionClaims),
+        502,
+      ],
+      [
+        "forged signature",
+        pensionClaims,
+        resultTokenFor(pensionClaims, { signer: forgingSigner }),
+        502,
+      ],
+      [
+        "another verification",
+        pensionClaims,
+        resultTokenFor(pensionClaims, { sub: "vrf_other" }),
+        502,
+      ],
+      [
+        "expired token",
+        pensionClaims,
+        resultTokenFor(pensionClaims, { exp: now - 1 }),
+        502,
+      ],
+    ] as const) {
+      const create = mockFunction(async () =>
+        verification({
+          id: "vrf_claims",
+          status: "created",
+          clientToken: "client_token_123",
+          expiresAt: "2999-01-01T00:00:00.000Z",
+          clientAction: {
+            kind: "qr",
+            data: "openid4vp://authorize?request_uri=https%3A%2F%2Fexample.test",
+          },
+        })
+      );
+      const getStatus = mockFunction(async () =>
+        verificationStatus({ id: "vrf_claims", status: "verified" })
+      );
+      const getResult = mockFunction(
+        async (verificationId: string): Promise<SignedVerificationResult> => ({
+          verificationId,
+          status: "verified",
+          resultToken,
+          claimsStatus: "available",
+          claims,
+          claimsSalt: pensionClaimsSalt,
+        })
+      );
+      const app = createApp({
+        createClient: () =>
+          createMockClient({
+            verifications: { create, getStatus, getResult },
+          }),
+      });
+
+      await withAppServer(app, async (baseUrl) => {
+        await fetch(`${baseUrl}/verify`, { method: "POST" });
+        await fetch(`${baseUrl}/status?id=vrf_claims`);
+        const response = await fetch(`${baseUrl}/result?id=vrf_claims`);
+
+        assert.equal(response.status, expectedStatus, name);
+        if (expectedStatus === 200) {
+          assert.deepEqual(await response.json(), {
+            verificationId: "vrf_claims",
+            status: "verified",
+            claimsStatus: "available",
+            claims: pensionClaims,
+          });
+        }
+      });
+    }
   });
 
   it("expires verification sessions from Authbound's expiresAt value", async () => {

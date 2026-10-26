@@ -14,6 +14,28 @@ describe("AuthboundClient contract version headers", () => {
     vi.unstubAllGlobals();
   });
 
+  it("client sends Authbound-Contract-Revision v1.2026-10-24.1", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        object: "list",
+        data: [],
+        has_more: false,
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new AuthboundClient({ apiKey, apiUrl }).verifications.list();
+
+    const [, request] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(request.headers).toMatchObject({
+      "Authbound-Api-Version": "v1",
+      "Authbound-Contract-Revision": "v1.2026-10-24.1",
+    });
+  });
+
   it("sends the generated API version and contract revision on Gateway requests", async () => {
     const fetchMock = vi.fn(async () =>
       Response.json({

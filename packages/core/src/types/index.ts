@@ -81,6 +81,8 @@ export {
 } from "./verification";
 
 export {
+  type ClaimsStatus,
+  ClaimsStatusSchema,
   isTerminalVerificationProgressStatus,
   isTerminalVerificationUiStatus,
   type ProviderPreference,

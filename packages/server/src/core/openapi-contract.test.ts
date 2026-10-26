@@ -261,7 +261,7 @@ describeWithRootOpenApi("public issuer SDK/OpenAPI contract", () => {
       | undefined;
 
     expect(verificationProperties?.provider).toMatchObject({
-      enum: ["vcs", "eudi"],
+      enum: ["eudi"],
       type: "string",
     });
     expect(verificationProperties?.failure_code).toMatchObject({
@@ -270,7 +270,6 @@ describeWithRootOpenApi("public issuer SDK/OpenAPI contract", () => {
         "credential_expired",
         "credential_revoked",
         "issuer_untrusted",
-        "missing_requested_assertions",
         "policy_not_satisfied",
         "processing_timeout",
         "provider_error",

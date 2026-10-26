@@ -71,7 +71,7 @@ test("rejects a stale affected internal dependency pin", () => {
 
   assert.throws(
     () => assertInternalPins(manifests, "@authbound/server", RELEASE_VERSION),
-    /@authbound\/core must be pinned to 0\.4\.0/
+    /@authbound\/core must be pinned to 0\.5\.0/
   );
 });
 
@@ -87,7 +87,7 @@ test("rejects any package version outside the coherent release", () => {
 
   assert.throws(
     () => assertSourceReleaseManifests(manifests),
-    /@authbound\/react must be 0\.4\.0; got 0\.2\.2/
+    /@authbound\/react must be 0\.5\.0; got 0\.2\.2/
   );
 });
 

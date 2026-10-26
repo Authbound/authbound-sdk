@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { AuthboundError } from "./errors";
 
-export const ProviderPreferenceSchema = z.enum(["auto", "vcs", "eudi"]);
+export const ProviderPreferenceSchema = z.enum(["auto", "eudi"]);
 export type ProviderPreference = z.infer<typeof ProviderPreferenceSchema>;
 
-export const SelectedVerificationProviderSchema = z.enum(["vcs", "eudi"]);
+export const SelectedVerificationProviderSchema = z.enum(["eudi"]);
 export type SelectedVerificationProvider = z.infer<
   typeof SelectedVerificationProviderSchema
 >;
@@ -14,7 +14,6 @@ export const VerificationFailureCodeSchema = z.enum([
   "credential_expired",
   "credential_revoked",
   "issuer_untrusted",
-  "missing_requested_assertions",
   "policy_not_satisfied",
   "processing_timeout",
   "provider_error",
@@ -73,7 +72,7 @@ export function parseProviderPreference(value: unknown): ProviderPreference {
   if (!parsed.success) {
     throw new AuthboundError(
       "policy_invalid",
-      'provider must be one of "auto", "vcs", or "eudi"'
+      'provider must be "auto" or "eudi"'
     );
   }
   return parsed.data;
@@ -275,13 +274,23 @@ export const PublicVerificationStatusSnapshotSchema = z
     validateNoTerminalClientAction(value, context);
   });
 
+/**
+ * `available`: `claims` and `claims_salt` are in this response. `expired`: the
+ * retention window ended and only the result token's `claims_sha256` remains.
+ * `none`: the verification returned no claims.
+ */
+export const ClaimsStatusSchema = z.enum(["available", "expired", "none"]);
+export type ClaimsStatus = z.infer<typeof ClaimsStatusSchema>;
+
 export const SignedVerificationResultSchema = z
   .object({
     verification_id: z.string(),
     status: z.enum(["verified", "failed"]),
     result_token: z.string(),
-    assertions: z.record(z.string(), z.unknown()).optional(),
     failure_code: VerificationFailureCodeSchema.nullish(),
+    claims_status: ClaimsStatusSchema,
+    claims: z.record(z.string(), z.unknown()).optional(),
+    claims_salt: z.string().min(1).optional(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -294,11 +303,11 @@ export const SignedVerificationResultSchema = z
       return;
     }
 
-    if (value.status === "failed" && value.assertions !== undefined) {
+    if (value.status === "failed" && value.claims_status !== "none") {
       context.addIssue({
         code: "custom",
-        message: "failed verification results must not include assertions",
-        path: ["assertions"],
+        message: "failed verification results must not have claims",
+        path: ["claims_status"],
       });
     }
 
@@ -307,6 +316,21 @@ export const SignedVerificationResultSchema = z
         code: "custom",
         message: "verified verification results must not include failure_code",
         path: ["failure_code"],
+      });
+    }
+
+    // The digest in the result token covers claims and salt together, so a
+    // partial delivery could never be checked.
+    const hasClaims =
+      value.claims !== undefined && value.claims_salt !== undefined;
+    const hasEither =
+      value.claims !== undefined || value.claims_salt !== undefined;
+    if (value.claims_status === "available" ? !hasClaims : hasEither) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "claims and claims_salt are present exactly when claims_status is available",
+        path: ["claims"],
       });
     }
   });

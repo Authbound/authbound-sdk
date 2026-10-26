@@ -73,8 +73,7 @@ export type HandlerKernelCookieEffects = {
     verificationId: string;
     status: "VERIFIED";
     assuranceLevel: "SUBSTANTIAL";
-    age?: number;
-    dateOfBirth?: string;
+    ageClaims?: Record<string, unknown>;
   };
   clearPendingVerification?: boolean;
   clearVerification?: boolean;
@@ -338,8 +337,7 @@ export async function finalizeSessionHandlerKernel({
           verificationId,
           status: "VERIFIED",
           assuranceLevel: "SUBSTANTIAL",
-          age: verifiedSession.age,
-          dateOfBirth: verifiedSession.dateOfBirth,
+          ageClaims: verifiedSession.ageClaims,
         },
         clearPendingVerification: true,
       },

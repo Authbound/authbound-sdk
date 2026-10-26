@@ -3,6 +3,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   type AuthboundClient as AuthboundClientInstance,
   toBrowserVerificationResponse,
+  verifyClaimsDigest,
 } from "@authbound/server";
 import express, {
   type ErrorRequestHandler,
@@ -135,12 +136,14 @@ async function createDefaultClient(): Promise<AuthboundClientInstance> {
       apiKey: string;
       apiUrl?: string;
       debug?: boolean;
+      resultIssuer?: string;
     }) => AuthboundClientInstance;
   };
   return new AuthboundClient({
     apiKey,
     apiUrl: process.env.AUTHBOUND_API_URL,
     debug: process.env.AUTHBOUND_DEBUG === "true",
+    resultIssuer: process.env.AUTHBOUND_RESULT_ISSUER,
   });
 }
 
@@ -268,11 +271,39 @@ async function getVerificationResult(
 
   // Result retrieval uses the secret-key client, so keep it gated by the
   // in-memory session and the verified status observed through polling.
-  const result = await getPensionVerificationResult(await createClient(), {
+  const authboundClient = await createClient();
+  const result = await getPensionVerificationResult(authboundClient, {
     verificationId,
   });
   sessions.delete(verificationId);
-  return result;
+  // Release claims only when Authbound's signed result token commits to them:
+  // verify the token against /v1/jwks, then check its claims_sha256.
+  if (result.claims && result.claimsSalt) {
+    const verifiedToken = await authboundClient.verifications
+      .verifyResultToken(result.resultToken, { verificationId })
+      .catch(() => {
+        throw new DemoRequestError("Verification result token is invalid", 502);
+      });
+    if (
+      !(await verifyClaimsDigest(
+        result.claims,
+        result.claimsSalt,
+        verifiedToken
+      ))
+    ) {
+      throw new DemoRequestError(
+        "Verification claims do not match the result token",
+        502
+      );
+    }
+  }
+  // The browser gets the outcome and claims, never the result token or salt.
+  return {
+    verificationId: result.verificationId,
+    status: result.status,
+    claimsStatus: result.claimsStatus,
+    ...(result.claims ? { claims: result.claims } : {}),
+  };
 }
 
 async function renderHome() {

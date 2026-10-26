@@ -234,7 +234,10 @@ routes: {
 ### Verification Requirements
 
 - **`verified: true`** - Requires identity verification
-- **`minAge: number`** - Requires verified age (calculated from DOB)
+- **`minAge: number`** - Requires disclosed age claims that prove the minimum
+  age: `age_over_M: true` (EU age verification attestation or mdoc),
+  `age_equal_or_over: { "M": true }` (SD-JWT VC PID), with M at least
+  `minAge`, or a birth date at least `minAge` years before today (UTC)
 - **`assuranceLevel: "LOW" | "SUBSTANTIAL" | "HIGH"`** - Requires minimum assurance level
 
 ### Verification Context Cookies
@@ -294,6 +297,51 @@ export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig, {
   },
 });
 ```
+
+Webhooks and events never carry claims.
+
+### Verification Results and Claims
+
+Read the claims a wallet disclosed from the secret-key verification result.
+They are returned together with `claimsSalt` while `claimsStatus` is
+`available`, for 15 minutes after the verification completes. Afterwards
+`claimsStatus` is `expired` and only the result token's `claims_sha256` digest
+remains. `none` means the policy returned no claims.
+
+```typescript
+import { AuthboundClient, verifyClaimsDigest } from "@authbound/server";
+
+const client = new AuthboundClient({ apiKey: process.env.AUTHBOUND_SECRET_KEY! });
+const result = await client.verifications.getResult(verificationId);
+
+if (result.claims && result.claimsSalt) {
+  // Throws ResultTokenVerificationError for a forged, expired or foreign token.
+  const resultToken = await client.verifications.verifyResultToken(
+    result.resultToken,
+    { verificationId }
+  );
+  const signedForThese = await verifyClaimsDigest(
+    result.claims,
+    result.claimsSalt,
+    resultToken
+  );
+}
+```
+
+Claims are keyed by their disclosed paths, for example
+`{ age_equal_or_over: { "18": true } }` from an SD-JWT VC PID or
+`{ "eu.europa.ec.av.1": { age_over_18: true } }` from an age verification
+attestation.
+
+`verifyResultToken` checks the ES256 signature against the deployment's
+`/v1/jwks`, the issuer, that `sub` is this verification, and `exp`. Result
+tokens are valid for one hour from each read. Set `resultIssuer` on the client
+when your deployment's `iss` is not the origin of `apiUrl`. `verifyClaimsDigest`
+then checks the claims against the verified token's `claims_sha256` (RFC 8785
+JSON of claims and salt). Together they matter when claims are stored, or come
+to you from someone other than the API: within one TLS response from the API
+they add no further assurance. To verify with keys you manage yourself, use
+the standalone `verifyResultToken(token, { keys, issuer, verificationId })`.
 
 ## API Reference
 
@@ -398,8 +446,7 @@ await setVerificationCookie(response, config, {
   verificationId: "vrf_456",
   status: "VERIFIED",
   assuranceLevel: "SUBSTANTIAL",
-  age: 25,
-  dateOfBirth: "1999-01-01",
+  ageClaims: { age_equal_or_over: { "18": true } },
 });
 ```
 

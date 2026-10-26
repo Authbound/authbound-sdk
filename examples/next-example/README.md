@@ -41,6 +41,12 @@ For staging or another gateway, set both `AUTHBOUND_API_URL` and
 `NEXT_PUBLIC_AUTHBOUND_API_URL` to the same URL. The server creates verifications;
 the browser connects to that gateway for status updates.
 
+For a customer-controlled EUDI verifier, also set `AUTHBOUND_EUDI_PROFILE=haip`.
+That verifier starts a wallet request only for an explicit HAIP request, so the
+route handler then sends those provider options with every verification. Set
+`AUTHBOUND_RESULT_ISSUER` when the deployment signs result tokens with an `iss`
+other than the origin of `AUTHBOUND_API_URL`.
+
 ### 3. Run the development server
 
 ```bash
@@ -131,6 +137,14 @@ The SDK provides a catch-all API route handler that manages:
 2. **No valid session** → Redirect to `/verify?returnTo=/original-path`
 3. **User completes verification** → Browser status flow calls `/api/authbound/session`
 4. **User revisits protected route** → Middleware validates cookie and allows access
+5. **Dashboard shows claims** → `/dashboard` reads the disclosed claims from the
+   secret-key verification result, verifies the result token with
+   `verifyResultToken` and checks the claims with `verifyClaimsDigest`.
+   Claims are readable for 15 minutes after the verification completes.
+
+`minAge` routes such as `/adult` check the age claims the wallet disclosed
+(`age_over_18`, `age_equal_or_over`, or a birth date), kept in the encrypted
+session cookie.
 
 ## Security
 

@@ -519,6 +519,11 @@ function summarizeWebhookEvent(event: WebhookEvent): Record<string, unknown> {
 export { asPolicyId } from "@authbound/core";
 export {
   generateWebhookSignature,
+  meetsMinimumAge,
+  ResultTokenVerificationError,
+  type VerifiedResultToken,
+  verifyClaimsDigest,
+  verifyResultToken,
   verifyWebhookSignature,
   verifyWebhookSignatureDetailed,
   type WebhookSignatureOptions,
@@ -1101,10 +1106,10 @@ export function createStationDisclosureRoute(
  *
  * export const POST = createWebhookRoute({
  *   onVerified: async (event) => {
- *     const { id, verified_outputs } = event.data.object;
+ *     const { id } = event.data.object;
  *     await db.users.update({
  *       where: { verificationId: id },
- *       data: { verified: true, age: verified_outputs?.age },
+ *       data: { verified: true },
  *     });
  *   },
  * });
@@ -1666,8 +1671,7 @@ export function createSessionRoute(
         verificationId,
         status: "VERIFIED",
         assuranceLevel: "SUBSTANTIAL",
-        age: verifiedSession.age,
-        dateOfBirth: verifiedSession.dateOfBirth,
+        ageClaims: verifiedSession.ageClaims,
         expiresIn: cookieMaxAge,
       });
       const response = NextResponse.json({
@@ -1787,7 +1791,6 @@ export {
   type AuthboundConfig,
   type AuthboundVerificationContext,
   type CookieOptions,
-  calculateAge,
   checkRequirements,
   // JWT
   createToken,

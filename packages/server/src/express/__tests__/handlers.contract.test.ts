@@ -22,6 +22,13 @@ const config: AuthboundConfig = {
   },
 };
 
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 function listen(app: express.Express): Promise<Server> {
   return new Promise((resolve) => {
     const server = app.listen(0, () => resolve(server));
@@ -88,6 +95,81 @@ describe("Express Authbound router contract", () => {
     vi.restoreAllMocks();
   });
 
+  it("sends server-owned provider options with every created verification", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        object: "verification",
+        id: "vrf_test123",
+        status: "awaiting_user",
+        policy_id: "pol_authbound_pension_v1",
+        env_mode: "test",
+        created_at: "2026-04-21T10:00:00.000Z",
+        client_token: "client_token_123",
+        client_action: {
+          kind: "qr",
+          data: "mdoc-openid4vp://?client_id=x509_hash%3Aabc&request_uri=https%3A%2F%2Fverifier.authbound.test%2Frequest.jwt%2Fabc",
+          expires_at: "2026-04-21T10:10:00.000Z",
+        },
+        expires_at: "2026-04-21T10:10:00.000Z",
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const app = express();
+    app.use(express.json());
+    app.use(
+      "/api/authbound",
+      createAuthboundRouter(config, {
+        providerOptions: {
+          eudi: {
+            responseMode: "direct_post.jwt",
+            profile: "haip",
+            jarMode: "by_reference",
+            requestUriMethod: "get",
+          },
+        },
+      })
+    );
+    const server = await listen(app);
+    const address = server.address();
+    if (!(address && typeof address === "object")) {
+      throw new Error("Expected Express to listen on an ephemeral port");
+    }
+
+    try {
+      const response = await requestJson(
+        `http://127.0.0.1:${address.port}/api/authbound/verification`,
+        {
+          method: "POST",
+          body: {
+            policyId: "pol_authbound_pension_v1",
+            provider: "eudi",
+            providerOptions: { eudi: { profile: "openid4vp" } },
+          },
+        }
+      );
+
+      expect(response.statusCode).toBe(200);
+      const [, request] = fetchMock.mock.calls[0] as unknown as [
+        string,
+        RequestInit,
+      ];
+      expect(JSON.parse(request.body as string)).toMatchObject({
+        provider: "eudi",
+        provider_options: {
+          eudi: {
+            response_mode: "direct_post.jwt",
+            profile: "haip",
+            jar_mode: "by_reference",
+            request_uri_method: "get",
+          },
+        },
+      });
+    } finally {
+      server.close();
+    }
+  });
+
   it("binds session finalization to the pending verification cookie", async () => {
     const fetchMock = vi
       .fn()
@@ -118,6 +200,7 @@ describe("Express Authbound router contract", () => {
             verification_id: "vrf_test123",
             status: "verified",
             result_token: "signed_result_token",
+            claims_status: "none",
           }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         )
@@ -285,6 +368,7 @@ describe("Express Authbound router contract", () => {
             verification_id: "vrf_test123",
             status: "verified",
             result_token: "signed_result_token",
+            claims_status: "none",
           }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         )

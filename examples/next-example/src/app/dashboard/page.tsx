@@ -1,7 +1,50 @@
 import { getVerificationFromToken } from "@authbound/nextjs/server";
+import { AuthboundClient, verifyClaimsDigest } from "@authbound/server";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { authboundConfig } from "@/authbound.config";
+
+/**
+ * Claims are pulled from the secret-key result, never from webhooks, and are
+ * readable for 15 minutes after the verification completes. They are shown
+ * only when the result token verifies against Authbound's /v1/jwks and its
+ * claims_sha256 digest matches them.
+ */
+async function readVerifiedClaims(verificationId: string) {
+  const client = new AuthboundClient({
+    apiKey: authboundConfig.apiKey,
+    apiUrl: authboundConfig.apiUrl,
+    resultIssuer: process.env.AUTHBOUND_RESULT_ISSUER,
+  });
+  try {
+    const result = await client.verifications.getResult(verificationId);
+    if (!(result.claims && result.claimsSalt)) {
+      return { claimsStatus: result.claimsStatus };
+    }
+    const resultToken = await client.verifications.verifyResultToken(
+      result.resultToken,
+      { verificationId }
+    );
+    const digestVerified = await verifyClaimsDigest(
+      result.claims,
+      result.claimsSalt,
+      resultToken
+    );
+    return {
+      claimsStatus: result.claimsStatus,
+      digestVerified,
+      claims: digestVerified ? result.claims : undefined,
+    };
+  } catch (error) {
+    // A failed read or a token that does not verify hides the claims, but the
+    // rest of the page still renders.
+    console.error(
+      "[Authbound] Verified claims unavailable:",
+      error instanceof Error ? error.name : "unknown error"
+    );
+    return { claimsStatus: "unavailable" };
+  }
+}
 
 export default async function DashboardPage() {
   const cookieStore = await cookies();
@@ -14,6 +57,9 @@ export default async function DashboardPage() {
       authboundConfig.secret
     );
   }
+  const verifiedClaims = verification
+    ? await readVerifiedClaims(verification.verificationId)
+    : null;
 
   return (
     <>
@@ -76,16 +122,6 @@ export default async function DashboardPage() {
                   {verification.assuranceLevel}
                 </p>
               </div>
-              {verification.age && (
-                <div>
-                  <p style={{ fontSize: "0.85rem", marginBottom: "0.25rem" }}>
-                    Age
-                  </p>
-                  <p style={{ color: "var(--color-text)", fontWeight: "600" }}>
-                    {verification.age} years old
-                  </p>
-                </div>
-              )}
               <div>
                 <p style={{ fontSize: "0.85rem", marginBottom: "0.25rem" }}>
                   Expires
@@ -95,6 +131,29 @@ export default async function DashboardPage() {
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {verifiedClaims && (
+          <div className="card" style={{ marginTop: "2rem" }}>
+            <h3>Verified Claims</h3>
+            <p style={{ marginTop: "0.5rem" }}>
+              Claims status: <code>{verifiedClaims.claimsStatus}</code>
+              {verifiedClaims.digestVerified !== undefined && (
+                <>
+                  {" "}
+                  · Claims digest:{" "}
+                  <code id="claims-digest">
+                    {verifiedClaims.digestVerified ? "verified" : "mismatch"}
+                  </code>
+                </>
+              )}
+            </p>
+            {verifiedClaims.claims && (
+              <pre id="verified-claims" style={{ marginTop: "1rem" }}>
+                {JSON.stringify(verifiedClaims.claims, null, 2)}
+              </pre>
+            )}
           </div>
         )}
 

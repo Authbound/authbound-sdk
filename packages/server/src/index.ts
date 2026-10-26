@@ -72,18 +72,15 @@ export type {
   AuthboundVerificationContext,
   CookieOptions,
   CreateVerificationResponse,
-  Dob,
   LastError,
   MiddlewareResult,
   ProtectedRouteConfig,
   RoutesConfig,
-  Sex,
   VerificationEventObject,
   VerificationEventStatus,
   VerificationRequirements,
   VerificationStatus,
   VerificationStatusResponse,
-  VerifiedOutputs,
   // Webhook types
   WebhookEvent,
   WebhookEventType,
@@ -94,22 +91,17 @@ export {
   AuthboundClaimsSchema,
   AuthboundConfigSchema,
   CookieOptionsSchema,
-  calculateAge,
-  calculateAgeFromDob,
   checkRequirements,
-  DobSchema,
   getDefaultCookieOptions,
   LastErrorSchema,
   mapVerificationEventStatusToVerificationStatus,
   ProtectedRouteConfigSchema,
   parseConfig,
   RoutesConfigSchema,
-  SexSchema,
   VerificationEventObjectSchema,
   VerificationEventStatusSchema,
   VerificationRequirementsSchema,
   VerificationStatusSchema,
-  VerifiedOutputsSchema,
   // Webhook schemas
   WebhookEventSchema,
   WebhookEventTypeSchema,
@@ -129,12 +121,14 @@ export {
   type VerificationProviderOptions,
   VerificationProviderOptionsSchema,
 } from "@authbound/core";
+export { meetsMinimumAge } from "./core/age-claims";
 export {
   BrowserVerificationResponseError,
   type BrowserVerificationSource,
   BrowserWalletUrlError,
   toBrowserVerificationResponse,
 } from "./core/browser-verification";
+export { verifyClaimsDigest } from "./core/claims-digest";
 export {
   type ArchivedCredentialDefinition,
   // Client class
@@ -195,6 +189,13 @@ export {
   processWebhookHandlerKernel,
   signOutHandlerKernel,
 } from "./core/handler-kernel";
+export {
+  type ResultTokenPayload,
+  ResultTokenVerificationError,
+  type VerifiedResultToken,
+  type VerifyResultTokenOptions,
+  verifyResultToken,
+} from "./core/result-token";
 
 // ============================================================================
 // Webhook Verification

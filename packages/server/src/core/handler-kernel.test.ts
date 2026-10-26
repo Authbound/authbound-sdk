@@ -333,7 +333,9 @@ describe("framework handler kernel", () => {
           verificationId: "vrf_test123",
           status: "verified" as const,
           resultToken: "signed_result_token",
-          assertions: { birth_date: "1990-05-15" },
+          claimsStatus: "available" as const,
+          claims: { birthdate: "1990-05-15", given_name: "Test" },
+          claimsSalt: "claims_salt",
         })),
       },
     };
@@ -373,8 +375,12 @@ describe("framework handler kernel", () => {
           verificationId: "vrf_test123",
           status: "VERIFIED",
           assuranceLevel: "SUBSTANTIAL",
+          ageClaims: { birthdate: "1990-05-15" },
         },
       },
+    });
+    expect(result.cookies?.setVerification?.ageClaims).toEqual({
+      birthdate: "1990-05-15",
     });
     expect(client.verifications.getResult).toHaveBeenCalledWith("vrf_test123");
   });

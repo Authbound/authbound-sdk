@@ -10,6 +10,8 @@
  * ```
  */
 
+export { meetsMinimumAge } from "./core/age-claims";
+export { verifyClaimsDigest } from "./core/claims-digest";
 export { logError } from "./core/error-utils";
 // Re-export edge-compatible JWT utilities
 export {
@@ -21,6 +23,13 @@ export {
   refreshToken,
   verifyToken,
 } from "./core/jwt";
+export {
+  type ResultTokenPayload,
+  ResultTokenVerificationError,
+  type VerifiedResultToken,
+  type VerifyResultTokenOptions,
+  verifyResultToken,
+} from "./core/result-token";
 
 // Re-export types
 export type {
@@ -35,7 +44,6 @@ export type {
 
 // Re-export utilities
 export {
-  calculateAge,
   checkRequirements,
   getDefaultCookieOptions,
   parseConfig,

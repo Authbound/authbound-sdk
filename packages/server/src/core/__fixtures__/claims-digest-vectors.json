@@ -1,0 +1,110 @@
+{
+  "description": "claims_sha256 = lowercase hex SHA-256 of RFC 8785 (JCS) {\"claims\": claims, \"salt\": salt}. Copied from the Authbound API contract fixtures; the API and this SDK must produce expected_sha256 for every vector.",
+  "vectors": [
+    {
+      "name": "nested object",
+      "claims": {
+        "given_name": "Test",
+        "family_name": "Person",
+        "address": {
+          "street_address": "Mannerheimintie 1",
+          "locality": "Helsinki",
+          "postal_code": "00100"
+        },
+        "age_over_18": true,
+        "nationalities": ["FI", "SE"],
+        "middle_name": null
+      },
+      "salt": "CRGIQUec6mb5KlFEDReizzIssKq9FMgPcxgq4DKzLok",
+      "expected_sha256": "8bb4b8e6244ecab2a7ad525ad8663882d785741086ada623cb490355dd164e63"
+    },
+    {
+      "name": "unicode",
+      "claims": {
+        "given_name": "Jürgen",
+        "family_name": "Ääkkönen 😀",
+        "～": "fullwidth tilde sorts after the surrogate pair",
+        "é": "/\u007f\u001f\n\"\\"
+      },
+      "salt": "XBz4hYztqDvpOW_mtrVZTo4UJdqUWCMtZ9nXWxm-bu4",
+      "expected_sha256": "f12a1e770978861caf18f85c816784d8fc93fae51d4d652f1bb1086d93a809ba"
+    },
+    {
+      "name": "integer and fractional numbers",
+      "claims": {
+        "integers": [0, 1, -1, 42, 9007199254740991, 1e21, 123456789012345680000],
+        "fractions": [1.0, 1.5, -2.5e-10, 0.1, 0.000001, 1e-7, -0.0, 100.25],
+        "years_of_service": 12,
+        "salary_ratio": 0.75
+      },
+      "salt": "TuSFlBwvQfjDBJptxeYZu6cgo6VaKB7qZgw6AUB7b_o",
+      "expected_sha256": "30a5699b07d59a89cc67fc5a976648dca9cf851a703eac5f2598a3d34f8e3917"
+    },
+    {
+      "name": "empty claims",
+      "claims": {},
+      "salt": "QPT6ABBz1E4wefBPq2hHcPtAIZNhY431pv8KCLsgEgo",
+      "expected_sha256": "89acc074ac14022c1bcdf211edae83f1f9d64df771c203e227d52acf20ad69ec"
+    },
+    {
+      "name": "mdoc namespace",
+      "claims": {
+        "org.iso.18013.5.1": {
+          "given_name": "Test",
+          "age_over_18": false,
+          "birth_date": "1990-05-15"
+        }
+      },
+      "salt": "mJEMAFs4YQmjv9etg81SLEtm--KZh2yoMM2BS7he0KQ",
+      "expected_sha256": "2d379456d1bc29ab5beccfb065b55b2197568cad7cbe7b9deee9615418ce2fc7"
+    },
+    {
+      "name": "array positions not returned are null",
+      "claims": {
+        "nationalities": [null, "SE"],
+        "addresses": [{ "locality": "Helsinki" }, null, { "locality": "Tampere" }]
+      },
+      "salt": "Q2xhaW1QYXRoUG9pbnRlck51bGxQbGFjZWhvbGRlcnM",
+      "expected_sha256": "edf3d4a59e350ef715eb0c59635bce2b05ed19b2f41df7a418d79cbb551c402b"
+    },
+    {
+      "name": "empty, blank and replacement-character strings are ordinary values",
+      "claims": {
+        "given_name": "",
+        "family_name": " ",
+        "birth_place": "Synthetic \uFFFD",
+        "\uFFFD": "key"
+      },
+      "salt": "RW1wdHlBbmRSZXBsYWNlbWVudENoYXJhY3RlclN0ciE",
+      "expected_sha256": "be619ba6a65ef26ab4f8a763099b8b8fb57b9cee087629d583adc5bca1242696"
+    },
+    {
+      "name": "age 18+: proof of age attestation age_over_18",
+      "claims": {
+        "eu.europa.ec.av.1": {
+          "age_over_18": true
+        }
+      },
+      "salt": "h0xK_SwpgvGI3a_8jGMK-c3VJ8ZZjj491mIyT7oBMWw",
+      "expected_sha256": "1cd5245d4a9b6fc76c6cae4d60a0959366c71603d56a67c2f424bf4fef1c49c4"
+    },
+    {
+      "name": "age 18+: pid age_over_18",
+      "claims": {
+        "age_equal_or_over": {
+          "18": true
+        }
+      },
+      "salt": "k3dQwUoRCeyyo-bL8x3icmQ5VpGAiTXfD3ijFauSQW4",
+      "expected_sha256": "82f1773c2be3bf580bf978e80c3055e43bc148ae5d47acbc3e939e66bffd2d5f"
+    },
+    {
+      "name": "age 18+: pid birth date",
+      "claims": {
+        "birthdate": "1990-05-15"
+      },
+      "salt": "3rAsOX6_HSvnJzpYwjvS_Xp6N9gRId9Ut3197Pzh7QA",
+      "expected_sha256": "d2862c2ba0f0f8cd07c552a94a551dacb5563203344c1c3ad9263188b5e628db"
+    }
+  ]
+}
