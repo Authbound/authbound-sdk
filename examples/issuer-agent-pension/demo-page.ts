@@ -623,8 +623,8 @@ export function renderDemoPage(credentials: PensionDemoOption[]): string {
         ['Status', result.status || 'verified'],
         ['Verification', result.verificationId || activeVerificationId || '—'],
       ];
-      if (result.assertions && typeof result.assertions === 'object') {
-        for (const [key, value] of Object.entries(result.assertions)) {
+      if (result.claims && typeof result.claims === 'object') {
+        for (const [key, value] of Object.entries(result.claims)) {
           if (value && typeof value === 'object' && !Array.isArray(value)) {
             for (const [k, v] of Object.entries(value)) {
               items.push([key + '.' + k, String(v)]);

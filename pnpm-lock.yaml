@@ -96,6 +96,9 @@ importers:
       '@authbound/nextjs':
         specifier: workspace:*
         version: link:../../packages/nextjs
+      '@authbound/server':
+        specifier: workspace:*
+        version: link:../../packages/server
       next:
         specifier: 16.3.3
         version: 16.3.3(@types/node@22.19.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(sass@1.99.0)

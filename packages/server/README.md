@@ -234,7 +234,10 @@ routes: {
 ### Verification Requirements
 
 - **`verified: true`** - Requires identity verification
-- **`minAge: number`** - Requires verified age (calculated from DOB)
+- **`minAge: number`** - Requires disclosed age claims that prove the minimum
+  age: `age_over_M: true` (EU age verification attestation or mdoc),
+  `age_equal_or_over: { "M": true }` (SD-JWT VC PID), with M at least
+  `minAge`, or a birth date at least `minAge` years before today (UTC)
 - **`assuranceLevel: "LOW" | "SUBSTANTIAL" | "HIGH"`** - Requires minimum assurance level
 
 ### Verification Context Cookies
@@ -294,6 +297,38 @@ export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig, {
   },
 });
 ```
+
+Webhooks and events never carry claims.
+
+### Verification Results and Claims
+
+Read the claims a wallet disclosed from the secret-key verification result.
+They are returned together with `claimsSalt` while `claimsStatus` is
+`available`, for 15 minutes after the verification completes. Afterwards
+`claimsStatus` is `expired` and only the result token's `claims_sha256` digest
+remains. `none` means the policy returned no claims.
+
+```typescript
+import { AuthboundClient, verifyClaimsDigest } from "@authbound/server";
+
+const client = new AuthboundClient({ apiKey: process.env.AUTHBOUND_SECRET_KEY! });
+const result = await client.verifications.getResult(verificationId);
+
+if (result.claims && result.claimsSalt) {
+  const unaltered = await verifyClaimsDigest(
+    result.claims,
+    result.claimsSalt,
+    result.resultToken
+  );
+}
+```
+
+Claims are keyed by their disclosed paths, for example
+`{ age_equal_or_over: { "18": true } }` from an SD-JWT VC PID or
+`{ "eu.europa.ec.av.1": { age_over_18: true } }` from an age verification
+attestation. `verifyClaimsDigest` checks the RFC 8785 digest the token commits
+to; it does not verify the token signature, which you can check against
+`/v1/jwks`.
 
 ## API Reference
 
@@ -398,8 +433,7 @@ await setVerificationCookie(response, config, {
   verificationId: "vrf_456",
   status: "VERIFIED",
   assuranceLevel: "SUBSTANTIAL",
-  age: 25,
-  dateOfBirth: "1999-01-01",
+  ageClaims: { age_equal_or_over: { "18": true } },
 });
 ```
 

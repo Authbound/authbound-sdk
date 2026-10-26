@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, it, mock } from "node:test";
@@ -168,7 +169,21 @@ function signedResult(verificationId: string): SignedVerificationResult {
     verificationId,
     status: "verified",
     resultToken: "result_token",
+    claimsStatus: "none",
   };
+}
+
+// Single-key objects, so JSON.stringify already produces the RFC 8785 form.
+const pensionClaims = { pension: { typeCode: "KE" } };
+const pensionClaimsSalt = "pension_claims_salt";
+
+function resultTokenFor(claims: Record<string, unknown>, salt: string) {
+  const claimsSha256 = createHash("sha256")
+    .update(JSON.stringify({ claims, salt }))
+    .digest("hex");
+  const encode = (value: unknown) =>
+    Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${encode({ alg: "ES256" })}.${encode({ claims_sha256: claimsSha256 })}.signature`;
 }
 
 function createMockClient(options: {
@@ -730,6 +745,59 @@ describe("issuer-agent-pension example", () => {
       assert.equal(verifiedResultResponse.ok, true);
       assert.equal(getResult.calls.length, 1);
     });
+  });
+
+  it("returns verified claims only when they match the result token digest", async () => {
+    process.env.AUTHBOUND_PUBLISHABLE_KEY = "pk_test_123";
+    const resultToken = resultTokenFor(pensionClaims, pensionClaimsSalt);
+
+    for (const [claims, expectedStatus] of [
+      [pensionClaims, 200],
+      [{ pension: { typeCode: "TK" } }, 502],
+    ] as const) {
+      const create = mockFunction(async () =>
+        verification({
+          id: "vrf_claims",
+          status: "created",
+          clientToken: "client_token_123",
+          expiresAt: "2999-01-01T00:00:00.000Z",
+          clientAction: {
+            kind: "qr",
+            data: "openid4vp://authorize?request_uri=https%3A%2F%2Fexample.test",
+          },
+        })
+      );
+      const getStatus = mockFunction(async () =>
+        verificationStatus({ id: "vrf_claims", status: "verified" })
+      );
+      const getResult = mockFunction(
+        async (verificationId: string): Promise<SignedVerificationResult> => ({
+          verificationId,
+          status: "verified",
+          resultToken,
+          claimsStatus: "available",
+          claims,
+          claimsSalt: pensionClaimsSalt,
+        })
+      );
+      const app = createApp({
+        createClient: () =>
+          createMockClient({
+            verifications: { create, getStatus, getResult },
+          }),
+      });
+
+      await withAppServer(app, async (baseUrl) => {
+        await fetch(`${baseUrl}/verify`, { method: "POST" });
+        await fetch(`${baseUrl}/status?id=vrf_claims`);
+        const response = await fetch(`${baseUrl}/result?id=vrf_claims`);
+
+        assert.equal(response.status, expectedStatus);
+        if (expectedStatus === 200) {
+          assert.deepEqual((await response.json()).claims, pensionClaims);
+        }
+      });
+    }
   });
 
   it("expires verification sessions from Authbound's expiresAt value", async () => {

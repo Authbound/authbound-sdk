@@ -41,7 +41,7 @@ For phone testing, open the same port on your computer's LAN IP, for example `ht
 - `createPensionCredentialOffer` creates an OpenID4VCI wallet offer from a JSON pension credential fixture.
 - `createPensionVerificationRequest` creates an EUDI verification request for the pension policy.
 - `getPensionVerificationStatus` polls verification status with the client token.
-- `getPensionVerificationResult` fetches the signed verification result after verification succeeds.
+- `getPensionVerificationResult` fetches the signed verification result after verification succeeds. The demo server returns its `claims` only after `verifyClaimsDigest` confirms they match the result token's `claims_sha256`.
 
 `server.ts` adds the local demo UI, QR rendering, and short-lived in-memory session storage for client tokens. Result fetching is bound to that in-memory session so the server secret key is not exposed as a generic result lookup endpoint.
 
@@ -84,11 +84,11 @@ environment. See `.env.example` for the Authbound staging URL. Keep
 
 Run this example with its workspace SDK dependencies: `package.json` uses
 `workspace:*`, so `@authbound/server` resolves to the SDK source in this checkout,
-currently the 0.4.0 candidate, and not necessarily the version published on npm.
+currently the 0.5.0 candidate, and not necessarily the version published on npm.
 When building outside this workspace, pin an SDK release that includes
 credential-definition lifecycle operations.
 
-The workspace candidate sends API contract revision `v1.2026-09-01.1`
+The workspace candidate sends API contract revision `v1.2026-10-24.1`
 (see `packages/server/src/generated/api-contract.ts`), including credential-definition
 lifecycle operations. Do not substitute SDK 0.2.2 into this source: older responses
 can omit lifecycle status. A missing status indicates incompatible versions, not

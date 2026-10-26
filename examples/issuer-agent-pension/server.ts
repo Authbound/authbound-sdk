@@ -3,6 +3,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   type AuthboundClient as AuthboundClientInstance,
   toBrowserVerificationResponse,
+  verifyClaimsDigest,
 } from "@authbound/server";
 import express, {
   type ErrorRequestHandler,
@@ -272,6 +273,21 @@ async function getVerificationResult(
     verificationId,
   });
   sessions.delete(verificationId);
+  // The signed result token commits to the claims through claims_sha256.
+  if (
+    result.claims &&
+    result.claimsSalt &&
+    !(await verifyClaimsDigest(
+      result.claims,
+      result.claimsSalt,
+      result.resultToken
+    ))
+  ) {
+    throw new DemoRequestError(
+      "Verification claims do not match the result token",
+      502
+    );
+  }
   return result;
 }
 

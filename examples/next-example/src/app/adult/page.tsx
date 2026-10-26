@@ -41,43 +41,27 @@ export default async function AdultPage() {
         <div className="card" style={{ marginBottom: "2rem" }}>
           <h3>✅ Age Verified Access</h3>
           <p style={{ marginTop: "1rem" }}>
-            Your age has been verified through document verification. You have
-            access to age-restricted content.
+            Your wallet has proven that you are at least 18. You have access to
+            age-restricted content.
           </p>
         </div>
 
-        {verification?.age && (
+        {verification?.ageClaims && (
           <div className="card">
-            <h3>Age Verification Details</h3>
-            <div style={{ marginTop: "1rem" }}>
-              <p>
-                <strong>Verified Age:</strong>{" "}
-                <span
-                  style={{
-                    color: "var(--color-success)",
-                    fontSize: "1.25rem",
-                    fontWeight: "700",
-                  }}
-                >
-                  {verification.age} years old
-                </span>
-              </p>
-              {verification.dateOfBirth && (
-                <p style={{ marginTop: "0.5rem" }}>
-                  <strong>Date of Birth:</strong>{" "}
-                  <span>{verification.dateOfBirth}</span>
-                </p>
-              )}
-              <p
-                style={{
-                  marginTop: "0.5rem",
-                  fontSize: "0.9rem",
-                  color: "var(--color-text-muted)",
-                }}
-              >
-                Age calculated from verified identity document.
-              </p>
-            </div>
+            <h3>Disclosed Age Claims</h3>
+            <pre style={{ marginTop: "1rem" }}>
+              {JSON.stringify(verification.ageClaims, null, 2)}
+            </pre>
+            <p
+              style={{
+                marginTop: "0.5rem",
+                fontSize: "0.9rem",
+                color: "var(--color-text-muted)",
+              }}
+            >
+              The route checks these claims exactly as your wallet disclosed
+              them.
+            </p>
           </div>
         )}
 
