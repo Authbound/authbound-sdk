@@ -22,6 +22,7 @@
  * ```
  */
 
+import type { VerificationProviderOptions } from "@authbound/core";
 import { type Request, type Response, Router } from "express";
 import { AuthboundClient } from "../core/client";
 import {
@@ -59,6 +60,12 @@ export interface HandlersOptions {
    * Use this to sync verification status with your database.
    */
   onWebhook?: (event: WebhookEvent) => void | Promise<void>;
+
+  /**
+   * Provider-specific protocol options sent with every verification these
+   * handlers create. Server-owned only; request bodies cannot set them.
+   */
+  providerOptions?: VerificationProviderOptions;
 
   /**
    * Custom handler called when a verification is created.
@@ -186,6 +193,7 @@ async function handleCreateVerification(
       client,
       idempotencyKey: req.get("idempotency-key") ?? undefined,
       getUserRef: getUserRef ? () => getUserRef(req) : undefined,
+      providerOptions: options.providerOptions,
       onVerificationCreated: options.onVerificationCreated,
     })
   );

@@ -45,6 +45,66 @@ describe("createAuthboundHandlers browser verification contract", () => {
     vi.restoreAllMocks();
   });
 
+  it("sends server-owned provider options with every created verification", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        object: "verification",
+        id: "vrf_test123",
+        status: "awaiting_user",
+        policy_id: "pol_authbound_pension_v1",
+        env_mode: "test",
+        created_at: "2026-04-21T10:00:00.000Z",
+        client_token: "client_token_123",
+        client_action: {
+          kind: "qr",
+          data: "mdoc-openid4vp://?client_id=x509_hash%3Aabc&request_uri=https%3A%2F%2Fverifier.authbound.test%2Frequest.jwt%2Fabc",
+          expires_at: "2026-04-21T10:10:00.000Z",
+        },
+        expires_at: "2026-04-21T10:10:00.000Z",
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { POST } = createAuthboundHandlers(config, {
+      providerOptions: {
+        eudi: {
+          responseMode: "direct_post.jwt",
+          profile: "haip",
+          jarMode: "by_reference",
+          requestUriMethod: "get",
+        },
+      },
+    });
+    const response = await POST(
+      new Request("https://app.example.com/api/authbound/verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          policyId: "pol_authbound_pension_v1",
+          provider: "eudi",
+          providerOptions: { eudi: { profile: "openid4vp" } },
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const [, request] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(JSON.parse(request.body as string)).toMatchObject({
+      provider: "eudi",
+      provider_options: {
+        eudi: {
+          response_mode: "direct_post.jwt",
+          profile: "haip",
+          jar_mode: "by_reference",
+          request_uri_method: "get",
+        },
+      },
+    });
+  });
+
   it("accepts camelCase create requests and returns the wallet QR action", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({

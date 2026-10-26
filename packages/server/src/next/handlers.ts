@@ -1,3 +1,4 @@
+import type { VerificationProviderOptions } from "@authbound/core";
 import { AuthboundClient } from "../core/client";
 import {
   createVerificationHandlerKernel,
@@ -62,6 +63,12 @@ export interface HandlersOptions {
    * Custom handler called when a failed webhook event is received.
    */
   onFailed?: (event: WebhookEvent) => void | Promise<void>;
+
+  /**
+   * Provider-specific protocol options sent with every verification these
+   * handlers create. Server-owned only; request bodies cannot set them.
+   */
+  providerOptions?: VerificationProviderOptions;
 
   /**
    * Custom handler called when a verification is created.
@@ -276,6 +283,7 @@ async function handleCreateVerification(
       client,
       idempotencyKey: request.headers.get("idempotency-key") ?? undefined,
       getUserRef: getUserRef ? () => getUserRef(request) : undefined,
+      providerOptions: options.providerOptions,
       onVerificationCreated: options.onVerificationCreated,
     }),
     config
