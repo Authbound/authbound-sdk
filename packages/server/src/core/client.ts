@@ -25,6 +25,7 @@
  */
 
 import {
+  type ClaimsStatus,
   PublicCreateVerificationResponseSchema as CreateVerificationResponseSchema,
   OperatorDeviceGrantSchema,
   type ProviderPreference,
@@ -643,8 +644,16 @@ export interface SignedVerificationResult {
   verificationId: string;
   status: "verified" | "failed";
   resultToken: string;
-  assertions?: Record<string, unknown>;
   failureCode?: string;
+  /**
+   * `available` while `claims` and `claimsSalt` can be read, `expired` after
+   * the retention window ends, `none` when the verification returned no claims.
+   */
+  claimsStatus: ClaimsStatus;
+  /** The disclosed requested claims, keyed by their claim paths. */
+  claims?: Record<string, unknown>;
+  /** Salt of the result token's `claims_sha256`; see `verifyClaimsDigest`. */
+  claimsSalt?: string;
 }
 
 export type StationDisclosureProfile = "physical_id";
@@ -1082,8 +1091,10 @@ function mapSignedVerificationResult(
     verificationId: raw.verification_id,
     status: raw.status,
     resultToken: raw.result_token,
-    assertions: raw.assertions,
     failureCode: raw.failure_code ?? undefined,
+    claimsStatus: raw.claims_status,
+    claims: raw.claims,
+    claimsSalt: raw.claims_salt,
   };
 }
 
@@ -1485,7 +1496,7 @@ function assertProviderPreference(
   const parsed = ProviderPreferenceSchema.safeParse(value);
   if (!parsed.success) {
     throw new AuthboundClientError(
-      'provider must be one of "auto", "vcs", or "eudi"',
+      'provider must be "auto" or "eudi"',
       "VALIDATION_ERROR",
       400,
       parsed.error.format()

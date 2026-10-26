@@ -61,10 +61,8 @@ export interface CreateTokenOptions {
   status: VerificationStatus;
   /** Assurance level */
   assuranceLevel: AssuranceLevel;
-  /** User's age (optional) */
-  age?: number;
-  /** Date of birth (optional) */
-  dateOfBirth?: string;
+  /** Disclosed age claims for `minAge` checks (optional) */
+  ageClaims?: Record<string, unknown>;
   /** Token expiry (default: "7d") */
   expiresIn?: string | number;
 }
@@ -82,8 +80,7 @@ export async function createToken(
     verificationId,
     status,
     assuranceLevel,
-    age,
-    dateOfBirth,
+    ageClaims,
     expiresIn = DEFAULT_EXPIRY,
   } = options;
 
@@ -100,8 +97,7 @@ export async function createToken(
     sid: verificationId,
     status,
     assurance: assuranceLevel,
-    ...(age !== undefined && { age }),
-    ...(dateOfBirth && { dateOfBirth }),
+    ...(ageClaims && { ageClaims }),
   };
 
   const token = await new jose.EncryptJWT(claims as jose.JWTPayload)
@@ -142,10 +138,11 @@ export async function verifyToken(
       sid: payload.sid as string,
       status: payload.status as VerificationStatus,
       assurance: payload.assurance as AssuranceLevel,
-      age: typeof payload.age === "number" ? payload.age : undefined,
-      dateOfBirth:
-        typeof payload.dateOfBirth === "string"
-          ? payload.dateOfBirth
+      ageClaims:
+        typeof payload.ageClaims === "object" &&
+        payload.ageClaims !== null &&
+        !Array.isArray(payload.ageClaims)
+          ? (payload.ageClaims as Record<string, unknown>)
           : undefined,
       iat: payload.iat,
       exp: payload.exp,
@@ -166,10 +163,9 @@ export function claimsToVerificationContext(
     isVerified: claims.status === "VERIFIED",
     status: claims.status,
     assuranceLevel: claims.assurance,
-    age: claims.age,
+    ageClaims: claims.ageClaims,
     verificationId: claims.sid,
     userRef: claims.sub,
-    dateOfBirth: claims.dateOfBirth,
     expiresAt: new Date(claims.exp * 1000),
   };
 }
@@ -250,8 +246,7 @@ export async function refreshToken(
     verificationId: claims.sid,
     status: claims.status,
     assuranceLevel: claims.assurance,
-    age: claims.age,
-    dateOfBirth: claims.dateOfBirth,
+    ageClaims: claims.ageClaims,
     expiresIn,
   });
 }

@@ -34,8 +34,7 @@ export async function applyNuxtCookieEffects(
       verificationId: effects.setVerification.verificationId,
       status: effects.setVerification.status,
       assuranceLevel: effects.setVerification.assuranceLevel,
-      age: effects.setVerification.age,
-      dateOfBirth: effects.setVerification.dateOfBirth,
+      ageClaims: effects.setVerification.ageClaims,
       expiresIn: cookieMaxAge,
     });
 

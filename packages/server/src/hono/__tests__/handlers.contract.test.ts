@@ -53,6 +53,7 @@ describe("Hono Authbound app contract", () => {
           verification_id: "vrf_test123",
           status: "verified",
           result_token: "signed_result_token",
+          claims_status: "none",
         })
       );
     vi.stubGlobal("fetch", fetchMock);
@@ -171,6 +172,7 @@ describe("Hono Authbound app contract", () => {
           verification_id: "vrf_test123",
           status: "verified",
           result_token: "signed_result_token",
+          claims_status: "none",
         })
       );
     vi.stubGlobal("fetch", fetchMock);

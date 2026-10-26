@@ -118,6 +118,7 @@ describe("Express Authbound router contract", () => {
             verification_id: "vrf_test123",
             status: "verified",
             result_token: "signed_result_token",
+            claims_status: "none",
           }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         )
@@ -285,6 +286,7 @@ describe("Express Authbound router contract", () => {
             verification_id: "vrf_test123",
             status: "verified",
             result_token: "signed_result_token",
+            claims_status: "none",
           }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         )

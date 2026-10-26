@@ -167,7 +167,9 @@ describe("browser flow session cookie ordering", () => {
             verification_id: "vrf_first",
             status: "verified",
             result_token: "signed_result_token",
-            assertions: { age_over_18: true },
+            claims_status: "available",
+            claims: { age_equal_or_over: { "18": true } },
+            claims_salt: "claims_salt",
           })
         );
         resolve();

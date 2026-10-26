@@ -1101,10 +1101,10 @@ export function createStationDisclosureRoute(
  *
  * export const POST = createWebhookRoute({
  *   onVerified: async (event) => {
- *     const { id, verified_outputs } = event.data.object;
+ *     const { id } = event.data.object;
  *     await db.users.update({
  *       where: { verificationId: id },
- *       data: { verified: true, age: verified_outputs?.age },
+ *       data: { verified: true },
  *     });
  *   },
  * });
@@ -1666,8 +1666,7 @@ export function createSessionRoute(
         verificationId,
         status: "VERIFIED",
         assuranceLevel: "SUBSTANTIAL",
-        age: verifiedSession.age,
-        dateOfBirth: verifiedSession.dateOfBirth,
+        ageClaims: verifiedSession.ageClaims,
         expiresIn: cookieMaxAge,
       });
       const response = NextResponse.json({

@@ -114,8 +114,7 @@ export interface SetVerificationCookieOptions {
   verificationId: string;
   status: "VERIFIED" | "REJECTED" | "MANUAL_REVIEW_NEEDED" | "PENDING";
   assuranceLevel: "NONE" | "LOW" | "SUBSTANTIAL" | "HIGH";
-  age?: number;
-  dateOfBirth?: string;
+  ageClaims?: Record<string, unknown>;
 }
 
 /**
@@ -132,8 +131,7 @@ export async function setVerificationCookie(
     verificationId: sessionData.verificationId,
     status: sessionData.status,
     assuranceLevel: sessionData.assuranceLevel,
-    age: sessionData.age,
-    dateOfBirth: sessionData.dateOfBirth,
+    ageClaims: sessionData.ageClaims,
     expiresIn: config.cookie?.maxAge ?? getDefaultCookieOptions().maxAge,
   });
 

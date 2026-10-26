@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { AuthboundClient } from "./client";
+import { VerificationEventObjectSchema } from "./types";
 import { generateWebhookSignature } from "./webhooks";
 
 const SECRET = "whsec_test_secret_key_12345";
@@ -157,5 +158,21 @@ describe("WebhooksApi signature verification", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("webhook event schema", () => {
+  it("webhook object schema has no verified_outputs", () => {
+    expect(Object.keys(VerificationEventObjectSchema.shape)).not.toContain(
+      "verified_outputs"
+    );
+
+    const parsed = VerificationEventObjectSchema.parse({
+      id: "vrf_123",
+      object: "verification",
+      status: "verified",
+      verified_outputs: { first_name: "Test" },
+    });
+    expect(parsed).not.toHaveProperty("verified_outputs");
   });
 });

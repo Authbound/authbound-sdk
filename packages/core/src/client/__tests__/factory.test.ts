@@ -355,7 +355,7 @@ describe("createClient", () => {
       verificationEndpoint: "/api/authbound/verification",
     });
 
-    await client.startVerification({ provider: "vcs" });
+    await client.startVerification({ provider: "eudi" });
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/authbound/verification",
@@ -363,7 +363,7 @@ describe("createClient", () => {
         method: "POST",
         body: JSON.stringify({
           policyId: "pol_authbound_pension_v1",
-          provider: "vcs",
+          provider: "eudi",
         }),
       })
     );

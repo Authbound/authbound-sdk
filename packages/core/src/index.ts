@@ -171,6 +171,8 @@ export {
 } from "./types/verification";
 
 export {
+  type ClaimsStatus,
+  ClaimsStatusSchema,
   isTerminalVerificationProgressStatus,
   isTerminalVerificationUiStatus,
   type ProviderPreference,

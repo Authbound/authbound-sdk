@@ -75,7 +75,7 @@ describe("createAuthboundHandlers browser verification contract", () => {
           policyId: "pol_authbound_pension_v1",
           customerUserRef: "user_123",
           metadata: { flow: "age_gate" },
-          provider: "vcs",
+          provider: "eudi",
         }),
       })
     );
@@ -101,7 +101,7 @@ describe("createAuthboundHandlers browser verification contract", () => {
           policy_id: "pol_authbound_pension_v1",
           customer_user_ref: "user_123",
           metadata: { flow: "age_gate" },
-          provider: "vcs",
+          provider: "eudi",
         }),
       })
     );
@@ -132,7 +132,9 @@ describe("createAuthboundHandlers browser verification contract", () => {
           verification_id: "vrf_test123",
           status: "verified",
           result_token: "signed_result_token",
-          assertions: { birth_date: "1990-05-15" },
+          claims_status: "available",
+          claims: { birthdate: "1990-05-15" },
+          claims_salt: "claims_salt",
         })
       );
     vi.stubGlobal("fetch", fetchMock);
@@ -212,6 +214,7 @@ describe("createAuthboundHandlers browser verification contract", () => {
           verification_id: "vrf_test123",
           status: "verified",
           result_token: "signed_result_token",
+          claims_status: "none",
         })
       );
     vi.stubGlobal("fetch", fetchMock);
@@ -357,6 +360,7 @@ describe("createAuthboundHandlers browser verification contract", () => {
           verification_id: "vrf_test123",
           status: "failed",
           result_token: "signed_result_token",
+          claims_status: "none",
           failure_code: "policy_not_satisfied",
         })
       );

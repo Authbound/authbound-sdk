@@ -176,43 +176,90 @@ describe("public verification contract security invariants", () => {
     ).toBe(false);
   });
 
-  it("enforces signed result failure_code semantics", () => {
-    expect(
-      SignedVerificationResultSchema.safeParse({
-        verification_id: "vrf_123",
-        status: "failed",
-        result_token: "result.jwt",
-        assertions: {},
-      }).success
-    ).toBe(false);
+  const verifiedResult = {
+    verification_id: "vrf_123",
+    status: "verified",
+    result_token: "result.jwt",
+    claims_status: "available",
+    claims: { age_equal_or_over: { "18": true } },
+    claims_salt: "k3dQwUoRCeyyo-bL8x3icmQ5VpGAiTXfD3ijFauSQW4",
+  } as const;
 
+  it("result schema accepts claims_status claims and claims_salt", () => {
     expect(
-      SignedVerificationResultSchema.safeParse({
-        verification_id: "vrf_123",
-        status: "verified",
-        result_token: "result.jwt",
-        assertions: { age_over_18: true },
-        failure_code: "policy_not_satisfied",
-      }).success
-    ).toBe(false);
-
-    expect(
-      SignedVerificationResultSchema.safeParse({
-        verification_id: "vrf_123",
-        status: "failed",
-        result_token: "result.jwt",
-        assertions: { age_over_18: true },
-        failure_code: "policy_not_satisfied",
-      }).success
-    ).toBe(false);
-
-    expect(
-      SignedVerificationResultSchema.safeParse({
-        verification_id: "vrf_123",
-        status: "failed",
-        result_token: "result.jwt",
-        failure_code: "policy_not_satisfied",
-      }).success
+      SignedVerificationResultSchema.safeParse(verifiedResult).success
     ).toBe(true);
+
+    const {
+      claims: _claims,
+      claims_salt: _salt,
+      ...withoutClaims
+    } = verifiedResult;
+    for (const claimsStatus of ["expired", "none"]) {
+      expect(
+        SignedVerificationResultSchema.safeParse({
+          ...withoutClaims,
+          claims_status: claimsStatus,
+        }).success
+      ).toBe(true);
+    }
+  });
+
+  it("result schema rejects assertions", () => {
+    expect(
+      SignedVerificationResultSchema.safeParse({
+        ...verifiedResult,
+        assertions: { age_over_18: true },
+      }).success
+    ).toBe(false);
+  });
+
+  it("result schema delivers claims and claims_salt together only while available", () => {
+    const { claims, claims_salt, ...withoutClaims } = verifiedResult;
+    for (const partial of [
+      { ...withoutClaims, claims },
+      { ...withoutClaims, claims_salt },
+      { ...withoutClaims, claims_status: "expired", claims, claims_salt },
+      { ...withoutClaims, claims_status: "none", claims_salt },
+      withoutClaims,
+    ]) {
+      expect(SignedVerificationResultSchema.safeParse(partial).success).toBe(
+        false
+      );
+    }
+  });
+
+  it("enforces signed result failure_code semantics", () => {
+    const failedResult = {
+      verification_id: "vrf_123",
+      status: "failed",
+      result_token: "result.jwt",
+      claims_status: "none",
+      failure_code: "policy_not_satisfied",
+    } as const;
+
+    expect(SignedVerificationResultSchema.safeParse(failedResult).success).toBe(
+      true
+    );
+
+    const { failure_code: _failureCode, ...failedWithoutCode } = failedResult;
+    expect(
+      SignedVerificationResultSchema.safeParse(failedWithoutCode).success
+    ).toBe(false);
+
+    expect(
+      SignedVerificationResultSchema.safeParse({
+        ...verifiedResult,
+        failure_code: "policy_not_satisfied",
+      }).success
+    ).toBe(false);
+
+    expect(
+      SignedVerificationResultSchema.safeParse({
+        ...verifiedResult,
+        status: "failed",
+        failure_code: "policy_not_satisfied",
+      }).success
+    ).toBe(false);
   });
 });

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AUTHBOUND_API_VERSION } from "../generated/api-contract";
+import { meetsMinimumAge } from "./age-claims";
 
 export const VerificationStatusSchema = z.enum([
   "VERIFIED",
@@ -44,26 +45,6 @@ export const LastErrorSchema = z.object({
   reason: z.string(),
 });
 
-export type VerifiedOutputs = {
-  first_name?: string;
-  last_name?: string;
-  dob?: Dob;
-  sex?: Sex;
-  id_number_type?: "fi_hetu" | "us_ssn" | "other";
-  id_number_last4?: string;
-  id_number_masked?: string;
-};
-
-export const VerifiedOutputsSchema = z.object({
-  first_name: z.string().optional(),
-  last_name: z.string().optional(),
-  dob: DobSchema.optional(),
-  sex: SexSchema.optional(),
-  id_number_type: z.enum(["fi_hetu", "us_ssn", "other"]).optional(),
-  id_number_last4: z.string().optional(),
-  id_number_masked: z.string().optional(),
-});
-
 export type VerificationEventStatus =
   | "created"
   | "awaiting_user"
@@ -103,7 +84,6 @@ export type VerificationEventObject = {
   failure_code?: string | null;
   last_error?: LastError;
   last_verification_report?: string;
-  verified_outputs?: VerifiedOutputs;
 };
 
 export const VerificationEventObjectSchema = z.object({
@@ -117,7 +97,6 @@ export const VerificationEventObjectSchema = z.object({
   failure_code: z.string().nullable().optional(),
   last_error: LastErrorSchema.optional(),
   last_verification_report: z.string().optional(),
-  verified_outputs: VerifiedOutputsSchema.optional(),
 });
 
 export type WebhookEventType =
@@ -220,8 +199,7 @@ export const AuthboundClaimsSchema = z.object({
   sid: z.string(),
   status: VerificationStatusSchema,
   assurance: AssuranceLevelSchema,
-  age: z.number().int().optional(),
-  dateOfBirth: z.string().optional(),
+  ageClaims: z.record(z.string(), z.unknown()).optional(),
   iat: z.number(),
   exp: z.number(),
 });
@@ -232,10 +210,10 @@ export interface AuthboundVerificationContext {
   isVerified: boolean;
   status: VerificationStatus;
   assuranceLevel: AssuranceLevel;
-  age?: number;
+  /** Disclosed age claims, unchanged; `minAge` is checked against these. */
+  ageClaims?: Record<string, unknown>;
   verificationId: string;
   userRef: string;
-  dateOfBirth?: string;
   expiresAt: Date;
 }
 
@@ -246,7 +224,10 @@ export interface AuthboundVerificationContext {
 export const VerificationRequirementsSchema = z.object({
   /** Require the user to be verified */
   verified: z.boolean().optional(),
-  /** Minimum age requirement (calculated from DOB if available) */
+  /**
+   * Minimum age. Met by a disclosed `age_over_M` or `age_equal_or_over.M`
+   * of `true` with M at least this value, or by a disclosed birth date.
+   */
   minAge: z.number().int().positive().optional(),
   /** Minimum assurance level required */
   assuranceLevel: AssuranceLevelSchema.optional(),
@@ -443,16 +424,14 @@ export function checkRequirements(
     return { met: false, reason: "Verification required" };
   }
 
-  if (requirements.minAge !== undefined) {
-    if (verification.age === undefined) {
-      return { met: false, reason: "Age verification required" };
-    }
-    if (verification.age < requirements.minAge) {
-      return {
-        met: false,
-        reason: `Minimum age of ${requirements.minAge} required`,
-      };
-    }
+  if (
+    requirements.minAge !== undefined &&
+    !meetsMinimumAge(verification.ageClaims, requirements.minAge)
+  ) {
+    return {
+      met: false,
+      reason: `Minimum age of ${requirements.minAge} required`,
+    };
   }
 
   if (requirements.assuranceLevel) {

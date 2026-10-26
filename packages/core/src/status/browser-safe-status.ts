@@ -11,6 +11,8 @@ export function assertBrowserSafeStatusPayload(
     "result_token",
     "resultToken",
     "assertions",
+    "claims",
+    "claims_salt",
     "result",
   ];
   for (const field of forbiddenFields) {

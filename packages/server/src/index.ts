@@ -83,7 +83,6 @@ export type {
   VerificationRequirements,
   VerificationStatus,
   VerificationStatusResponse,
-  VerifiedOutputs,
   // Webhook types
   WebhookEvent,
   WebhookEventType,
@@ -109,7 +108,6 @@ export {
   VerificationEventStatusSchema,
   VerificationRequirementsSchema,
   VerificationStatusSchema,
-  VerifiedOutputsSchema,
   // Webhook schemas
   WebhookEventSchema,
   WebhookEventTypeSchema,
@@ -135,6 +133,7 @@ export {
   BrowserWalletUrlError,
   toBrowserVerificationResponse,
 } from "./core/browser-verification";
+export { verifyClaimsDigest } from "./core/claims-digest";
 export {
   type ArchivedCredentialDefinition,
   // Client class

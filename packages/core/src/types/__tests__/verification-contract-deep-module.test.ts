@@ -33,7 +33,7 @@ describe("public verification contract module", () => {
 
   it("rejects stale provider vocabulary at the shared contract", () => {
     expect(ProviderPreferenceSchema.safeParse("auto").success).toBe(true);
-    expect(ProviderPreferenceSchema.safeParse("vcs").success).toBe(true);
+    expect(ProviderPreferenceSchema.safeParse("vcs").success).toBe(false);
     expect(ProviderPreferenceSchema.safeParse("eudi").success).toBe(true);
     expect(ProviderPreferenceSchema.safeParse("reverify").success).toBe(false);
   });

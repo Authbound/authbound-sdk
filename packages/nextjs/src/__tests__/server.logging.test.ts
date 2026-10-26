@@ -855,7 +855,9 @@ describe("Next.js server debug logging", () => {
         id: "vrf_123",
         status: "verified",
         result_token: "signed_result_token_secret",
-        assertions: { birth_date: "1990-05-15" },
+        claims_status: "available",
+        claims: { birthdate: "1990-05-15" },
+        claims_salt: "claims_salt",
       }),
     }) as typeof fetch;
 
@@ -968,7 +970,9 @@ describe("Next.js server debug logging", () => {
           verification_id: "vrf_123",
           status: "verified",
           result_token: "signed_result_token",
-          assertions: { birth_date: "1990-05-15" },
+          claims_status: "available",
+          claims: { birthdate: "1990-05-15" },
+          claims_salt: "claims_salt",
         }),
       }) as typeof fetch;
 
@@ -1178,6 +1182,7 @@ describe("Next.js server debug logging", () => {
           verification_id: "vrf_123",
           status: "verified",
           result_token: "signed_result_token",
+          claims_status: "none",
         }),
       }) as typeof fetch;
 
@@ -1241,6 +1246,7 @@ describe("Next.js server debug logging", () => {
           verification_id: "vrf_123",
           status: "verified",
           result_token: "signed_result_token",
+          claims_status: "none",
         }),
       }) as typeof fetch;
 

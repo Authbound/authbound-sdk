@@ -68,7 +68,6 @@ export type {
   VerificationRequirements,
   VerificationStatus,
   VerificationStatusResponse,
-  VerifiedOutputs,
   // Webhook types
   WebhookEvent,
   WebhookEventType,

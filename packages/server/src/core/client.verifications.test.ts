@@ -17,7 +17,7 @@ const verificationReadResponse = {
   id: "vrf_123",
   status: "awaiting_user",
   policy_id: "pol_authbound_pension_v1",
-  provider: "vcs",
+  provider: "eudi",
   env_mode: "test",
   created_at: timestamp,
   expires_at: "2026-04-21T10:10:00.000Z",
@@ -68,7 +68,7 @@ describe("AuthboundClient verifications API", () => {
       policyId: "pol_authbound_pension_v1",
       customerUserRef: "demo-user",
       metadata: { demo: "pension" },
-      provider: "vcs",
+      provider: "eudi",
       idempotencyKey: "idem_123",
     });
 
@@ -105,7 +105,7 @@ describe("AuthboundClient verifications API", () => {
       policy_id: "pol_authbound_pension_v1",
       customer_user_ref: "demo-user",
       metadata: { demo: "pension" },
-      provider: "vcs",
+      provider: "eudi",
     });
   });
 
@@ -373,7 +373,7 @@ describe("AuthboundClient verifications API", () => {
           verification_id: "vrf_123",
           status: "verified",
           result_token: "result.jwt",
-          assertions: { age_over_18: true },
+          claims_status: "none",
           failure_code: "policy_not_satisfied",
         })
       );
@@ -391,7 +391,7 @@ describe("AuthboundClient verifications API", () => {
     });
   });
 
-  it("rejects failed signed results that include positive assertions", async () => {
+  it("rejects failed signed results that include claims", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -399,7 +399,9 @@ describe("AuthboundClient verifications API", () => {
           verification_id: "vrf_123",
           status: "failed",
           result_token: "result.jwt",
-          assertions: { age_over_18: true },
+          claims_status: "available",
+          claims: { age_equal_or_over: { "18": true } },
+          claims_salt: "claims_salt",
           failure_code: "policy_not_satisfied",
         })
       )
@@ -426,7 +428,9 @@ describe("AuthboundClient verifications API", () => {
           verification_id: "vrf_123",
           status: "verified",
           result_token: "result_token_secret",
-          assertions: { age_over_18: true },
+          claims_status: "available",
+          claims: { age_equal_or_over: { "18": true } },
+          claims_salt: "claims_salt_secret",
         })
       );
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -443,7 +447,8 @@ describe("AuthboundClient verifications API", () => {
     expect(logged).toContain("hasResultToken");
     expect(logged).not.toContain("client_token_secret");
     expect(logged).not.toContain("result_token_secret");
-    expect(logged).not.toContain("age_over_18");
+    expect(logged).not.toContain("age_equal_or_over");
+    expect(logged).not.toContain("claims_salt_secret");
 
     logSpy.mockRestore();
   });
@@ -477,7 +482,9 @@ describe("AuthboundClient verifications API", () => {
           verification_id: "vrf_123",
           status: "verified",
           result_token: "result.jwt",
-          assertions: { pension_verified: true },
+          claims_status: "available",
+          claims: { pension: { typeCode: "KE" } },
+          claims_salt: "claims_salt",
         })
       );
     vi.stubGlobal("fetch", fetchMock);
@@ -504,7 +511,9 @@ describe("AuthboundClient verifications API", () => {
       verificationId: "vrf_123",
       status: "verified",
       resultToken: "result.jwt",
-      assertions: { pension_verified: true },
+      claimsStatus: "available",
+      claims: { pension: { typeCode: "KE" } },
+      claimsSalt: "claims_salt",
     });
     expect(
       fetchMock.mock.calls.map(([url, init]) => [
