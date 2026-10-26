@@ -111,7 +111,7 @@ describe("verifyResultToken", () => {
   it.each([
     ["a forged signature", () => ({ key: otherKey })],
     ["another verification", () => ({ sub: "vrf_other" })],
-    ["an expired token", () => ({ exp: Math.floor(Date.now() / 1000) - 1 })],
+    ["an expired token", () => ({ exp: Math.floor(Date.now() / 1000) - 60 })],
     ["another issuer", () => ({ iss: "https://other.authbound.test" })],
   ])("rejects %s", async (_case, overrides) => {
     const token = await resultToken("a".repeat(64), overrides());

@@ -63,6 +63,8 @@ export async function verifyResultToken(
   try {
     ({ payload } = await jwtVerify(resultToken, options.keys, {
       algorithms: ["ES256"],
+      // Tolerates small clock differences between the API and this server.
+      clockTolerance: 5,
       issuer: options.issuer,
       subject: options.verificationId,
       requiredClaims: ["iss", "sub", "exp"],
