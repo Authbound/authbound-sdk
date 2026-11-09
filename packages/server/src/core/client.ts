@@ -640,7 +640,8 @@ export interface Verification {
   clientAction?: VerificationClientAction;
   /**
    * Hosted verification page, returned on create when the deployment has one.
-   * It is a bearer link: use it only to redirect the user's browser, and never
+   * Absent when the response mode is `dc_api.jwt` or the verification has
+   * already finished. It is a bearer link: use it only to redirect the user's browser, and never
    * put it in a QR code, email, log line or analytics event.
    */
   verificationUrl?: string;

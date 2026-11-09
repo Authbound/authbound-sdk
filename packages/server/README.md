@@ -346,7 +346,8 @@ the standalone `verifyResultToken(token, { keys, issuer, verificationId })`.
 ### Hosted Verification Page
 
 When your deployment serves the hosted verification page, `create()` returns
-`verificationUrl`. Pass `returnUrl` on an origin registered for the project
+`verificationUrl`. It is absent when the response mode is `dc_api.jwt` or the
+verification has already finished. Pass `returnUrl` on an origin registered for the project
 (https on a live key) and the page sends the user back there with
 `?verification_id=` once the verification finishes.
 
@@ -356,8 +357,11 @@ const verification = await client.verifications.create({
   policyId: "pol_age_over_18_authbound_v1",
   returnUrl: "https://app.example.com/verified",
 });
+if (!verification.verificationUrl) {
+  throw new Error("No hosted verification page for this verification");
+}
 session.verificationId = verification.id;
-return Response.redirect(verification.verificationUrl!, 303);
+return Response.redirect(verification.verificationUrl, 303);
 
 // Return: accept only the id this session started, then read the result.
 const verificationId = new URL(request.url).searchParams.get("verification_id");
