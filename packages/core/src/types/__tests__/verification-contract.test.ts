@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { VerificationClaimsSchema } from "../verification";
 import {
+  PublicCreateVerificationResponseSchema,
   PublicVerificationSchema,
   PublicVerificationStatusSnapshotSchema,
   SignedVerificationResultSchema,
@@ -172,6 +173,32 @@ describe("public verification contract security invariants", () => {
         status: "expired",
         failure_code: null,
         client_action: activeVerification.client_action,
+      }).success
+    ).toBe(false);
+  });
+
+  it("accepts return_url on create responses and status snapshots only", () => {
+    const returnUrl = "https://app.example.com/verified";
+
+    expect(
+      PublicCreateVerificationResponseSchema.safeParse({
+        ...activeVerification,
+        client_token: "client_token_123",
+        return_url: returnUrl,
+      }).success
+    ).toBe(true);
+    expect(
+      PublicVerificationStatusSnapshotSchema.safeParse({
+        object: "verification_status",
+        id: "vrf_123",
+        status: "verified",
+        return_url: returnUrl,
+      }).success
+    ).toBe(true);
+    expect(
+      PublicVerificationSchema.safeParse({
+        ...activeVerification,
+        return_url: returnUrl,
       }).success
     ).toBe(false);
   });

@@ -109,6 +109,62 @@ describe("AuthboundClient verifications API", () => {
     });
   });
 
+  it("sends return_url only when returnUrl is set and maps it from the create response", async () => {
+    const returnUrl = "https://app.example.com/verified";
+    const verificationUrl = `https://verify.example.com/v/vrf_123#token=ct_123&pk=${publishableKey}`;
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(
+        {
+          ...verificationResponse,
+          verification_url: verificationUrl,
+          return_url: returnUrl,
+        },
+        201
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await createClient().verifications.create({
+      policyId: "pol_authbound_pension_v1",
+      returnUrl,
+    });
+    await createClient().verifications.create({
+      policyId: "pol_authbound_pension_v1",
+    });
+
+    expect(result).toMatchObject({ verificationUrl, returnUrl });
+    const [[, withReturnUrl], [, withoutReturnUrl]] = fetchMock.mock
+      .calls as unknown as [string, RequestInit][];
+    expect(JSON.parse(withReturnUrl.body as string)).toEqual({
+      policy_id: "pol_authbound_pension_v1",
+      return_url: returnUrl,
+    });
+    expect(JSON.parse(withoutReturnUrl.body as string)).toEqual({
+      policy_id: "pol_authbound_pension_v1",
+    });
+  });
+
+  it("maps return_url from client-token status snapshots", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          object: "verification_status",
+          id: "vrf_123",
+          status: "verified",
+          return_url: "https://app.example.com/verified",
+        })
+      )
+    );
+
+    const status = await createClient().verifications.getStatus("vrf_123", {
+      clientToken: "client_token_123",
+      publishableKey,
+    });
+
+    expect(status.returnUrl).toBe("https://app.example.com/verified");
+  });
+
   it("maps EUDI provider options to the public REST contract", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse(verificationResponse, 201)
