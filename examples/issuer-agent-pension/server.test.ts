@@ -807,7 +807,7 @@ describe("issuer-agent-pension example", () => {
       [
         "expired token",
         pensionClaims,
-        resultTokenFor(pensionClaims, { exp: now - 1 }),
+        resultTokenFor(pensionClaims, { exp: now - 60 }),
         502,
       ],
     ] as const) {
