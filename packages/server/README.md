@@ -343,6 +343,39 @@ to you from someone other than the API: within one TLS response from the API
 they add no further assurance. To verify with keys you manage yourself, use
 the standalone `verifyResultToken(token, { keys, issuer, verificationId })`.
 
+### Hosted Verification Page
+
+When your deployment serves the hosted verification page, `create()` returns
+`verificationUrl`. It is absent when the response mode is `dc_api.jwt` or the
+verification has already finished. Pass `returnUrl` on an origin registered for the project
+(https on a live key) and the page sends the user back there with
+`?verification_id=` once the verification finishes.
+
+```typescript
+// Start: create, remember the id server-side, redirect.
+const verification = await client.verifications.create({
+  policyId: "pol_age_over_18_authbound_v1",
+  returnUrl: "https://app.example.com/verified",
+});
+if (!verification.verificationUrl) {
+  throw new Error("No hosted verification page for this verification");
+}
+session.verificationId = verification.id;
+return Response.redirect(verification.verificationUrl, 303);
+
+// Return: accept only the id this session started, then read the result.
+const verificationId = new URL(request.url).searchParams.get("verification_id");
+if (!verificationId || verificationId !== session.verificationId) {
+  return new Response("Verification does not match this session", { status: 400 });
+}
+const result = await client.verifications.getResult(verificationId);
+```
+
+The session check stops an attacker from sending a user back with the
+attacker's own completed verification. `verificationUrl` is a bearer link:
+use it only to redirect the user's browser, and never put it in a QR code,
+email, log line or analytics event.
+
 ## API Reference
 
 ### `authboundMiddleware(config, options?)`

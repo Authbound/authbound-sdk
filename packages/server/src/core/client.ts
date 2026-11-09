@@ -532,6 +532,16 @@ export interface CreateVerificationOptions {
   metadata?: Record<string, unknown>;
 
   /**
+   * Where the hosted verification page sends the user once the verification
+   * finishes, with `verification_id` set in the query. It must be on an origin
+   * registered for the project; a live key needs https and a public host.
+   *
+   * Before reading the result, check that the returned `verification_id` equals
+   * the id stored in the user's server-side session, and reject it otherwise.
+   */
+  returnUrl?: string;
+
+  /**
    * Optional provider override.
    */
   provider?: ProviderPreference;
@@ -628,7 +638,15 @@ export interface Verification {
   failureCode?: string;
   clientToken?: string;
   clientAction?: VerificationClientAction;
+  /**
+   * Hosted verification page, returned on create when the deployment has one.
+   * Absent when the response mode is `dc_api.jwt` or the verification has
+   * already finished. It is a bearer link: use it only to redirect the user's browser, and never
+   * put it in a QR code, email, log line or analytics event.
+   */
   verificationUrl?: string;
+  /** The `returnUrl` given on create. Returned on create only. */
+  returnUrl?: string;
   customerUserRef?: string;
   metadata?: Record<string, unknown>;
 }
@@ -646,6 +664,7 @@ export interface VerificationStatus {
   status: PublicVerificationStatus;
   failureCode?: string;
   clientAction?: VerificationClientAction;
+  returnUrl?: string;
 }
 
 export interface SignedVerificationResult {
@@ -1052,6 +1071,7 @@ function mapCreateVerification(
   return {
     ...mapVerification(raw),
     clientToken: raw.client_token,
+    returnUrl: raw.return_url ?? undefined,
   };
 }
 
@@ -1089,6 +1109,7 @@ function mapVerificationStatus(
     status,
     failureCode: raw.failure_code ?? undefined,
     clientAction: mapClientAction(raw.client_action),
+    returnUrl: raw.return_url ?? undefined,
   };
 }
 
@@ -2051,6 +2072,7 @@ class VerificationsApi {
         customer_user_ref: options.customerUserRef,
       }),
       ...(options.metadata && { metadata: options.metadata }),
+      ...(options.returnUrl && { return_url: options.returnUrl }),
       ...(provider && { provider }),
       ...(providerOptions && { provider_options: providerOptions }),
     };

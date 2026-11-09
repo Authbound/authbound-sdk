@@ -249,6 +249,7 @@ export const PublicVerificationSchema = z
 export const PublicCreateVerificationResponseSchema =
   PublicVerificationSchema.safeExtend({
     client_token: z.string(),
+    return_url: z.string().nullish(),
   }).strict();
 
 export const PublicVerificationListSchema = z
@@ -267,6 +268,7 @@ export const PublicVerificationStatusSnapshotSchema = z
     status: VerificationProgressStatusSchema,
     failure_code: VerificationFailureCodeSchema.nullish(),
     client_action: VerificationClientActionSchema.nullish(),
+    return_url: z.string().nullish(),
   })
   .strict()
   .superRefine((value, context) => {

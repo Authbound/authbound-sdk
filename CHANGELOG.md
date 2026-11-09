@@ -64,6 +64,11 @@ the SDK session checks `meetsMinimumAge(verification.ageClaims, minAge)`.
   `ClaimsStatusSchema` from `@authbound/core`.
   `@authbound/nextjs/server` re-exports `verifyResultToken`,
   `verifyClaimsDigest` and `meetsMinimumAge`.
+- Accept `returnUrl` on `verifications.create()`, sent as `return_url`. The
+  hosted verification page at `verificationUrl` returns the user there with
+  `verification_id`, which the server must match to the id in the user's
+  session before reading the result. Create responses and status snapshots
+  carry `returnUrl`.
 - Reject browser status payloads that include `claims` or `claims_salt`.
 - Accept server-owned `providerOptions` in the Next.js, Express and Hono
   handlers, sent with every verification they create. Customer-controlled EUDI
