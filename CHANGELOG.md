@@ -4,6 +4,9 @@ All customer-visible changes to the Authbound public SDK are recorded here.
 
 ## 0.5.0 - Unreleased
 
+`0.5.0-rc.0` is a release candidate of these changes, published under the npm
+`next` tag. `latest` stays on 0.4.0 until 0.5.0 is released.
+
 ### Breaking changes
 
 - Send API contract revision `v1.2026-10-24.1`. Verification results return

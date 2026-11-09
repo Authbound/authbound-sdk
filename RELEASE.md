@@ -16,6 +16,10 @@ release repeatable.
   `0.5.0`. Compatible fixes after that release use `0.5.x` patch releases.
 - SDK tags use `sdk-v<version>`, for example `sdk-v0.5.0`.
 - Breaking SDK changes require a separate release plan before publishing.
+- A release candidate (`0.5.0-rc.N`) follows the same checklist but is
+  published with `--tag next`, never `latest`, so integrations can install the
+  packed packages before the release. The final release then sets the version
+  without the `-rc.N` suffix.
 
 ### 0.5.0 Breaking-Change Plan
 
