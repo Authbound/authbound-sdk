@@ -75,6 +75,14 @@ the SDK session checks `meetsMinimumAge(verification.ageClaims, minAge)`.
   verifiers start a wallet request only for an explicit HAIP request.
 - Release all six interdependent packages together at `0.5.0`.
 
+### Fixed
+
+- In `@authbound/nextjs`, a `secret` passed to `createSessionRoute` and a
+  `publishableKey` passed to `createStatusRoute` now take precedence over
+  `AUTHBOUND_SECRET_KEY`, `NEXT_PUBLIC_AUTHBOUND_PK` and
+  `AUTHBOUND_PUBLISHABLE_KEY`. The environment variables are used only when
+  the option is not set.
+
 ## 0.4.0 - 2026-09-24
 
 ### Breaking changes

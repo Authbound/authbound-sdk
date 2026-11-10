@@ -198,8 +198,8 @@ function getEnvVar(name: string, fallback?: string): string {
   throw new Error(`Missing required environment variable: ${name}`);
 }
 
-function getSecretKey(fallback?: string): string {
-  const value = process.env.AUTHBOUND_SECRET_KEY ?? fallback;
+function getSecretKey(configured?: string): string {
+  const value = configured ?? process.env.AUTHBOUND_SECRET_KEY;
   if (!value) {
     throw new Error(
       "Missing required environment variable: AUTHBOUND_SECRET_KEY"
@@ -208,11 +208,11 @@ function getSecretKey(fallback?: string): string {
   return value;
 }
 
-function getPublishableKey(fallback?: string): string {
+function getPublishableKey(configured?: string): string {
   const value =
+    configured ??
     process.env.NEXT_PUBLIC_AUTHBOUND_PK ??
-    process.env.AUTHBOUND_PUBLISHABLE_KEY ??
-    fallback;
+    process.env.AUTHBOUND_PUBLISHABLE_KEY;
   if (!value) {
     throw new Error(
       "Missing required environment variable: NEXT_PUBLIC_AUTHBOUND_PK"

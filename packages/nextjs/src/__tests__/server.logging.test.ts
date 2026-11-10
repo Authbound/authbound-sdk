@@ -884,6 +884,50 @@ describe("Next.js server debug logging", () => {
     });
   });
 
+  it("uses the configured publishable key over environment variables", async () => {
+    const originalNextPublicPk = process.env.NEXT_PUBLIC_AUTHBOUND_PK;
+    process.env.NEXT_PUBLIC_AUTHBOUND_PK = "pk_test_from_env";
+
+    try {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          object: "verification_status",
+          id: "vrf_123",
+          status: "processing",
+        }),
+      }) as typeof fetch;
+
+      const handler = createStatusRoute({
+        gatewayUrl: "https://api.authbound.io",
+        publishableKey: "pk_test_configured",
+      });
+
+      await handler(
+        new Request(
+          "https://playground.authbound.io/api/authbound/status/vrf_123",
+          { headers: { Authorization: "Bearer client_token_123" } }
+        ) as never,
+        { params: Promise.resolve({ verificationId: "vrf_123" }) }
+      );
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://api.authbound.io/v1/verifications/vrf_123/status",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            "X-Authbound-Publishable-Key": "pk_test_configured",
+          }),
+        })
+      );
+    } finally {
+      if (originalNextPublicPk === undefined) {
+        delete process.env.NEXT_PUBLIC_AUTHBOUND_PK;
+      } else {
+        process.env.NEXT_PUBLIC_AUTHBOUND_PK = originalNextPublicPk;
+      }
+    }
+  });
+
   it("resolves status route publishable key at request time", async () => {
     const originalNextPublicPk = process.env.NEXT_PUBLIC_AUTHBOUND_PK;
     const originalPublishableKey = process.env.AUTHBOUND_PUBLISHABLE_KEY;
@@ -1042,6 +1086,78 @@ describe("Next.js server debug logging", () => {
         delete process.env.AUTHBOUND_SESSION_SECRET;
       } else {
         process.env.AUTHBOUND_SESSION_SECRET = originalSessionSecret;
+      }
+    }
+  });
+
+  it("uses the configured secret over AUTHBOUND_SECRET_KEY in the session route", async () => {
+    const originalSecretKey = process.env.AUTHBOUND_SECRET_KEY;
+    process.env.AUTHBOUND_SECRET_KEY = "sk_test_from_env";
+
+    try {
+      global.fetch = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            object: "verification",
+            id: "vrf_123",
+            client_token: "client_token_123",
+            client_action: {
+              kind: "link",
+              data: "openid4vp://authorize?request_uri=https%3A%2F%2Fgateway.example.com",
+              expires_at: "2026-03-09T12:00:00.000Z",
+            },
+            expires_at: "2026-03-09T12:00:00.000Z",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            verification_id: "vrf_123",
+            status: "verified",
+            result_token: "signed_result_token",
+            claims_status: "none",
+          }),
+        }) as typeof fetch;
+
+      const pendingCookie = await createPendingVerificationCookie();
+      const handler = createSessionRoute({
+        gatewayUrl: "https://api.authbound.io",
+        secret: "sk_test_configured",
+        sessionSecret: SESSION_SECRET,
+      });
+
+      const response = await handler(
+        new Request("https://playground.authbound.io/api/authbound/session", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            cookie: pendingCookie,
+            origin: "https://playground.authbound.io",
+            "sec-fetch-site": "same-origin",
+          },
+          body: JSON.stringify({
+            verificationId: "vrf_123",
+            clientToken: "client_token_123",
+          }),
+        }) as never
+      );
+
+      expect(response.status).toBe(200);
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://api.authbound.io/v1/verifications/vrf_123/result",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            "X-Authbound-Key": "sk_test_configured",
+          }),
+        })
+      );
+    } finally {
+      if (originalSecretKey === undefined) {
+        delete process.env.AUTHBOUND_SECRET_KEY;
+      } else {
+        process.env.AUTHBOUND_SECRET_KEY = originalSecretKey;
       }
     }
   });
