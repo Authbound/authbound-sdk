@@ -37,6 +37,8 @@ This runnable example owns the complete `employee_badge_v1` definition, so its r
 
 `authbound.issuer.credentialDefinitions.create()` creates and returns a published definition. For intentional staging, use `authbound.issuer.credentialDefinitions.createDraft()` and inspect the owned draft before calling `authbound.issuer.credentialDefinitions.publish()`.
 
+On a customer-controlled deployment, `create()` takes localized `display` entries instead of `title` and `rendering`; see [Customer-controlled deployments](../../packages/server/README.md#customer-controlled-deployments).
+
 Published definitions are immutable. Change a definition by creating a new credential-definition ID and VCT version rather than editing the published version.
 
 `metadata` is authenticated management metadata; it is not wallet-discoverable issuer or credential metadata. Do not put secrets or personal data in definition titles, claim labels, aliases, rendering, or metadata. `rendering` accepts only six-digit colors and Authbound-owned presets, not arbitrary SVG, HTML, CSS, or customer templates.

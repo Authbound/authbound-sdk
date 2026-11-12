@@ -28,6 +28,9 @@ Upgrade all six packages together. SDK 0.5.0 sends contract revision
 `getResult()` instead of `assertions`, and stop reading `verified_outputs` from
 webhooks. Replace `provider: "vcs"` with `"auto"` or `"eudi"`. Existing SDK
 session cookies lose their `minAge` evidence, so age-gated users verify again.
+`issuer.credentialDefinitions.update()` returns `CredentialDefinition` rather
+than `DraftCredentialDefinition`; narrow on `lifecycleStatus` where code
+relied on a draft.
 
 The API serves `v1.2026-10-24.1` and `v1.2026-09-01.1` side by side, so SDK
 0.4.x clients keep working while integrations upgrade. Before tagging, confirm

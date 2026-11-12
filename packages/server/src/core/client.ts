@@ -259,12 +259,80 @@ const PublicErrorDetailsSchema = z.union([
   PublicClaimNameDetailsSchema,
 ]);
 
+function codePointCount(value: string): number {
+  let count = 0;
+  for (const _codePoint of value) {
+    count += 1;
+  }
+  return count;
+}
+
+// Customer-controlled deployments bound display text in Unicode code points,
+// which Zod's max() would count as UTF-16 units. A code point is at most two
+// units, so the max() check only cuts off the scan early.
+function displayTextSchema(maxCodePoints: number) {
+  return z
+    .string()
+    .min(1)
+    .max(maxCodePoints * 2)
+    .refine((value) => codePointCount(value) <= maxCodePoints, {
+      message: `Must be at most ${maxCodePoints} code points`,
+    });
+}
+
+// title and a claim's displayName come from either deployment: hosted ones
+// bound them at 256 UTF-16 units, customer-controlled ones derive them from a
+// display name of at most 200 code points.
+const DerivedDisplayNameSchema = z
+  .string()
+  .max(400)
+  .refine((value) => value.length <= 256 || codePointCount(value) <= 200, {
+    message: "Must be at most 256 characters or 200 code points",
+  });
+
+const CredentialDefinitionClaimTypeSchema = z.enum([
+  "string",
+  "integer",
+  "boolean",
+  "date",
+  "datetime",
+  "object",
+  "array",
+  "image",
+]);
+
+const CredentialDefinitionClaimItemTypeSchema = z.enum([
+  "string",
+  "integer",
+  "boolean",
+  "date",
+  "datetime",
+]);
+
+const CredentialDefinitionClaimDisplaySchema = z
+  .object({
+    locale: z.string().min(1).max(256),
+    name: displayTextSchema(200),
+    description: displayTextSchema(500).optional(),
+  })
+  .strict();
+
 const CredentialDefinitionClaimSchema = z
   .object({
     name: z.string().max(256),
     path: z.array(z.string().max(256)).min(1).max(16),
+    type: CredentialDefinitionClaimTypeSchema.optional(),
     mandatory: z.boolean(),
-    displayName: z.string().max(256),
+    displayName: DerivedDisplayNameSchema,
+    display: z
+      .array(CredentialDefinitionClaimDisplaySchema)
+      .max(256)
+      .optional(),
+    maxLength: z.number().int().optional(),
+    items: CredentialDefinitionClaimItemTypeSchema.optional(),
+    maxItems: z.number().int().optional(),
+    maxBytes: z.number().int().optional(),
+    svgId: z.string().max(64).optional(),
   })
   .strict();
 
@@ -275,6 +343,14 @@ export type PublicJson =
   | string
   | PublicJson[]
   | { [key: string]: PublicJson };
+
+/** PublicJson without null, which customer-controlled deployments refuse in metadata. */
+export type PublicJsonValue =
+  | boolean
+  | number
+  | string
+  | PublicJsonValue[]
+  | { [key: string]: PublicJsonValue };
 
 const MAX_PUBLIC_JSON_DEPTH = 8;
 const MAX_PUBLIC_JSON_NODES = 1024;
@@ -365,11 +441,78 @@ function isBoundedPublicJson(value: unknown): value is PublicJson {
   return true;
 }
 
-const PublicMetadataSchema: z.ZodType<Record<string, PublicJson>> = z.custom<
+// Customer-controlled deployments bound definition metadata by its serialized
+// size instead, so they store values the PublicJson bounds refuse. This mirrors
+// their rule: at most 8 KiB of UTF-8 JSON, at most 8 nested objects or arrays,
+// and no nulls. Keys such as "__proto__" and numbers beyond double range
+// (parsed as Infinity) are stored too, so they are accepted here; parsed
+// metadata is returned as is and never merged into another object.
+const MAX_CUSTOMER_CONTROLLED_METADATA_BYTES = 8 * 1024;
+const MAX_CUSTOMER_CONTROLLED_METADATA_DEPTH = 8;
+
+function isCustomerControlledMetadata(value: unknown): value is PublicJson {
+  const pending: Array<{ value: unknown; depth: number }> = [
+    { value, depth: 1 },
+  ];
+
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!current) {
+      continue;
+    }
+
+    if (current.value === null) {
+      return false;
+    }
+    if (
+      typeof current.value === "boolean" ||
+      typeof current.value === "number" ||
+      typeof current.value === "string"
+    ) {
+      continue;
+    }
+    if (current.depth > MAX_CUSTOMER_CONTROLLED_METADATA_DEPTH) {
+      return false;
+    }
+    if (Array.isArray(current.value)) {
+      for (const entry of current.value) {
+        pending.push({ value: entry, depth: current.depth + 1 });
+      }
+      continue;
+    }
+    if (typeof current.value !== "object") {
+      return false;
+    }
+
+    const prototype = Object.getPrototypeOf(current.value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      return false;
+    }
+    for (const key of Object.keys(current.value)) {
+      const property = Object.getOwnPropertyDescriptor(current.value, key);
+      if (!(property && "value" in property)) {
+        return false;
+      }
+      pending.push({ value: property.value, depth: current.depth + 1 });
+    }
+  }
+
+  return (
+    new TextEncoder().encode(JSON.stringify(value)).length <=
+    MAX_CUSTOMER_CONTROLLED_METADATA_BYTES
+  );
+}
+
+// Hosted and customer-controlled deployments bound metadata differently, and
+// a definition response may come from either.
+const CredentialDefinitionMetadataSchema: z.ZodType<
   Record<string, PublicJson>
->((value) => isRecord(value) && isBoundedPublicJson(value), {
-  message: "Invalid public metadata",
-});
+> = z.custom<Record<string, PublicJson>>(
+  (value) =>
+    isRecord(value) &&
+    (isBoundedPublicJson(value) || isCustomerControlledMetadata(value)),
+  { message: "Invalid credential definition metadata" }
+);
 
 const CredentialDefinitionColorSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
 
@@ -386,24 +529,89 @@ const CredentialDefinitionRenderingSchema = z
   })
   .strict();
 
+const CredentialDefinitionDisplayImageSchema = z
+  .object({
+    uri: z.string().min(1).max(2048),
+    altText: displayTextSchema(200).optional(),
+  })
+  .strict();
+
+const CredentialDefinitionSvgTemplateSchema = z
+  .object({
+    uri: z.string().min(1).max(2048),
+    properties: z
+      .object({
+        orientation: z.enum(["portrait", "landscape"]).optional(),
+        colorScheme: z.enum(["light", "dark"]).optional(),
+        contrast: z.enum(["normal", "high"]).optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+const CredentialDefinitionDisplaySchema = z
+  .object({
+    locale: z.string().min(1).max(256),
+    name: displayTextSchema(200),
+    description: displayTextSchema(500).optional(),
+    logo: CredentialDefinitionDisplayImageSchema.optional(),
+    backgroundColor: CredentialDefinitionColorSchema.optional(),
+    textColor: CredentialDefinitionColorSchema.optional(),
+    backgroundImage: CredentialDefinitionDisplayImageSchema.optional(),
+    svgTemplates: z
+      .array(CredentialDefinitionSvgTemplateSchema)
+      .max(4)
+      .optional(),
+  })
+  .strict();
+
+const CredentialDefinitionValiditySchema = z
+  .object({
+    durationSeconds: z.number().int().min(60).optional(),
+    notBeforeClaim: z.string().max(256).optional(),
+    expiresClaim: z.string().max(256).optional(),
+    maxSeconds: z.number().int().min(1).optional(),
+    boundedBySignerCertificate: z.boolean().optional(),
+  })
+  .strict();
+
+const CredentialDefinitionUniquenessSchema = z
+  .object({
+    claims: z
+      .array(z.array(z.string().max(256)).min(1).max(16))
+      .min(1)
+      .max(4),
+  })
+  .strict();
+
 const CredentialDefinitionLifecycleStatusSchema = z.enum([
   "draft",
   "published",
   "archived",
 ]);
 
+// One schema for both deployments: hosted responses omit the
+// customer-controlled members (version, display, validity, ...), and only
+// hosted responses carry rendering.
 const CredentialDefinitionBaseSchema = z
   .object({
     object: z.literal("issuer.credential_definition"),
     id: z.string().min(1).max(256),
     credentialDefinitionId: z.string().min(1).max(256),
+    version: z.number().int().min(1).optional(),
     format: PublicCredentialFormatSchema,
     vct: z.string().min(1).max(2048),
-    title: z.string().min(1).max(256),
+    title: DerivedDisplayNameSchema.min(1),
+    display: z.array(CredentialDefinitionDisplaySchema).max(256).optional(),
     claims: z.array(CredentialDefinitionClaimSchema).max(256),
+    validity: CredentialDefinitionValiditySchema.optional(),
+    uniqueness: CredentialDefinitionUniquenessSchema.optional(),
     aliases: z.array(z.string().max(2048)).max(256),
     rendering: CredentialDefinitionRenderingSchema.optional(),
-    metadata: PublicMetadataSchema.optional(),
+    metadata: CredentialDefinitionMetadataSchema.optional(),
+    curated: z.boolean().optional(),
+    updatedAt: z.string().max(64).optional(),
   })
   .strict()
   .refine((value) => value.id === value.credentialDefinitionId, {
@@ -435,6 +643,7 @@ const CredentialDefinitionSchema = z.discriminatedUnion("lifecycleStatus", [
 const CredentialDefinitionListSchema = z.object({
   object: z.literal("list"),
   data: z.array(CredentialDefinitionSchema),
+  nextCursor: z.string().optional(),
 });
 
 const PolicyTargetTypeSchema = z.enum([
@@ -875,6 +1084,14 @@ export type CredentialDefinitionClaim = z.infer<
   typeof CredentialDefinitionClaimSchema
 >;
 
+export type CredentialDefinitionClaimType = z.infer<
+  typeof CredentialDefinitionClaimTypeSchema
+>;
+
+export type CredentialDefinitionClaimItemType = z.infer<
+  typeof CredentialDefinitionClaimItemTypeSchema
+>;
+
 export type CredentialDefinitionRendering = z.infer<
   typeof CredentialDefinitionRenderingSchema
 >;
@@ -943,6 +1160,7 @@ export interface CreateCredentialDefinitionOptions {
   rendering?: CredentialDefinitionRendering;
   metadata?: Record<string, PublicJson>;
   idempotencyKey?: string;
+  display?: never;
 }
 
 export interface CreateCredentialDefinitionDraftOptions {
@@ -955,14 +1173,127 @@ export interface CreateCredentialDefinitionDraftOptions {
   rendering?: CredentialDefinitionRendering;
   metadata?: Record<string, PublicJson>;
   idempotencyKey?: string;
+  display?: never;
 }
 
-export type UpdateCredentialDefinitionOptions = Partial<
-  Omit<
-    CreateCredentialDefinitionDraftOptions,
-    "credentialDefinitionId" | "idempotencyKey"
-  >
->;
+export interface CredentialDefinitionDisplayImageInput {
+  uri: string;
+  altText?: string;
+}
+
+export interface CredentialDefinitionSvgTemplateInput {
+  uri: string;
+  properties?: {
+    orientation?: "portrait" | "landscape";
+    colorScheme?: "light" | "dark";
+    contrast?: "normal" | "high";
+  };
+}
+
+export interface CredentialDefinitionDisplayInput {
+  locale: string;
+  name: string;
+  description?: string;
+  logo?: CredentialDefinitionDisplayImageInput;
+  backgroundColor?: string;
+  textColor?: string;
+  backgroundImage?: CredentialDefinitionDisplayImageInput;
+  svgTemplates?: CredentialDefinitionSvgTemplateInput[];
+}
+
+export interface CredentialDefinitionClaimDisplayInput {
+  locale: string;
+  name: string;
+  description?: string;
+}
+
+export interface CoreCredentialDefinitionClaimInput {
+  path: string[];
+  type?: CredentialDefinitionClaimType;
+  mandatory?: boolean;
+  display?: CredentialDefinitionClaimDisplayInput[];
+  maxLength?: number;
+  items?: CredentialDefinitionClaimItemType;
+  maxItems?: number;
+  maxBytes?: number;
+  svgId?: string;
+}
+
+export interface CredentialDefinitionValidityInput {
+  durationSeconds?: number;
+  notBeforeClaim?: string;
+  expiresClaim?: string;
+  maxSeconds?: number;
+  boundedBySignerCertificate?: boolean;
+}
+
+export interface CredentialDefinitionUniquenessInput {
+  claims: string[][];
+}
+
+/**
+ * The customer-controlled create shape. Those deployments publish the
+ * definition at once and give it a vct under the project's issuer when none
+ * is given.
+ */
+export interface CreateCoreCredentialDefinitionOptions {
+  credentialDefinitionId: string;
+  vct?: string;
+  format?: "dc+sd-jwt";
+  display: CredentialDefinitionDisplayInput[];
+  claims: CoreCredentialDefinitionClaimInput[];
+  validity?: CredentialDefinitionValidityInput;
+  uniqueness?: CredentialDefinitionUniquenessInput;
+  aliases?: string[];
+  metadata?: Record<string, PublicJsonValue>;
+  idempotencyKey?: string;
+  title?: never;
+  rendering?: never;
+}
+
+/** The customer-controlled update shape; omitted members keep their value. */
+export interface UpdateCoreCredentialDefinitionOptions {
+  vct?: string;
+  display?: CredentialDefinitionDisplayInput[];
+  claims?: CoreCredentialDefinitionClaimInput[];
+  validity?: CredentialDefinitionValidityInput;
+  uniqueness?: CredentialDefinitionUniquenessInput;
+  aliases?: string[];
+  metadata?: Record<string, PublicJsonValue>;
+  format?: never;
+  title?: never;
+  rendering?: never;
+}
+
+export type UpdateCredentialDefinitionOptions =
+  | (Partial<
+      Omit<
+        CreateCredentialDefinitionDraftOptions,
+        "credentialDefinitionId" | "idempotencyKey"
+      >
+    > & {
+      validity?: never;
+      uniqueness?: never;
+    })
+  | UpdateCoreCredentialDefinitionOptions;
+
+export interface ListCredentialDefinitionsOptions {
+  /**
+   * Hosted deployments only. Customer-controlled deployments ignore it and
+   * list published and archived definitions together; filter `data` instead.
+   */
+  lifecycleStatus?: CredentialDefinitionLifecycleStatus;
+  /**
+   * Customer-controlled deployments only: definitions per page, 1 to 100.
+   * Hosted deployments refuse it.
+   */
+  limit?: number;
+  /**
+   * Customer-controlled deployments only: the previous page's `nextCursor`.
+   * Hosted deployments refuse it.
+   */
+  cursor?: string;
+}
 
 export interface ListOpenId4VcIssuanceOptions {
   limit?: number;
@@ -1735,6 +2066,29 @@ function assertCredentialDefinitionAuthoringFormat(format: string): void {
   }
 }
 
+// display selects the customer-controlled shape, which refuses the hosted-only
+// title and rendering, so a mixed body could not succeed on either deployment.
+function assertCoreDefinitionDisplay(options: {
+  display?: CredentialDefinitionDisplayInput[];
+  title?: unknown;
+  rendering?: unknown;
+}): void {
+  if (options.title !== undefined || options.rendering !== undefined) {
+    throw new AuthboundClientError(
+      "display cannot be combined with title or rendering",
+      "VALIDATION_ERROR",
+      400
+    );
+  }
+  if (!Array.isArray(options.display) || options.display.length === 0) {
+    throw new AuthboundClientError(
+      "display must have at least one entry",
+      "VALIDATION_ERROR",
+      400
+    );
+  }
+}
+
 function errorMessageFromApiResponse(
   publicError: Record<string, unknown> | undefined,
   fallback: string
@@ -1768,13 +2122,15 @@ class IssuerApi {
 class CredentialDefinitionsApi {
   constructor(private readonly client: AuthboundClient) {}
 
-  async list(options?: {
-    lifecycleStatus?: CredentialDefinitionLifecycleStatus;
-  }): Promise<CredentialDefinitionList> {
+  async list(
+    options?: ListCredentialDefinitionsOptions
+  ): Promise<CredentialDefinitionList> {
     const response = await this.client.request<unknown>(
       "GET",
       `/v1/issuer/credential-definitions${buildQueryString({
         lifecycle_status: options?.lifecycleStatus,
+        limit: options?.limit,
+        cursor: options?.cursor,
       })}`
     );
     return parseApiResponse(CredentialDefinitionListSchema, response);
@@ -1789,18 +2145,37 @@ class CredentialDefinitionsApi {
     return parseApiResponse(CredentialDefinitionSchema, response);
   }
 
+  /**
+   * Creates a published definition. Options with `display` use the
+   * customer-controlled shape and are sent as given; options without it use
+   * the hosted shape.
+   */
   async create(
-    options: CreateCredentialDefinitionOptions
+    options:
+      | CreateCredentialDefinitionOptions
+      | CreateCoreCredentialDefinitionOptions
   ): Promise<PublishedCredentialDefinition> {
     assertNonEmpty(options.credentialDefinitionId, "credentialDefinitionId");
-    assertNonEmpty(options.vct, "vct");
-    assertNonEmpty(options.title, "title");
-    assertCredentialDefinitionAuthoringFormat(options.format);
-    const { idempotencyKey, ...body } = options;
+    let body: unknown;
+    if (options.display !== undefined) {
+      assertCoreDefinitionDisplay(options);
+      if (options.vct !== undefined) {
+        assertNonEmpty(options.vct, "vct");
+      }
+      const { idempotencyKey: _idempotencyKey, ...coreBody } = options;
+      body = coreBody;
+    } else {
+      assertNonEmpty(options.vct, "vct");
+      assertNonEmpty(options.title, "title");
+      assertCredentialDefinitionAuthoringFormat(options.format);
+      const { idempotencyKey: _idempotencyKey, ...hostedBody } = options;
+      body = { ...hostedBody, lifecycleStatus: "published" };
+    }
+    const { idempotencyKey } = options;
     const response = await this.client.request<unknown>(
       "POST",
       "/v1/issuer/credential-definitions",
-      { ...body, lifecycleStatus: "published" },
+      body,
       {
         headers: idempotencyKey
           ? { "Idempotency-Key": idempotencyKey }
@@ -1813,6 +2188,13 @@ class CredentialDefinitionsApi {
   async createDraft(
     options: CreateCredentialDefinitionDraftOptions
   ): Promise<DraftCredentialDefinition> {
+    if (options.display !== undefined) {
+      throw new AuthboundClientError(
+        "createDraft does not accept display: definitions with display are published by create",
+        "VALIDATION_ERROR",
+        400
+      );
+    }
     assertNonEmpty(options.credentialDefinitionId, "credentialDefinitionId");
     assertNonEmpty(options.vct, "vct");
     assertNonEmpty(options.title, "title");
@@ -1849,12 +2231,19 @@ class CredentialDefinitionsApi {
     return parseApiResponse(PublishedCredentialDefinitionSchema, response);
   }
 
+  /**
+   * Hosted deployments update a draft; customer-controlled deployments write
+   * a new published version, so the result can be in either lifecycle state.
+   */
   async update(
     credentialDefinitionId: string,
     options: UpdateCredentialDefinitionOptions
-  ): Promise<DraftCredentialDefinition> {
+  ): Promise<CredentialDefinition> {
     assertNonEmpty(credentialDefinitionId, "credentialDefinitionId");
-    const body: UpdateCredentialDefinitionOptions = {
+    if (options.display !== undefined) {
+      assertCoreDefinitionDisplay(options);
+    }
+    const body = {
       ...(options.vct !== undefined ? { vct: options.vct } : {}),
       ...(options.format !== undefined ? { format: options.format } : {}),
       ...(options.title !== undefined ? { title: options.title } : {}),
@@ -1864,6 +2253,11 @@ class CredentialDefinitionsApi {
         ? { rendering: options.rendering }
         : {}),
       ...(options.metadata !== undefined ? { metadata: options.metadata } : {}),
+      ...(options.display !== undefined ? { display: options.display } : {}),
+      ...(options.validity !== undefined ? { validity: options.validity } : {}),
+      ...(options.uniqueness !== undefined
+        ? { uniqueness: options.uniqueness }
+        : {}),
     };
     if (Object.keys(body).length === 0) {
       throw new AuthboundClientError(
@@ -1880,7 +2274,7 @@ class CredentialDefinitionsApi {
       `/v1/issuer/credential-definitions/${encodePathSegment(credentialDefinitionId)}`,
       body
     );
-    return parseApiResponse(DraftCredentialDefinitionSchema, response);
+    return parseApiResponse(CredentialDefinitionSchema, response);
   }
 
   async archive(

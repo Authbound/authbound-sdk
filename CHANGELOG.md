@@ -4,8 +4,9 @@ All customer-visible changes to the Authbound public SDK are recorded here.
 
 ## 0.5.0 - Unreleased
 
-`0.5.0-rc.0` is a release candidate of these changes, published under the npm
-`next` tag. `latest` stays on 0.4.0 until 0.5.0 is released.
+`0.5.0-rc.0` and `0.5.0-rc.1` are release candidates of these changes,
+published under the npm `next` tag. `latest` stays on 0.4.0 until 0.5.0 is
+released.
 
 ### Breaking changes
 
@@ -30,6 +31,10 @@ All customer-visible changes to the Authbound public SDK are recorded here.
 - Remove `calculateAge`, `calculateAgeFromDob`, `Dob`, `DobSchema`, `Sex` and
   `SexSchema`. Use `meetsMinimumAge` on disclosed age claims instead of
   deriving an age.
+- `issuer.credentialDefinitions.update()` returns `CredentialDefinition`
+  instead of `DraftCredentialDefinition`, because an update on a
+  customer-controlled deployment writes a new published version. Narrow on
+  `lifecycleStatus` where code relied on a draft.
 
 ### Migrating from 0.4
 
@@ -73,6 +78,27 @@ the SDK session checks `meetsMinimumAge(verification.ageClaims, minAge)`.
 - Accept server-owned `providerOptions` in the Next.js, Express and Hono
   handlers, sent with every verification they create. Customer-controlled EUDI
   verifiers start a wallet request only for an explicit HAIP request.
+- Accept credential definitions from customer-controlled deployments alongside
+  the hosted shape. Responses may carry `version`, localized `display`, typed
+  claims with their own `display`, `validity`, `uniqueness`, `curated` and
+  `updatedAt`, and metadata within those deployments' bounds (8 KiB, eight
+  nested levels, no nulls). Display text is bounded in code points as those
+  deployments bound it. Unknown members are still rejected.
+- Page `issuer.credentialDefinitions.list()` with `limit` and `cursor` on
+  customer-controlled deployments. The list returns `nextCursor` when more
+  definitions follow. Hosted deployments refuse `limit` and `cursor`, and
+  `lifecycleStatus` filters only on hosted deployments. Export
+  `ListCredentialDefinitionsOptions`.
+- Accept the customer-controlled shape in `create()`: options with `display`
+  are sent as given, without `title` or `lifecycleStatus`, and `vct` is
+  optional. Options without `display` keep the hosted behaviour. Mixing
+  `display` with `title` or `rendering` is a type error and is refused before
+  any request, as are an empty `display` and `display` on `createDraft()`.
+  Export `CreateCoreCredentialDefinitionOptions` and its display, claim,
+  validity and uniqueness input types. Their `metadata` is
+  `PublicJsonValue`, which excludes null.
+- `update()` also accepts `display`, `validity`, `uniqueness` and typed claims
+  (`UpdateCoreCredentialDefinitionOptions`).
 - Release all six interdependent packages together at `0.5.0`.
 
 ### Fixed

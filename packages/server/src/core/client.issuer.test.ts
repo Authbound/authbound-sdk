@@ -10,8 +10,10 @@ import {
 
 import type {
   ArchivedCredentialDefinition,
+  CreateCoreCredentialDefinitionOptions,
   CreateCredentialDefinitionDraftOptions,
   CreateCredentialDefinitionOptions,
+  CredentialDefinition,
   DraftCredentialDefinition,
   PublishedCredentialDefinition,
   UpdateCredentialDefinitionOptions,
@@ -419,7 +421,7 @@ describe("AuthboundClient issuer APIs", () => {
     ],
     ["alias count", { aliases: Array.from({ length: 257 }, () => "alias") }],
     ["alias length", { aliases: ["x".repeat(2049)] }],
-    ["PublicJson string length", { metadata: { value: "x".repeat(2049) } }],
+    ["PublicJson string length", { metadata: { value: "x".repeat(8 * 1024) } }],
     [
       "PublicJson array count",
       { metadata: { value: Array.from({ length: 129 }, () => null) } },
@@ -542,10 +544,8 @@ describe("AuthboundClient issuer APIs", () => {
     "__proto__",
     "prototype",
     "constructor",
-  ])("rejects recursively nested PublicJson key %s", async (unsafeKey) => {
-    const metadata = JSON.parse(
-      `{"safe":{"${unsafeKey}":{"secret":"must-not-be-accepted"}}}`
-    );
+  ])("keeps nested metadata key %s as an own key without polluting prototypes", async (unsafeKey) => {
+    const metadata = JSON.parse(`{"safe":{"${unsafeKey}":{"secret":"kept"}}}`);
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -553,33 +553,25 @@ describe("AuthboundClient issuer APIs", () => {
       )
     );
 
-    await expect(
-      createClient().issuer.credentialDefinitions.get("employee_badge_v1")
-    ).rejects.toMatchObject({
-      name: "AuthboundClientError",
-      code: "INVALID_RESPONSE",
-    });
+    const result =
+      await createClient().issuer.credentialDefinitions.get(
+        "employee_badge_v1"
+      );
+
+    const safe = result.metadata?.safe as Record<string, unknown>;
+    expect(Object.hasOwn(safe, unsafeKey)).toBe(true);
+    expect(Object.getPrototypeOf(safe)).toBe(Object.prototype);
+    expect(({} as Record<string, unknown>).secret).toBeUndefined();
   });
 
-  it("rejects wrong lifecycle responses from update and archive", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        jsonResponse(credentialDefinitionResponse("published"))
-      )
-      .mockResolvedValueOnce(
-        jsonResponse(credentialDefinitionResponse("draft"))
-      );
+  it("rejects a wrong lifecycle response from archive", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(credentialDefinitionResponse("draft"))
+    );
     vi.stubGlobal("fetch", fetchMock);
 
-    const client = createClient();
     await expect(
-      client.issuer.credentialDefinitions.update("employee_badge_v2", {
-        title: "Employee Badge v2",
-      })
-    ).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
-    await expect(
-      client.issuer.credentialDefinitions.archive("employee_badge_v2")
+      createClient().issuer.credentialDefinitions.archive("employee_badge_v2")
     ).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
   });
 
@@ -635,7 +627,10 @@ describe("AuthboundClient issuer APIs", () => {
 
     expectTypeOf(credentialDefinitions.create)
       .parameter(0)
-      .toEqualTypeOf<CreateCredentialDefinitionOptions>();
+      .toEqualTypeOf<
+        | CreateCredentialDefinitionOptions
+        | CreateCoreCredentialDefinitionOptions
+      >();
     expectTypeOf(
       credentialDefinitions.create
     ).returns.resolves.toEqualTypeOf<PublishedCredentialDefinition>();
@@ -653,7 +648,7 @@ describe("AuthboundClient issuer APIs", () => {
       .toEqualTypeOf<UpdateCredentialDefinitionOptions>();
     expectTypeOf(
       credentialDefinitions.update
-    ).returns.resolves.toEqualTypeOf<DraftCredentialDefinition>();
+    ).returns.resolves.toEqualTypeOf<CredentialDefinition>();
     expectTypeOf(
       credentialDefinitions.archive
     ).returns.resolves.toEqualTypeOf<ArchivedCredentialDefinition>();
