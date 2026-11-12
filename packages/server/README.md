@@ -73,6 +73,30 @@ console.log(offer.offerUri);
 
 `authbound.issuer.credentialDefinitions.create()` creates and returns a published definition. Published definitions are immutable: create a new credential-definition ID and VCT version for every change.
 
+### Customer-controlled deployments
+
+A customer-controlled deployment takes localized `display` entries instead of `title` and `rendering`, and typed claims with optional `validity` and `uniqueness`. When the options contain `display`, `create()` sends them as given. Without a `vct`, the definition gets a URL under your project's issuer.
+
+```typescript
+const ticket = await authbound.issuer.credentialDefinitions.create({
+  credentialDefinitionId: "event_ticket",
+  display: [{ locale: "en", name: "Event Ticket" }],
+  claims: [
+    { path: ["ticket_id"], type: "string", mandatory: true, maxLength: 128 },
+    { path: ["valid_from"], type: "datetime", mandatory: true },
+    { path: ["valid_until"], type: "datetime", mandatory: true },
+  ],
+  validity: {
+    notBeforeClaim: "valid_from",
+    expiresClaim: "valid_until",
+    maxSeconds: 2_592_000,
+  },
+  uniqueness: { claims: [["ticket_id"]] },
+});
+```
+
+`display` cannot be combined with `title` or `rendering`. These deployments have no drafts, so `createDraft()` refuses `display`, and `update()` writes a new published version: it returns a `CredentialDefinition` in either lifecycle state. `list()` returns one page at a time; pass `limit` (1 to 100) and the previous page's `nextCursor` as `cursor`.
+
 For intentional staging, create and inspect a draft you own before publishing it:
 
 ```typescript

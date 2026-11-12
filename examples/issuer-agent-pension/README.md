@@ -57,6 +57,8 @@ This example owns the exact complete `pension-credential` definition. Its recove
 
 `authbound.issuer.credentialDefinitions.create()` creates and returns a published definition. For intentional staging, call `authbound.issuer.credentialDefinitions.createDraft()` and inspect the owned draft before calling `authbound.issuer.credentialDefinitions.publish()`. Published definitions are immutable, so every change requires a new credential-definition ID and VCT version.
 
+On a customer-controlled deployment, `create()` takes localized `display` entries instead of `title` and `rendering`; see [Customer-controlled deployments](../../packages/server/README.md#customer-controlled-deployments).
+
 `metadata` is authenticated management metadata, not wallet-discoverable issuer or credential metadata. `rendering` supports only six-digit colors and Authbound-owned presets; it does not accept arbitrary SVG, HTML, CSS, or customer templates.
 
 ## Routes

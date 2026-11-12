@@ -30,6 +30,10 @@ All customer-visible changes to the Authbound public SDK are recorded here.
 - Remove `calculateAge`, `calculateAgeFromDob`, `Dob`, `DobSchema`, `Sex` and
   `SexSchema`. Use `meetsMinimumAge` on disclosed age claims instead of
   deriving an age.
+- `issuer.credentialDefinitions.update()` returns `CredentialDefinition`
+  instead of `DraftCredentialDefinition`, because an update on a
+  customer-controlled deployment writes a new published version. Narrow on
+  `lifecycleStatus` where code relied on a draft.
 
 ### Migrating from 0.4
 
@@ -73,6 +77,23 @@ the SDK session checks `meetsMinimumAge(verification.ageClaims, minAge)`.
 - Accept server-owned `providerOptions` in the Next.js, Express and Hono
   handlers, sent with every verification they create. Customer-controlled EUDI
   verifiers start a wallet request only for an explicit HAIP request.
+- Accept credential definitions from customer-controlled deployments alongside
+  the hosted shape. Responses may carry `version`, localized `display`, typed
+  claims with their own `display`, `validity`, `uniqueness`, `curated` and
+  `updatedAt`, and metadata within those deployments' bounds (8 KiB, eight
+  nested levels, no nulls). Unknown members are still rejected.
+- Page `issuer.credentialDefinitions.list()` with `limit` and `cursor`. The
+  list returns `nextCursor` when more definitions follow. Export
+  `ListCredentialDefinitionsOptions`.
+- Accept the customer-controlled shape in `create()`: options with `display`
+  are sent as given, without `title` or `lifecycleStatus`, and `vct` is
+  optional. Options without `display` keep the hosted behaviour. Mixing
+  `display` with `title` or `rendering` is a type error and is refused before
+  any request, as are an empty `display` and `display` on `createDraft()`.
+  Export `CreateCoreCredentialDefinitionOptions` and its display, claim,
+  validity and uniqueness input types.
+- `update()` also accepts `display`, `validity`, `uniqueness` and typed claims
+  (`UpdateCoreCredentialDefinitionOptions`).
 - Release all six interdependent packages together at `0.5.0`.
 
 ### Fixed
