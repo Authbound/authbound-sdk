@@ -14,6 +14,7 @@ import type {
   CreateCredentialDefinitionDraftOptions,
   CreateCredentialDefinitionOptions,
   ListCredentialDefinitionsOptions,
+  UpdateCoreCredentialDefinitionOptions,
   UpdateCredentialDefinitionOptions,
 } from "../index";
 
@@ -41,6 +42,19 @@ const apiUrl = "https://api.example.com";
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+// Builds the response text by hand so metadata can hold JSON that
+// JSON.stringify cannot produce, such as an own "__proto__" key or 1e400.
+function rawDefinitionResponse(metadataJson: string): Response {
+  const text = JSON.stringify({
+    ...fixture.definition,
+    metadata: "__metadata__",
+  }).replace('"__metadata__"', metadataJson);
+  return new Response(text, {
+    status: 200,
     headers: { "Content-Type": "application/json" },
   });
 }
@@ -154,22 +168,6 @@ describe("AuthboundClient issuer credential definitions on core Edge", () => {
     );
 
     const result = await createClient().issuer.credentialDefinitions.list({
-      lifecycleStatus: "published",
-      limit: 2,
-      cursor: "abc",
-    });
-
-    expect(sentRequest(fetchMock).url).toBe(
-      `${apiUrl}/v1/issuer/credential-definitions?lifecycle_status=published&limit=2&cursor=abc`
-    );
-    expect(result.nextCursor).toBe("next_page");
-    expect(result.data[0]?.display?.[0]?.name).toBe("Event Ticket Admission");
-  });
-
-  it("sends limit and cursor without a lifecycle filter", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ object: "list", data: [] }));
-
-    const result = await createClient().issuer.credentialDefinitions.list({
       limit: 2,
       cursor: "abc",
     });
@@ -177,7 +175,146 @@ describe("AuthboundClient issuer credential definitions on core Edge", () => {
     expect(sentRequest(fetchMock).url).toBe(
       `${apiUrl}/v1/issuer/credential-definitions?limit=2&cursor=abc`
     );
+    expect(result.nextCursor).toBe("next_page");
+    expect(result.data[0]?.display?.[0]?.name).toBe("Event Ticket Admission");
+  });
+
+  it("reads the last core Edge page without nextCursor", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ object: "list", data: [] }));
+
+    const result = await createClient().issuer.credentialDefinitions.list();
+
+    expect(sentRequest(fetchMock).url).toBe(
+      `${apiUrl}/v1/issuer/credential-definitions`
+    );
     expect(result.nextCursor).toBeUndefined();
+  });
+
+  // Core Edge bounds display text in code points; each emoji is two UTF-16
+  // units. title and a claim's displayName derive from these names.
+  const emoji = "\u{1F3AB}";
+  const firstClaim = fixture.definition.claims[0];
+  it.each([
+    [
+      "display name",
+      200,
+      (text: string) => ({ display: [{ locale: "en", name: text }] }),
+    ],
+    [
+      "display description",
+      500,
+      (text: string) => ({
+        display: [{ locale: "en", name: "Event", description: text }],
+      }),
+    ],
+    [
+      "logo alt text",
+      200,
+      (text: string) => ({
+        display: [
+          {
+            locale: "en",
+            name: "Event",
+            logo: { uri: "https://issuer.example.com/logo.png", altText: text },
+          },
+        ],
+      }),
+    ],
+    [
+      "claim display name",
+      200,
+      (text: string) => ({
+        claims: [{ ...firstClaim, display: [{ locale: "en", name: text }] }],
+      }),
+    ],
+    [
+      "claim display description",
+      500,
+      (text: string) => ({
+        claims: [
+          {
+            ...firstClaim,
+            display: [{ locale: "en", name: "Event", description: text }],
+          },
+        ],
+      }),
+    ],
+    ["title", 200, (text: string) => ({ title: text })],
+    [
+      "claim displayName",
+      200,
+      (text: string) => ({ claims: [{ ...firstClaim, displayName: text }] }),
+    ],
+  ])("bounds the %s at %i code points", async (_field, max, withText) => {
+    const longest = withText(emoji.repeat(max));
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({ ...fixture.definition, ...longest })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...fixture.definition,
+          ...withText(emoji.repeat(max + 1)),
+        })
+      );
+    const credentialDefinitions = createClient().issuer.credentialDefinitions;
+
+    await expect(
+      credentialDefinitions.get("event_ticket_authbound")
+    ).resolves.toMatchObject(longest);
+    await expect(
+      credentialDefinitions.get("event_ticket_authbound")
+    ).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  });
+
+  it.each([
+    ["display name", { display: [{ locale: "en", name: "" }] }],
+    [
+      "claim display name",
+      { claims: [{ ...firstClaim, display: [{ locale: "en", name: "" }] }] },
+    ],
+  ])("refuses an empty %s", async (_field, overrides) => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ ...fixture.definition, ...overrides })
+    );
+
+    await expect(
+      createClient().issuer.credentialDefinitions.get("event_ticket_authbound")
+    ).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  });
+
+  it("keeps metadata keys core Edge stores without polluting prototypes", async () => {
+    fetchMock.mockResolvedValueOnce(
+      rawDefinitionResponse(
+        '{"__proto__":{"x":1},"constructor":"c","nested":{"prototype":1}}'
+      )
+    );
+
+    const result = await createClient().issuer.credentialDefinitions.get(
+      "event_ticket_authbound"
+    );
+
+    const metadata = result.metadata ?? {};
+    expect(Object.hasOwn(metadata, "__proto__")).toBe(true);
+    expect(
+      Object.getOwnPropertyDescriptor(metadata, "__proto__")?.value
+    ).toEqual({ x: 1 });
+    expect(metadata.constructor).toBe("c");
+    expect(
+      Object.hasOwn(metadata.nested as Record<string, unknown>, "prototype")
+    ).toBe(true);
+    expect(Object.getPrototypeOf(metadata)).toBe(Object.prototype);
+    expect(({} as Record<string, unknown>).x).toBeUndefined();
+  });
+
+  it("keeps a metadata number core Edge returns beyond double range", async () => {
+    fetchMock.mockResolvedValueOnce(rawDefinitionResponse('{"n":1e400}'));
+
+    const result = await createClient().issuer.credentialDefinitions.get(
+      "event_ticket_authbound"
+    );
+
+    expect(result.metadata?.n).toBe(Number.POSITIVE_INFINITY);
   });
 
   it("creates a core definition with exactly the core body", async () => {
@@ -478,6 +615,21 @@ describe("AuthboundClient issuer credential definitions on core Edge", () => {
     expectTypeOf(createClient().issuer.credentialDefinitions.list)
       .parameter(0)
       .toEqualTypeOf<ListCredentialDefinitionsOptions | undefined>();
+  });
+
+  it("refuses null in customer-controlled metadata input at compile time", () => {
+    type CreateMetadata = NonNullable<
+      CreateCoreCredentialDefinitionOptions["metadata"]
+    >;
+    type UpdateMetadata = NonNullable<
+      UpdateCoreCredentialDefinitionOptions["metadata"]
+    >;
+
+    expectTypeOf({ note: null }).not.toExtend<CreateMetadata>();
+    expectTypeOf({ nested: { note: null } }).not.toExtend<UpdateMetadata>();
+    expectTypeOf({ nested: [{ note: "kept" }, 1, true] }).toExtend<
+      CreateMetadata & UpdateMetadata
+    >();
   });
 
   it("refuses display mixed with title or rendering at compile time", () => {

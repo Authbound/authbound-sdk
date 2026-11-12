@@ -95,7 +95,7 @@ const ticket = await authbound.issuer.credentialDefinitions.create({
 });
 ```
 
-`display` cannot be combined with `title` or `rendering`. These deployments have no drafts, so `createDraft()` refuses `display`, and `update()` writes a new published version: it returns a `CredentialDefinition` in either lifecycle state. `list()` returns one page at a time; pass `limit` (1 to 100) and the previous page's `nextCursor` as `cursor`.
+`display` cannot be combined with `title` or `rendering`. These deployments have no drafts, so `createDraft()` refuses `display`, and `update()` writes a new published version: it returns a `CredentialDefinition` in either lifecycle state. `list()` returns one page at a time; pass `limit` (1 to 100) and the previous page's `nextCursor` as `cursor`. Hosted deployments refuse `limit` and `cursor`. `lifecycleStatus` filters only on hosted deployments: customer-controlled ones ignore it and list published and archived definitions together, so filter the returned `data` instead.
 
 For intentional staging, create and inspect a draft you own before publishing it:
 

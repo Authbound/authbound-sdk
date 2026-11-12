@@ -174,6 +174,7 @@ export {
   type PolicyList,
   type PublicCredentialFormat,
   type PublicJson,
+  type PublicJsonValue,
   type PublicVerificationStatus,
   type PublishedCredentialDefinition,
   type SignedVerificationResult,

@@ -82,9 +82,12 @@ the SDK session checks `meetsMinimumAge(verification.ageClaims, minAge)`.
   the hosted shape. Responses may carry `version`, localized `display`, typed
   claims with their own `display`, `validity`, `uniqueness`, `curated` and
   `updatedAt`, and metadata within those deployments' bounds (8 KiB, eight
-  nested levels, no nulls). Unknown members are still rejected.
-- Page `issuer.credentialDefinitions.list()` with `limit` and `cursor`. The
-  list returns `nextCursor` when more definitions follow. Export
+  nested levels, no nulls). Display text is bounded in code points as those
+  deployments bound it. Unknown members are still rejected.
+- Page `issuer.credentialDefinitions.list()` with `limit` and `cursor` on
+  customer-controlled deployments. The list returns `nextCursor` when more
+  definitions follow. Hosted deployments refuse `limit` and `cursor`, and
+  `lifecycleStatus` filters only on hosted deployments. Export
   `ListCredentialDefinitionsOptions`.
 - Accept the customer-controlled shape in `create()`: options with `display`
   are sent as given, without `title` or `lifecycleStatus`, and `vct` is
@@ -92,7 +95,8 @@ the SDK session checks `meetsMinimumAge(verification.ageClaims, minAge)`.
   `display` with `title` or `rendering` is a type error and is refused before
   any request, as are an empty `display` and `display` on `createDraft()`.
   Export `CreateCoreCredentialDefinitionOptions` and its display, claim,
-  validity and uniqueness input types.
+  validity and uniqueness input types. Their `metadata` is
+  `PublicJsonValue`, which excludes null.
 - `update()` also accepts `display`, `validity`, `uniqueness` and typed claims
   (`UpdateCoreCredentialDefinitionOptions`).
 - Release all six interdependent packages together at `0.5.0`.

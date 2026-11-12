@@ -259,6 +259,37 @@ const PublicErrorDetailsSchema = z.union([
   PublicClaimNameDetailsSchema,
 ]);
 
+function codePointCount(value: string): number {
+  let count = 0;
+  for (const _codePoint of value) {
+    count += 1;
+  }
+  return count;
+}
+
+// Customer-controlled deployments bound display text in Unicode code points,
+// which Zod's max() would count as UTF-16 units. A code point is at most two
+// units, so the max() check only cuts off the scan early.
+function displayTextSchema(maxCodePoints: number) {
+  return z
+    .string()
+    .min(1)
+    .max(maxCodePoints * 2)
+    .refine((value) => codePointCount(value) <= maxCodePoints, {
+      message: `Must be at most ${maxCodePoints} code points`,
+    });
+}
+
+// title and a claim's displayName come from either deployment: hosted ones
+// bound them at 256 UTF-16 units, customer-controlled ones derive them from a
+// display name of at most 200 code points.
+const DerivedDisplayNameSchema = z
+  .string()
+  .max(400)
+  .refine((value) => value.length <= 256 || codePointCount(value) <= 200, {
+    message: "Must be at most 256 characters or 200 code points",
+  });
+
 const CredentialDefinitionClaimTypeSchema = z.enum([
   "string",
   "integer",
@@ -281,8 +312,8 @@ const CredentialDefinitionClaimItemTypeSchema = z.enum([
 const CredentialDefinitionClaimDisplaySchema = z
   .object({
     locale: z.string().min(1).max(256),
-    name: z.string().max(200),
-    description: z.string().max(500).optional(),
+    name: displayTextSchema(200),
+    description: displayTextSchema(500).optional(),
   })
   .strict();
 
@@ -292,7 +323,7 @@ const CredentialDefinitionClaimSchema = z
     path: z.array(z.string().max(256)).min(1).max(16),
     type: CredentialDefinitionClaimTypeSchema.optional(),
     mandatory: z.boolean(),
-    displayName: z.string().max(256),
+    displayName: DerivedDisplayNameSchema,
     display: z
       .array(CredentialDefinitionClaimDisplaySchema)
       .max(256)
@@ -312,6 +343,14 @@ export type PublicJson =
   | string
   | PublicJson[]
   | { [key: string]: PublicJson };
+
+/** PublicJson without null, which customer-controlled deployments refuse in metadata. */
+export type PublicJsonValue =
+  | boolean
+  | number
+  | string
+  | PublicJsonValue[]
+  | { [key: string]: PublicJsonValue };
 
 const MAX_PUBLIC_JSON_DEPTH = 8;
 const MAX_PUBLIC_JSON_NODES = 1024;
@@ -405,7 +444,9 @@ function isBoundedPublicJson(value: unknown): value is PublicJson {
 // Customer-controlled deployments bound definition metadata by its serialized
 // size instead, so they store values the PublicJson bounds refuse. This mirrors
 // their rule: at most 8 KiB of UTF-8 JSON, at most 8 nested objects or arrays,
-// and no nulls.
+// and no nulls. Keys such as "__proto__" and numbers beyond double range
+// (parsed as Infinity) are stored too, so they are accepted here; parsed
+// metadata is returned as is and never merged into another object.
 const MAX_CUSTOMER_CONTROLLED_METADATA_BYTES = 8 * 1024;
 const MAX_CUSTOMER_CONTROLLED_METADATA_DEPTH = 8;
 
@@ -425,14 +466,9 @@ function isCustomerControlledMetadata(value: unknown): value is PublicJson {
     }
     if (
       typeof current.value === "boolean" ||
+      typeof current.value === "number" ||
       typeof current.value === "string"
     ) {
-      continue;
-    }
-    if (typeof current.value === "number") {
-      if (!Number.isFinite(current.value)) {
-        return false;
-      }
       continue;
     }
     if (current.depth > MAX_CUSTOMER_CONTROLLED_METADATA_DEPTH) {
@@ -453,9 +489,6 @@ function isCustomerControlledMetadata(value: unknown): value is PublicJson {
       return false;
     }
     for (const key of Object.keys(current.value)) {
-      if (UNSAFE_PUBLIC_JSON_KEYS.has(key)) {
-        return false;
-      }
       const property = Object.getOwnPropertyDescriptor(current.value, key);
       if (!(property && "value" in property)) {
         return false;
@@ -499,7 +532,7 @@ const CredentialDefinitionRenderingSchema = z
 const CredentialDefinitionDisplayImageSchema = z
   .object({
     uri: z.string().min(1).max(2048),
-    altText: z.string().max(2048).optional(),
+    altText: displayTextSchema(200).optional(),
   })
   .strict();
 
@@ -520,8 +553,8 @@ const CredentialDefinitionSvgTemplateSchema = z
 const CredentialDefinitionDisplaySchema = z
   .object({
     locale: z.string().min(1).max(256),
-    name: z.string().max(200),
-    description: z.string().max(500).optional(),
+    name: displayTextSchema(200),
+    description: displayTextSchema(500).optional(),
     logo: CredentialDefinitionDisplayImageSchema.optional(),
     backgroundColor: CredentialDefinitionColorSchema.optional(),
     textColor: CredentialDefinitionColorSchema.optional(),
@@ -569,7 +602,7 @@ const CredentialDefinitionBaseSchema = z
     version: z.number().int().min(1).optional(),
     format: PublicCredentialFormatSchema,
     vct: z.string().min(1).max(2048),
-    title: z.string().min(1).max(256),
+    title: DerivedDisplayNameSchema.min(1),
     display: z.array(CredentialDefinitionDisplaySchema).max(256).optional(),
     claims: z.array(CredentialDefinitionClaimSchema).max(256),
     validity: CredentialDefinitionValiditySchema.optional(),
@@ -1212,7 +1245,7 @@ export interface CreateCoreCredentialDefinitionOptions {
   validity?: CredentialDefinitionValidityInput;
   uniqueness?: CredentialDefinitionUniquenessInput;
   aliases?: string[];
-  metadata?: Record<string, PublicJson>;
+  metadata?: Record<string, PublicJsonValue>;
   idempotencyKey?: string;
   title?: never;
   rendering?: never;
@@ -1226,7 +1259,7 @@ export interface UpdateCoreCredentialDefinitionOptions {
   validity?: CredentialDefinitionValidityInput;
   uniqueness?: CredentialDefinitionUniquenessInput;
   aliases?: string[];
-  metadata?: Record<string, PublicJson>;
+  metadata?: Record<string, PublicJsonValue>;
   format?: never;
   title?: never;
   rendering?: never;
@@ -1245,8 +1278,20 @@ export type UpdateCredentialDefinitionOptions =
   | UpdateCoreCredentialDefinitionOptions;
 
 export interface ListCredentialDefinitionsOptions {
+  /**
+   * Hosted deployments only. Customer-controlled deployments ignore it and
+   * list published and archived definitions together; filter `data` instead.
+   */
   lifecycleStatus?: CredentialDefinitionLifecycleStatus;
+  /**
+   * Customer-controlled deployments only: definitions per page, 1 to 100.
+   * Hosted deployments refuse it.
+   */
   limit?: number;
+  /**
+   * Customer-controlled deployments only: the previous page's `nextCursor`.
+   * Hosted deployments refuse it.
+   */
   cursor?: string;
 }
 

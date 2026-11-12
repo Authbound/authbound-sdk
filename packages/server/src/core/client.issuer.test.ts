@@ -544,10 +544,8 @@ describe("AuthboundClient issuer APIs", () => {
     "__proto__",
     "prototype",
     "constructor",
-  ])("rejects recursively nested PublicJson key %s", async (unsafeKey) => {
-    const metadata = JSON.parse(
-      `{"safe":{"${unsafeKey}":{"secret":"must-not-be-accepted"}}}`
-    );
+  ])("keeps nested metadata key %s as an own key without polluting prototypes", async (unsafeKey) => {
+    const metadata = JSON.parse(`{"safe":{"${unsafeKey}":{"secret":"kept"}}}`);
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -555,12 +553,15 @@ describe("AuthboundClient issuer APIs", () => {
       )
     );
 
-    await expect(
-      createClient().issuer.credentialDefinitions.get("employee_badge_v1")
-    ).rejects.toMatchObject({
-      name: "AuthboundClientError",
-      code: "INVALID_RESPONSE",
-    });
+    const result =
+      await createClient().issuer.credentialDefinitions.get(
+        "employee_badge_v1"
+      );
+
+    const safe = result.metadata?.safe as Record<string, unknown>;
+    expect(Object.hasOwn(safe, unsafeKey)).toBe(true);
+    expect(Object.getPrototypeOf(safe)).toBe(Object.prototype);
+    expect(({} as Record<string, unknown>).secret).toBeUndefined();
   });
 
   it("rejects a wrong lifecycle response from archive", async () => {
