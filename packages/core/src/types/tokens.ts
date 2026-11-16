@@ -100,8 +100,3 @@ export const TOKEN_TTL = {
   /** Webhook signature - 5 minutes */
   WEBHOOK: 5 * 60,
 } as const;
-
-/**
- * Token issuer for Authbound Gateway.
- */
-export const TOKEN_ISSUER = "https://api.authbound.io";

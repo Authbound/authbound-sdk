@@ -316,10 +316,7 @@ export function createAuthboundRouter(
   // Create shared AuthboundClient instance
   const client = new AuthboundClient({
     apiKey: validatedConfig.apiKey,
-    apiUrl:
-      validatedConfig.apiUrl ??
-      process.env.AUTHBOUND_API_URL ??
-      "https://api.authbound.io",
+    apiUrl: validatedConfig.apiUrl ?? process.env.AUTHBOUND_API_URL,
     debug: validatedConfig.debug,
   });
 
@@ -380,10 +377,7 @@ export function createVerificationHandler(
   // Create AuthboundClient instance
   const client = new AuthboundClient({
     apiKey: validatedConfig.apiKey,
-    apiUrl:
-      validatedConfig.apiUrl ??
-      process.env.AUTHBOUND_API_URL ??
-      "https://api.authbound.io",
+    apiUrl: validatedConfig.apiUrl ?? process.env.AUTHBOUND_API_URL,
     debug: validatedConfig.debug,
   });
 
@@ -412,10 +406,7 @@ export function createSessionHandler(
   const validatedConfig = parseConfig(config);
   const client = new AuthboundClient({
     apiKey: validatedConfig.apiKey,
-    apiUrl:
-      validatedConfig.apiUrl ??
-      process.env.AUTHBOUND_API_URL ??
-      "https://api.authbound.io",
+    apiUrl: validatedConfig.apiUrl ?? process.env.AUTHBOUND_API_URL,
     debug: validatedConfig.debug,
   });
   return (req, res) =>

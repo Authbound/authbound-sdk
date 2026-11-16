@@ -48,7 +48,6 @@ export {
 export {
   type ClientTokenClaims,
   ClientTokenClaimsSchema,
-  TOKEN_ISSUER,
   TOKEN_TTL,
   type WebhookTokenClaims,
   WebhookTokenClaimsSchema,

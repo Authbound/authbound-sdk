@@ -3,6 +3,7 @@
  */
 
 import { z } from "zod";
+import { defaultApiUrl } from "../api-url";
 import type { PolicyId, PublishableKey } from "../types/branded";
 import { isPolicyId, isPublishableKey } from "../types/branded";
 import { AuthboundError } from "../types/errors";
@@ -21,7 +22,7 @@ export interface AuthboundClientConfig {
   /** Default policy ID for verification (can be overridden per-call) */
   policyId?: PolicyId;
 
-  /** Authbound API URL (defaults to production) */
+  /** Authbound API URL (defaults to the sandbox for test keys, production for live keys) */
   gatewayUrl?: string;
 
   /** Verification creation endpoint on your server */
@@ -67,7 +68,6 @@ export const AuthboundClientConfigSchema = z.object({
  * Default configuration values.
  */
 export const DEFAULT_CONFIG = {
-  gatewayUrl: "https://api.authbound.io",
   verificationEndpoint: "/api/authbound/verification",
   sessionEndpoint: "/api/authbound/session",
   sessionMode: "sdk",
@@ -120,7 +120,7 @@ export function resolveConfig(config: AuthboundClientConfig): ResolvedConfig {
   return {
     publishableKey: validated.publishableKey as PublishableKey,
     policyId: validated.policyId as PolicyId | undefined,
-    gatewayUrl: validated.gatewayUrl ?? DEFAULT_CONFIG.gatewayUrl,
+    gatewayUrl: validated.gatewayUrl ?? defaultApiUrl(validated.publishableKey),
     verificationEndpoint:
       validated.verificationEndpoint ?? DEFAULT_CONFIG.verificationEndpoint,
     sessionEndpoint:
