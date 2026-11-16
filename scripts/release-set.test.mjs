@@ -8,6 +8,8 @@ import {
   RELEASE_VERSION,
 } from "./release-set.mjs";
 
+const escapedVersion = RELEASE_VERSION.replaceAll(".", "\\.");
+
 function createManifests({ serverCoreVersion = RELEASE_VERSION } = {}) {
   return {
     "@authbound/core": {
@@ -71,7 +73,7 @@ test("rejects a stale affected internal dependency pin", () => {
 
   assert.throws(
     () => assertInternalPins(manifests, "@authbound/server", RELEASE_VERSION),
-    /@authbound\/core must be pinned to 0\.5\.0-rc\.1/
+    new RegExp(`@authbound/core must be pinned to ${escapedVersion}`)
   );
 });
 
@@ -87,7 +89,7 @@ test("rejects any package version outside the coherent release", () => {
 
   assert.throws(
     () => assertSourceReleaseManifests(manifests),
-    /@authbound\/react must be 0\.5\.0-rc\.1; got 0\.2\.2/
+    new RegExp(`@authbound/react must be ${escapedVersion}; got 0\\.2\\.2`)
   );
 });
 
