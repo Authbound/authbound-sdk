@@ -52,6 +52,10 @@ Open `http://localhost:3000`, click **Create wallet offer**, and the server will
 3. Call `authbound.openId4Vc.issuance.createOffer`.
 4. Return the `offerUri` for QR-code or wallet-link handoff.
 
+## Run The AltID Age Check Example
+
+[`examples/nextjs-altid-age-check`](./examples/nextjs-altid-age-check) asks Denmark's AltID app to prove a person is 18 or older, using a test key on `https://sandbox.authbound.io`. Its README covers setup, and the [AltID guide](https://docs.authbound.io/verify/altid) explains each step.
+
 ## Issue A Credential Offer
 
 Credential definitions are Authbound's issuer templates. List them for discovery and inspection, select a published definition, create an OpenID4VCI offer, render the returned `offerUri` as a QR code, then poll the issuance session until the wallet redeems it. Listing drafts does not authorize publishing them.
