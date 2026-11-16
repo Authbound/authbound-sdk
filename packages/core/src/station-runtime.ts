@@ -1,3 +1,5 @@
+import { AuthboundError } from "./types/errors";
+
 export type StationRuntimeMode = "direct" | "proxy";
 export const STATION_DISPLAY_TOKEN_HEADER = "X-Authbound-Station-Display-Token";
 export const STATION_OPERATOR_GRANT_TOKEN_HEADER =
@@ -31,8 +33,16 @@ function runtimeMode(mode: StationRuntimeMode | undefined): StationRuntimeMode {
   return mode ?? "direct";
 }
 
-function defaultBaseUrl(mode: StationRuntimeMode): string | undefined {
-  return mode === "direct" ? "https://api.authbound.io" : undefined;
+// Proxy mode targets your own server, so a relative path is enough. Direct mode
+// calls the Authbound API, and a station token does not say which host it
+// belongs to.
+function defaultBaseUrl(mode: StationRuntimeMode): undefined {
+  if (mode === "direct") {
+    throw new AuthboundError(
+      "config_invalid",
+      "baseUrl is required in direct mode: https://sandbox.authbound.io for test stations, https://edge.authbound.io for live ones."
+    );
+  }
 }
 
 function buildUrl(path: string, baseUrl: string | undefined): string {

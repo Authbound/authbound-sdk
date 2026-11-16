@@ -529,7 +529,7 @@ interface AuthboundConfig {
   routes: RoutesConfig;        // Route protection configuration
   
   // Optional
-  apiUrl?: string;             // Authbound API URL (default: https://api.authbound.io)
+  apiUrl?: string;             // Authbound API URL (default: sandbox.authbound.io for test keys, edge.authbound.io for live)
   cookie?: CookieOptions;       // Cookie configuration
   debug?: boolean;             // Enable debug logging
 }

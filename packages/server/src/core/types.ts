@@ -289,7 +289,7 @@ export const AuthboundConfigSchema = z.object({
   apiKey: z.string().min(1, "API key is required"),
   /** Publishable key used to verify client-token status requests */
   publishableKey: z.string().optional(),
-  /** Authbound API URL. Defaults to "https://api.authbound.io" */
+  /** Authbound API URL. Defaults to the sandbox for test keys, edge for live keys */
   apiUrl: z.string().url().optional(),
   /** Secret key for JWT encryption (min 32 characters recommended) */
   secret: z.string().min(32, "Secret must be at least 32 characters"),
@@ -316,7 +316,7 @@ export interface AuthboundConfig {
   apiKey: string;
   /** Publishable key used to verify client-token status requests */
   publishableKey?: string;
-  /** Authbound API URL. Defaults to "https://api.authbound.io" */
+  /** Authbound API URL. Defaults to the sandbox for test keys, edge for live keys */
   apiUrl?: string;
   /** Secret key for JWT encryption (min 32 characters recommended) */
   secret: string;
