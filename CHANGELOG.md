@@ -2,11 +2,14 @@
 
 All customer-visible changes to the Authbound public SDK are recorded here.
 
-## 0.5.0 - Unreleased
+## 0.5.0 - 2026-11-16
 
-`0.5.0-rc.0` and `0.5.0-rc.1` are release candidates of these changes,
-published under the npm `next` tag. `latest` stays on 0.4.0 until 0.5.0 is
-released.
+`0.5.0-rc.0` and `0.5.0-rc.1` were release candidates of these changes.
+
+Always pass `apiUrl` (or set `AUTHBOUND_API_URL`): `https://sandbox.authbound.io`
+for test keys and `https://edge.authbound.io` for live keys. The built-in
+default, `https://api.authbound.io`, does not serve this API version; 0.5.1
+will choose the host from the key.
 
 ### Breaking changes
 
