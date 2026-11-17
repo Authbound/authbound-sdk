@@ -2,31 +2,6 @@
 
 All customer-visible changes to the Authbound public SDK are recorded here.
 
-## 0.5.1 - Unreleased
-
-The SDK now picks the API host from the key when `apiUrl` and
-`AUTHBOUND_API_URL` are unset: `sk_test_` and `pk_test_` keys use
-`https://sandbox.authbound.io`, live keys use `https://edge.authbound.io`. The
-default result token issuer follows, because it is the origin of `apiUrl`. An
-explicit `apiUrl`, `gatewayUrl`, or `AUTHBOUND_API_URL` still wins.
-
-### Changes
-
-- `AuthboundClient`, `createVerification`, `getVerificationStatus`, the
-  Express, Hono, and Next.js handlers, `@authbound/nextjs/server` routes,
-  `@authbound/nuxt` server routes, and core `resolveConfig` default to the
-  host for their key instead of `https://api.authbound.io`, which does not
-  serve this API version.
-- `@authbound/core` exports `defaultApiUrl(key)`, `SANDBOX_API_URL`, and
-  `LIVE_API_URL`.
-- Next.js and Nuxt station runtime routes, which carry no project key, take
-  the host from `AUTHBOUND_SECRET_KEY` when `AUTHBOUND_API_URL` is unset, and
-  fail with a configuration error when neither is set.
-- The core station URL builders require `baseUrl` in `direct` mode, because a
-  station token does not identify its environment. `proxy` mode is unchanged.
-- Remove `TOKEN_ISSUER` from `@authbound/core`. It named the old host; the
-  result issuer is the origin of `apiUrl` (or `resultIssuer`).
-
 ## 0.5.0 - 2026-11-16
 
 `0.5.0-rc.0` and `0.5.0-rc.1` were release candidates of these changes.

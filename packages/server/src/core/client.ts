@@ -27,7 +27,6 @@
 import {
   type ClaimsStatus,
   PublicCreateVerificationResponseSchema as CreateVerificationResponseSchema,
-  defaultApiUrl,
   OperatorDeviceGrantSchema,
   type ProviderPreference,
   ProviderPreferenceSchema,
@@ -77,8 +76,7 @@ export interface AuthboundClientConfig {
 
   /**
    * Authbound API URL.
-   * Defaults to https://sandbox.authbound.io for test keys and
-   * https://edge.authbound.io for live keys.
+   * Defaults to "https://api.authbound.io" if not specified.
    */
   apiUrl?: string;
 
@@ -101,6 +99,7 @@ export interface AuthboundClientConfig {
   resultIssuer?: string;
 }
 
+const DEFAULT_API_URL = "https://api.authbound.io";
 const DEFAULT_TIMEOUT = 30_000; // 30 seconds
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1646,7 +1645,7 @@ export class AuthboundClient {
     }
 
     this.apiKey = config.apiKey;
-    this.apiUrl = config.apiUrl ?? defaultApiUrl(config.apiKey);
+    this.apiUrl = config.apiUrl ?? DEFAULT_API_URL;
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT;
     this.debug = config.debug ?? false;
     this.resultIssuer = config.resultIssuer ?? new URL(this.apiUrl).origin;
@@ -3006,7 +3005,7 @@ export async function getVerificationStatus(options: {
   const { apiUrl, verificationId, clientToken, publishableKey } = options;
   assertBrowserStatusCredentials({ clientToken, publishableKey });
   const response = await fetch(
-    `${apiUrl ?? defaultApiUrl(publishableKey)}/v1/verifications/${encodePathSegment(verificationId)}/status`,
+    `${apiUrl ?? DEFAULT_API_URL}/v1/verifications/${encodePathSegment(verificationId)}/status`,
     {
       method: "GET",
       headers: {

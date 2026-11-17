@@ -204,7 +204,7 @@ describe("Nuxt session origin handling", () => {
     });
     expect(authboundServer.AuthboundClient).toHaveBeenCalledWith({
       apiKey: `sk_test_${"x".repeat(32)}`,
-      apiUrl: undefined,
+      apiUrl: "https://api.authbound.io",
     });
     expect(authboundServer.finalizeSessionHandlerKernel).toHaveBeenCalledWith(
       expect.objectContaining({

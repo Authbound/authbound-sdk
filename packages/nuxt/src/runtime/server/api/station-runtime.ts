@@ -1,4 +1,4 @@
-import { defaultApiUrl, withAuthboundContractHeaders } from "@authbound/core";
+import { withAuthboundContractHeaders } from "@authbound/core";
 import { redactSensitiveText } from "@authbound/server";
 import {
   createError,
@@ -12,19 +12,7 @@ import {
 import { useRuntimeConfig } from "nitropack/runtime";
 
 function gatewayUrl(): string {
-  if (process.env.AUTHBOUND_API_URL) {
-    return process.env.AUTHBOUND_API_URL;
-  }
-  const apiKey =
-    useRuntimeConfig().authbound?.apiKey ?? process.env.AUTHBOUND_SECRET_KEY;
-  if (!apiKey) {
-    throw createError({
-      statusCode: 500,
-      message: "AUTHBOUND_API_URL or AUTHBOUND_SECRET_KEY not configured",
-      data: { code: "CONFIG_MISSING" },
-    });
-  }
-  return defaultApiUrl(apiKey);
+  return process.env.AUTHBOUND_API_URL ?? "https://api.authbound.io";
 }
 
 export function stationParam(event: H3Event, name: string): string {
