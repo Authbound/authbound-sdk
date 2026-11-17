@@ -49,8 +49,6 @@ export {
 // Types
 // ============================================================================
 
-export { defaultApiUrl, LIVE_API_URL, SANDBOX_API_URL } from "./api-url";
-
 export {
   AUTHBOUND_API_VERSION,
   AUTHBOUND_API_VERSION_HEADER,
@@ -138,6 +136,7 @@ export {
 export {
   type ClientTokenClaims,
   ClientTokenClaimsSchema,
+  TOKEN_ISSUER,
   TOKEN_TTL,
   type WebhookTokenClaims,
   WebhookTokenClaimsSchema,

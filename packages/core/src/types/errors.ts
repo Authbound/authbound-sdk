@@ -192,7 +192,7 @@ export const ERROR_METADATA: Record<AuthboundErrorCode, ErrorMetadata> = {
   // Network
   network_error: {
     message: "Network error. Please check your connection.",
-    hint: "Verify internet connectivity and that your firewall allows connections to sandbox.authbound.io (test keys) or edge.authbound.io (live keys).",
+    hint: "Verify internet connectivity and that your firewall allows connections to api.authbound.io.",
     docsPath: "/errors/network-error",
   },
   gateway_unavailable: {

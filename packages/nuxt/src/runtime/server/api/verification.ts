@@ -26,6 +26,8 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig();
   const body = await readBody<CreateVerificationRequest>(event);
 
+  const gatewayUrl =
+    process.env.AUTHBOUND_API_URL ?? "https://api.authbound.io";
   const apiKey = config.authbound?.apiKey ?? process.env.AUTHBOUND_SECRET_KEY;
 
   if (!apiKey) {
@@ -74,7 +76,7 @@ export default defineEventHandler(async (event) => {
 
     const client = new AuthboundClient({
       apiKey,
-      apiUrl: process.env.AUTHBOUND_API_URL,
+      apiUrl: gatewayUrl,
       debug: config.public.authbound?.debug,
     });
     const result = await createVerificationHandlerKernel({

@@ -17,7 +17,6 @@
 
 import {
   authboundContractHeaders,
-  defaultApiUrl,
   isSameOriginSessionRequest,
   originForStatusProxy,
   type PolicyId,
@@ -188,20 +187,15 @@ export interface StationRuntimeRouteContext {
 // Environment Helpers
 // ============================================================================
 
-/**
- * AUTHBOUND_API_URL when set, otherwise the host that serves `key`.
- */
-function getGatewayUrl(key = process.env.AUTHBOUND_SECRET_KEY): string {
-  const configured = process.env.AUTHBOUND_API_URL;
-  if (configured) {
-    return configured;
+function getEnvVar(name: string, fallback?: string): string {
+  const value = process.env[name];
+  if (value) {
+    return value;
   }
-  if (!key) {
-    throw new Error(
-      "Missing required environment variable: AUTHBOUND_API_URL or AUTHBOUND_SECRET_KEY"
-    );
+  if (fallback) {
+    return fallback;
   }
-  return defaultApiUrl(key);
+  throw new Error(`Missing required environment variable: ${name}`);
 }
 
 function getSecretKey(configured?: string): string {
@@ -633,8 +627,8 @@ export function createVerificationRoute(
 ): (request: Request) => Promise<Response> {
   const {
     policyId,
+    gatewayUrl = getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io"),
     secret = getSecretKey(),
-    gatewayUrl = getGatewayUrl(secret),
     debug = false,
     providerOptions,
     transformRequest,
@@ -819,7 +813,9 @@ export function createStationEntryRoute(
   request: Request,
   context?: StationRuntimeRouteContext
 ) => Promise<Response> {
-  const gatewayUrl = options.gatewayUrl ?? getGatewayUrl();
+  const gatewayUrl =
+    options.gatewayUrl ??
+    getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io");
 
   return async (
     request: Request,
@@ -881,7 +877,9 @@ export function createStationDisplayRoute(
   request: Request,
   context?: StationRuntimeRouteContext
 ) => Promise<Response> {
-  const gatewayUrl = options.gatewayUrl ?? getGatewayUrl();
+  const gatewayUrl =
+    options.gatewayUrl ??
+    getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io");
 
   return async (
     request: Request,
@@ -926,7 +924,9 @@ export function createStationDisplayEventsRoute(
   request: Request,
   context?: StationRuntimeRouteContext
 ) => Promise<Response> {
-  const gatewayUrl = options.gatewayUrl ?? getGatewayUrl();
+  const gatewayUrl =
+    options.gatewayUrl ??
+    getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io");
 
   return async (
     request: Request,
@@ -973,7 +973,9 @@ export function createStationOperatorRoute(
   request: Request,
   context?: StationRuntimeRouteContext
 ) => Promise<Response> {
-  const gatewayUrl = options.gatewayUrl ?? getGatewayUrl();
+  const gatewayUrl =
+    options.gatewayUrl ??
+    getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io");
 
   return async (
     request: Request,
@@ -1010,7 +1012,9 @@ export function createStationOperatorEventsRoute(
   request: Request,
   context?: StationRuntimeRouteContext
 ) => Promise<Response> {
-  const gatewayUrl = options.gatewayUrl ?? getGatewayUrl();
+  const gatewayUrl =
+    options.gatewayUrl ??
+    getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io");
 
   return async (
     request: Request,
@@ -1052,7 +1056,9 @@ export function createStationDisclosureRoute(
   request: Request,
   context?: StationRuntimeRouteContext
 ) => Promise<Response> {
-  const gatewayUrl = options.gatewayUrl ?? getGatewayUrl();
+  const gatewayUrl =
+    options.gatewayUrl ??
+    getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io");
 
   return async (
     request: Request,
@@ -1346,7 +1352,7 @@ export function createStatusRoute(
   context: { params: Promise<{ verificationId: string }> }
 ) => Promise<Response> {
   const {
-    gatewayUrl = process.env.AUTHBOUND_API_URL,
+    gatewayUrl = getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io"),
     publishableKey: configuredPublishableKey,
     trustProxy = false,
     debug = false,
@@ -1394,7 +1400,7 @@ export function createStatusRoute(
       }
 
       const response = await fetch(
-        `${gatewayUrl ?? defaultApiUrl(publishableKey)}/v1/verifications/${encodeURIComponent(
+        `${gatewayUrl}/v1/verifications/${encodeURIComponent(
           verificationId
         )}/status`,
         { headers }
@@ -1536,7 +1542,7 @@ export function createSessionRoute(
   options: SessionRouteOptions = {}
 ): (request: Request) => Promise<Response> {
   const {
-    gatewayUrl = process.env.AUTHBOUND_API_URL,
+    gatewayUrl = getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io"),
     secret: configuredSecret,
     sessionSecret: configuredSessionSecret,
     cookieName = "__authbound",
@@ -1740,8 +1746,8 @@ export async function createVerification(options: {
 }): Promise<CreateVerificationResponse> {
   const {
     policyId,
+    gatewayUrl = getEnvVar("AUTHBOUND_API_URL", "https://api.authbound.io"),
     secret = getSecretKey(),
-    gatewayUrl = getGatewayUrl(secret),
     customerUserRef,
     metadata,
     provider,

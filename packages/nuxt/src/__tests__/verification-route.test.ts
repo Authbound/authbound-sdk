@@ -159,7 +159,7 @@ describe("Nuxt verification route", () => {
     });
     expect(authboundServer.AuthboundClient).toHaveBeenCalledWith({
       apiKey: `sk_test_${"x".repeat(32)}`,
-      apiUrl: undefined,
+      apiUrl: "https://api.authbound.io",
       debug: false,
     });
     expect(
