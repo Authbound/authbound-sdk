@@ -421,4 +421,27 @@ describe("Nuxt station runtime routes", () => {
       "Last-Event-ID": "42",
     });
   });
+
+  it("answers NETWORK_ERROR naming the host when the API is unreachable", async () => {
+    global.fetch = vi
+      .fn()
+      .mockRejectedValue(
+        new TypeError("fetch failed")
+      ) as unknown as typeof fetch;
+
+    await expect(
+      stationEntryHandler(
+        createEvent({
+          method: "POST",
+          path: "/api/authbound/stations/stn_demo/entry?token=entry_token",
+          params: { stationId: "stn_demo" },
+          body: { client_ref: "client_ref_123", transport: "qr" },
+        }) as never
+      )
+    ).rejects.toMatchObject({
+      statusCode: 502,
+      message: expect.stringContaining("https://api.authbound.test"),
+      data: { code: "NETWORK_ERROR" },
+    });
+  });
 });

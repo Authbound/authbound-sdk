@@ -2184,6 +2184,40 @@ function parseApiUrl(value: unknown): string {
   return `${url.origin}${url.pathname}`.replace(/\/+$/, "");
 }
 
+/**
+ * The API base URL for server routes: `configured`, else the
+ * `AUTHBOUND_API_URL` environment variable, without a trailing slash.
+ *
+ * @throws AuthboundClientError `MISSING_API_URL` when neither is set,
+ *   `INVALID_API_URL` when the value is not an absolute http(s) URL.
+ */
+export function resolveApiUrl(configured?: string): string {
+  const value = configured ?? process.env.AUTHBOUND_API_URL;
+  if (!value) {
+    throw new AuthboundClientError(
+      "apiUrl is required. Set AUTHBOUND_API_URL, or the API URL in your Authbound config, to the API host your key belongs to. A key works only on the host that issued it.",
+      "MISSING_API_URL"
+    );
+  }
+  return parseApiUrl(value);
+}
+
+/**
+ * `fetch` against the Authbound API. A request that cannot be sent throws
+ * `AuthboundClientError` `NETWORK_ERROR` naming the host, not a bare TypeError.
+ */
+export async function fetchAuthboundApi(
+  apiUrl: string,
+  path: string,
+  init?: RequestInit
+): Promise<Response> {
+  try {
+    return await fetch(`${apiUrl}${path}`, init);
+  } catch (error) {
+    throw networkError(apiUrl, error);
+  }
+}
+
 // ============================================================================
 // Issuer API
 // ============================================================================

@@ -68,7 +68,10 @@ vi.mock("nitropack/runtime", () => ({
   useRuntimeConfig: () => runtimeConfig.current,
 }));
 
-vi.mock("@authbound/server", () => authboundServer);
+vi.mock("@authbound/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@authbound/server")>()),
+  ...authboundServer,
+}));
 
 import sessionHandler from "../runtime/server/api/session";
 

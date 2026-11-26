@@ -6,14 +6,35 @@ All customer-visible changes to the Authbound public SDK are recorded here.
 
 ### Breaking changes
 
-- `apiUrl` is required. `AuthboundClient`, `createVerification` and
-  `getVerificationStatus` throw `MISSING_API_URL` without it, and the Express,
-  Hono, Next.js and Nuxt server routes throw it when neither `apiUrl` (or
-  `gatewayUrl`) nor `AUTHBOUND_API_URL` is set. The built-in
-  `https://api.authbound.io` default is gone: a key works only on the host
-  that issued it, so the default sent test keys to a host that refused them.
-  A value that is not an absolute http(s) URL, such as `sandbox.example.com`,
-  throws `INVALID_API_URL` when the client is created.
+- `apiUrl` is required. The built-in `https://api.authbound.io` default is
+  gone: a key works only on the host that issued it, so the default sent test
+  keys to a host that refused them. Every package reports the same codes:
+  `MISSING_API_URL` when no URL is set, `INVALID_API_URL` for a value that is
+  not an absolute http(s) URL (such as `sandbox.example.com`), and
+  `NETWORK_ERROR` when the host cannot be reached.
+  - `@authbound/server`: `AuthboundClient`, `createVerification` and
+    `getVerificationStatus` throw `AuthboundClientError` with these codes. The
+    Express, Hono and `@authbound/server/next` handlers use `apiUrl`, else
+    `AUTHBOUND_API_URL`, and throw `MISSING_API_URL` when they are created
+    without either.
+  - `@authbound/nextjs/server`: the route factories (`createVerificationRoute`,
+    `createStatusRoute`, `createSessionRoute` and the station routes) read
+    `gatewayUrl`, else `AUTHBOUND_API_URL`, on each request, so importing a
+    route never throws. They answer `500` with `code` `MISSING_API_URL` or
+    `INVALID_API_URL`, and `502` with `NETWORK_ERROR`. The standalone
+    `createVerification` throws `AuthboundClientError` with the same codes.
+  - `@authbound/nuxt`: new `apiUrl` module option (default
+    `AUTHBOUND_API_URL`, runtime override `NUXT_PUBLIC_AUTHBOUND_API_URL`),
+    used by the server routes and the browser SDK. The server routes answer an
+    h3 `500` with `data.code` `MISSING_API_URL` or `INVALID_API_URL` (was
+    `CONFIG_MISSING`), and `502` with `NETWORK_ERROR`.
+  - Browser SDK: `gatewayUrl` is required in `@authbound/core` `createClient`,
+    the React `AuthboundProvider` and the Vue `AuthboundPlugin`. Without it
+    `createClient` throws `config_invalid`. Before, the browser polled status
+    on `https://api.authbound.io` even when the server created the
+    verification on another host. `DEFAULT_CONFIG.gatewayUrl` is removed.
+  - The framework handlers answer `502` instead of `500` when the API host
+    cannot be reached.
 - `verifyResultToken` and `client.verifications.verifyResultToken` throw a
   `TypeError` when `verificationId` (or `issuer`, or an empty `audience`) is
   missing, instead of skipping the `sub` check and accepting a token for any

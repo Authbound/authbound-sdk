@@ -36,8 +36,10 @@ import {
   type CreateVerificationResponse,
   createHandlerKernelInvalidRequestBody,
   createToken,
+  fetchAuthboundApi,
   getVerificationFromToken,
   redactSensitiveText,
+  resolveApiUrl,
   toBrowserVerificationResponse,
   toVerifiedSessionFinalization,
   verifyWebhookSignatureDetailed,
@@ -187,14 +189,30 @@ export interface StationRuntimeRouteContext {
 // Environment Helpers
 // ============================================================================
 
-function getApiUrl(): string {
-  const value = process.env.AUTHBOUND_API_URL;
-  if (value) {
-    return value;
+/**
+ * A route's API host problem as a JSON response: a missing or invalid API URL
+ * is a server misconfiguration (500), an unreachable host a bad gateway (502).
+ * Routes resolve the URL per request, so importing a route never throws.
+ */
+function apiHostErrorResponse(error: unknown): Response | undefined {
+  if (!(error instanceof AuthboundClientError)) {
+    return;
   }
-  throw new Error(
-    "Missing required environment variable: AUTHBOUND_API_URL. Set it, or gatewayUrl, to the Authbound API host your key belongs to."
-  );
+  switch (error.code) {
+    case "MISSING_API_URL":
+    case "INVALID_API_URL":
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: 500 }
+      );
+    case "NETWORK_ERROR":
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: 502 }
+      );
+    default:
+      return;
+  }
 }
 
 function getSecretKey(configured?: string): string {
@@ -417,14 +435,23 @@ function stationToken(
 }
 
 async function forwardStationRuntimeRequest(
-  gatewayUrl: string,
+  gatewayUrl: string | undefined,
   path: string,
   init: RequestInit
 ): Promise<Response> {
-  const gatewayResponse = await fetch(`${gatewayUrl}${path}`, {
-    ...init,
-    headers: withAuthboundContractHeaders(init.headers),
-  });
+  let gatewayResponse: Response;
+  try {
+    gatewayResponse = await fetchAuthboundApi(resolveApiUrl(gatewayUrl), path, {
+      ...init,
+      headers: withAuthboundContractHeaders(init.headers),
+    });
+  } catch (error) {
+    const response = apiHostErrorResponse(error);
+    if (response) {
+      return response;
+    }
+    throw error;
+  }
   const body = await gatewayResponse.json().catch(() => ({
     error: gatewayResponse.statusText,
   }));
@@ -444,17 +471,26 @@ async function forwardStationRuntimeRequest(
 }
 
 async function forwardStationRuntimeStream(
-  gatewayUrl: string,
+  gatewayUrl: string | undefined,
   path: string,
   options: { lastEventId?: string } = {}
 ): Promise<Response> {
   const requestHeaders = options.lastEventId
     ? { "Last-Event-ID": options.lastEventId }
     : undefined;
-  const gatewayResponse = await fetch(`${gatewayUrl}${path}`, {
-    method: "GET",
-    headers: withAuthboundContractHeaders(requestHeaders),
-  });
+  let gatewayResponse: Response;
+  try {
+    gatewayResponse = await fetchAuthboundApi(resolveApiUrl(gatewayUrl), path, {
+      method: "GET",
+      headers: withAuthboundContractHeaders(requestHeaders),
+    });
+  } catch (error) {
+    const response = apiHostErrorResponse(error);
+    if (response) {
+      return response;
+    }
+    throw error;
+  }
   const responseHeaders = new Headers();
   for (const name of [
     "content-type",
@@ -627,7 +663,7 @@ export function createVerificationRoute(
 ): (request: Request) => Promise<Response> {
   const {
     policyId,
-    gatewayUrl = getApiUrl(),
+    gatewayUrl,
     secret = getSecretKey(),
     debug = false,
     providerOptions,
@@ -698,11 +734,15 @@ export function createVerificationRoute(
       }
 
       // Proxy to gateway
-      const gatewayResponse = await fetch(`${gatewayUrl}/v1/verifications`, {
-        method: "POST",
-        headers: gatewayHeaders,
-        body: JSON.stringify(gatewayBody),
-      });
+      const gatewayResponse = await fetchAuthboundApi(
+        resolveApiUrl(gatewayUrl),
+        "/v1/verifications",
+        {
+          method: "POST",
+          headers: gatewayHeaders,
+          body: JSON.stringify(gatewayBody),
+        }
+      );
 
       if (!gatewayResponse.ok) {
         const errorBody = await gatewayResponse.json().catch(() => ({}));
@@ -789,6 +829,10 @@ export function createVerificationRoute(
           summarizeError(error)
         );
       }
+      const hostError = apiHostErrorResponse(error);
+      if (hostError) {
+        return hostError;
+      }
       return NextResponse.json(
         { error: "Internal server error" },
         { status: 500 }
@@ -813,7 +857,7 @@ export function createStationEntryRoute(
   request: Request,
   context?: StationRuntimeRouteContext
 ) => Promise<Response> {
-  const gatewayUrl = options.gatewayUrl ?? getApiUrl();
+  const { gatewayUrl } = options;
 
   return async (
     request: Request,
@@ -875,7 +919,7 @@ export function createStationDisplayRoute(
   request: Request,
   context?: StationRuntimeRouteContext
 ) => Promise<Response> {
-  const gatewayUrl = options.gatewayUrl ?? getApiUrl();
+  const { gatewayUrl } = options;
 
   return async (
     request: Request,
@@ -920,7 +964,7 @@ export function createStationDisplayEventsRoute(
   request: Request,
   context?: StationRuntimeRouteContext
 ) => Promise<Response> {
-  const gatewayUrl = options.gatewayUrl ?? getApiUrl();
+  const { gatewayUrl } = options;
 
   return async (
     request: Request,
@@ -967,7 +1011,7 @@ export function createStationOperatorRoute(
   request: Request,
   context?: StationRuntimeRouteContext
 ) => Promise<Response> {
-  const gatewayUrl = options.gatewayUrl ?? getApiUrl();
+  const { gatewayUrl } = options;
 
   return async (
     request: Request,
@@ -1004,7 +1048,7 @@ export function createStationOperatorEventsRoute(
   request: Request,
   context?: StationRuntimeRouteContext
 ) => Promise<Response> {
-  const gatewayUrl = options.gatewayUrl ?? getApiUrl();
+  const { gatewayUrl } = options;
 
   return async (
     request: Request,
@@ -1046,7 +1090,7 @@ export function createStationDisclosureRoute(
   request: Request,
   context?: StationRuntimeRouteContext
 ) => Promise<Response> {
-  const gatewayUrl = options.gatewayUrl ?? getApiUrl();
+  const { gatewayUrl } = options;
 
   return async (
     request: Request,
@@ -1340,7 +1384,7 @@ export function createStatusRoute(
   context: { params: Promise<{ verificationId: string }> }
 ) => Promise<Response> {
   const {
-    gatewayUrl = getApiUrl(),
+    gatewayUrl,
     publishableKey: configuredPublishableKey,
     trustProxy = false,
     debug = false,
@@ -1387,10 +1431,9 @@ export function createStatusRoute(
         headers.Origin = origin;
       }
 
-      const response = await fetch(
-        `${gatewayUrl}/v1/verifications/${encodeURIComponent(
-          verificationId
-        )}/status`,
+      const response = await fetchAuthboundApi(
+        resolveApiUrl(gatewayUrl),
+        `/v1/verifications/${encodeURIComponent(verificationId)}/status`,
         { headers }
       );
 
@@ -1420,6 +1463,10 @@ export function createStatusRoute(
     } catch (error) {
       if (debug) {
         console.error("[Authbound] Status error:", summarizeError(error));
+      }
+      const hostError = apiHostErrorResponse(error);
+      if (hostError) {
+        return hostError;
       }
       return NextResponse.json(
         { error: "Internal server error" },
@@ -1530,7 +1577,7 @@ export function createSessionRoute(
   options: SessionRouteOptions = {}
 ): (request: Request) => Promise<Response> {
   const {
-    gatewayUrl = getApiUrl(),
+    gatewayUrl,
     secret: configuredSecret,
     sessionSecret: configuredSessionSecret,
     cookieName = "__authbound",
@@ -1637,7 +1684,7 @@ export function createSessionRoute(
 
       const client = new AuthboundClient({
         apiKey: getSecretKey(configuredSecret),
-        apiUrl: gatewayUrl,
+        apiUrl: resolveApiUrl(gatewayUrl),
         debug,
       });
       const result = await client.verifications.getResult(verificationId);
@@ -1684,6 +1731,10 @@ export function createSessionRoute(
           "[Authbound] Session finalization error:",
           summarizeError(error)
         );
+      }
+      const hostError = apiHostErrorResponse(error);
+      if (hostError) {
+        return hostError;
       }
       if (error instanceof AuthboundClientError) {
         return NextResponse.json(
@@ -1734,7 +1785,7 @@ export async function createVerification(options: {
 }): Promise<CreateVerificationResponse> {
   const {
     policyId,
-    gatewayUrl = getApiUrl(),
+    gatewayUrl,
     secret = getSecretKey(),
     customerUserRef,
     metadata,
@@ -1745,21 +1796,25 @@ export async function createVerification(options: {
     ? VerificationProviderOptionsSchema.parse(providerOptions)
     : undefined;
 
-  const response = await fetch(`${gatewayUrl}/v1/verifications`, {
-    method: "POST",
-    headers: {
-      ...authboundContractHeaders(),
-      "Content-Type": "application/json",
-      "X-Authbound-Key": secret,
-    },
-    body: JSON.stringify({
-      policy_id: policyId,
-      customer_user_ref: customerUserRef,
-      metadata,
-      provider,
-      provider_options: mapVerificationProviderOptions(parsedProviderOptions),
-    }),
-  });
+  const response = await fetchAuthboundApi(
+    resolveApiUrl(gatewayUrl),
+    "/v1/verifications",
+    {
+      method: "POST",
+      headers: {
+        ...authboundContractHeaders(),
+        "Content-Type": "application/json",
+        "X-Authbound-Key": secret,
+      },
+      body: JSON.stringify({
+        policy_id: policyId,
+        customer_user_ref: customerUserRef,
+        metadata,
+        provider,
+        provider_options: mapVerificationProviderOptions(parsedProviderOptions),
+      }),
+    }
+  );
 
   if (!response.ok) {
     throw new Error(`Failed to create verification: ${response.statusText}`);

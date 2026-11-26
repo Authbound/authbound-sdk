@@ -14,6 +14,7 @@ import {
 import {
   AuthboundClient,
   AuthboundClientError,
+  resolveApiUrl,
   type SignedVerificationResult,
 } from "./client";
 import { createSafeErrorResponse, logError } from "./error-utils";
@@ -36,16 +37,9 @@ import { verifyWebhookSignatureDetailed } from "./webhooks";
 export function createHandlerClient(
   config: Pick<AuthboundConfig, "apiKey" | "apiUrl" | "debug">
 ): AuthboundClient {
-  const apiUrl = config.apiUrl ?? process.env.AUTHBOUND_API_URL;
-  if (!apiUrl) {
-    throw new AuthboundClientError(
-      "apiUrl is required. Set AUTHBOUND_API_URL, or apiUrl in your Authbound config, to the API host your key belongs to. A key works only on the host that issued it.",
-      "MISSING_API_URL"
-    );
-  }
   return new AuthboundClient({
     apiKey: config.apiKey,
-    apiUrl,
+    apiUrl: resolveApiUrl(config.apiUrl),
     debug: config.debug,
   });
 }
@@ -259,7 +253,7 @@ export async function createVerificationHandlerKernel({
     }
     if (error instanceof AuthboundClientError) {
       logError(error, "Verification creation", config.debug);
-      return errorResponse(error.message, error.statusCode ?? 500, error.code);
+      return errorResponse(error.message, clientErrorStatus(error), error.code);
     }
     logError(error, "Verification creation", config.debug);
     const safeError = createSafeErrorResponse(error, 500, config.debug);
@@ -370,7 +364,7 @@ export async function finalizeSessionHandlerKernel({
   } catch (error) {
     if (error instanceof AuthboundClientError) {
       logError(error, "Session finalization", config.debug);
-      return errorResponse(error.message, error.statusCode ?? 500, error.code);
+      return errorResponse(error.message, clientErrorStatus(error), error.code);
     }
     logError(error, "Session finalization", config.debug);
     const safeError = createSafeErrorResponse(error, 500, config.debug);
@@ -570,6 +564,11 @@ export function mapHandlerKernelException(
   logError(error, context, config.debug);
   const safeError = createSafeErrorResponse(error, 500, config.debug);
   return errorResponse(safeError.message, 500, safeError.code);
+}
+
+/** The API's status for API errors; 502 when the API could not be reached. */
+function clientErrorStatus(error: AuthboundClientError): number {
+  return error.statusCode ?? (error.code === "NETWORK_ERROR" ? 502 : 500);
 }
 
 function errorResponse(

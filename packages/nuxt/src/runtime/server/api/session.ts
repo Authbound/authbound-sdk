@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
     ? await getVerificationFromToken(pendingCookie, sessionSecret)
     : null;
 
-  const gatewayUrl = authboundApiUrl();
+  const gatewayUrl = authboundApiUrl(config.public.authbound?.apiUrl);
   const apiKey = config.authbound?.apiKey ?? process.env.AUTHBOUND_SECRET_KEY;
 
   if (!apiKey) {

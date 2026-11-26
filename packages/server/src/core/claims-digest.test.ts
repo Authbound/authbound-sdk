@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
+import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import {
   createLocalJWKSet,
@@ -193,6 +194,25 @@ describe("verifyResultToken", () => {
     await expect(
       verify(await resultToken("a".repeat(64)), { audience: "" })
     ).rejects.toThrow(TypeError);
+  });
+
+  // A caller's own jose (here its CJS build) throws instances of other classes.
+  it("names the reason when the keys come from another jose copy", async () => {
+    const cjsJose = createRequire(import.meta.url)(
+      "jose"
+    ) as typeof import("jose");
+    const keys = cjsJose.createLocalJWKSet(jwks);
+    const options = { keys, issuer: ISSUER, verificationId: VERIFICATION_ID };
+
+    await expect(
+      verifyResultToken(
+        await resultToken(null, { key: otherKey, kid: "other-installation" }),
+        options
+      )
+    ).rejects.toMatchObject({ reason: "unknown_key" });
+    await expect(
+      verifyResultToken(await resultToken(null, { key: otherKey }), options)
+    ).rejects.toMatchObject({ reason: "invalid_signature" });
   });
 
   it("reports unreachable keys as keys_unavailable", async () => {

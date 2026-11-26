@@ -131,6 +131,7 @@ describe("browser flow session cookie ordering", () => {
 
     const clientConfig = {
       publishableKey: "pk_test_public123",
+      gatewayUrl: "https://api.authbound.test",
       policyId: "pol_authbound_pension_v1" as never,
       verificationEndpoint: "/api/authbound/verification",
       sessionEndpoint: "/api/authbound/session",
@@ -249,6 +250,7 @@ describe("browser flow session cookie ordering", () => {
 
     const clientConfig = {
       publishableKey: "pk_test_public123",
+      gatewayUrl: "https://api.authbound.test",
       policyId: "pol_authbound_pension_v1" as never,
       verificationEndpoint: "/api/authbound/verification",
       sessionEndpoint: "/api/authbound/session",
@@ -281,6 +283,7 @@ describe("browser flow session cookie ordering", () => {
     await expect(
       createClient({
         publishableKey: "pk_test_public123",
+        gatewayUrl: "https://api.authbound.test",
         policyId: "pol_authbound_pension_v1" as never,
         verificationEndpoint: "/api/authbound/verification",
         sessionEndpoint: "/api/authbound/session",

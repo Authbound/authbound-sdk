@@ -18,12 +18,17 @@ const policyId = asPolicyId("pol_age_over_18_eudi_v1");
 
 export function App() {
   return (
-    <AuthboundProvider publishableKey="pk_test_...">
+    <AuthboundProvider
+      publishableKey="pk_test_..."
+      gatewayUrl="https://..." // the Authbound API host your keys belong to
+    >
       <VerificationWall policyId={policyId} />
     </AuthboundProvider>
   );
 }
 ```
+
+`gatewayUrl` is required and has no default, because a key works only on the host that issued it. Use the same value as `AUTHBOUND_API_URL` on your server.
 
 Requires React and React DOM 18.3 through 19.x. Mount the standard `@authbound/server` router on the same origin so `/api/authbound/verification` and `/api/authbound/session` are available.
 

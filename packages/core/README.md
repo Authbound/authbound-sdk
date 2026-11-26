@@ -11,6 +11,8 @@ import { createClient } from "@authbound/core";
 
 const authbound = createClient({
   publishableKey: "pk_test_...",
+  // The Authbound API host your keys belong to. Required, no default.
+  gatewayUrl: "https://...",
 });
 ```
 

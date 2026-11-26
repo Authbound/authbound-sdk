@@ -19,6 +19,7 @@
  *   return (
  *     <AuthboundProvider
  *       publishableKey={process.env.NEXT_PUBLIC_AUTHBOUND_PK!}
+ *       gatewayUrl={process.env.NEXT_PUBLIC_AUTHBOUND_API_URL!}
  *       policyId={policyId}
  *     >
  *       <YourApp />

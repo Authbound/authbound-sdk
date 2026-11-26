@@ -167,6 +167,7 @@ export {
   // Standalone functions
   createVerification,
   type DraftCredentialDefinition,
+  fetchAuthboundApi,
   type GetVerificationStatusOptions,
   getVerificationStatus,
   type ListCredentialDefinitionsOptions,
@@ -183,6 +184,7 @@ export {
   type PublicJsonValue,
   type PublicVerificationStatus,
   type PublishedCredentialDefinition,
+  resolveApiUrl,
   type SignedVerificationResult,
   type UpdateCoreCredentialDefinitionOptions,
   type UpdateCredentialDefinitionOptions,

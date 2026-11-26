@@ -27,14 +27,22 @@ export default defineNuxtPlugin({
       );
     }
 
+    const apiUrl = config.public.authbound?.apiUrl ?? "";
+    if (!apiUrl) {
+      console.warn(
+        "[Authbound] Missing API URL. Set AUTHBOUND_API_URL (or apiUrl in the authbound module options) to the Authbound API host your keys belong to."
+      );
+    }
+
     // Create client instance
     let client: AuthboundClient | null = null;
 
-    if (rawPublishableKey && isPublishableKey(rawPublishableKey)) {
+    if (apiUrl && rawPublishableKey && isPublishableKey(rawPublishableKey)) {
       try {
         const pluginOptions: AuthboundPluginOptions = {
           publishableKey: asPublishableKey(rawPublishableKey),
           policyId: config.public.authbound?.policyId as PolicyId | undefined,
+          gatewayUrl: apiUrl,
           verificationEndpoint:
             config.public.authbound?.verificationEndpoint ??
             "/api/authbound/verification",

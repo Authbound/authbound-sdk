@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig();
   const body = await readBody<CreateVerificationRequest>(event);
 
-  const gatewayUrl = authboundApiUrl();
+  const gatewayUrl = authboundApiUrl(config.public.authbound?.apiUrl);
   const apiKey = config.authbound?.apiKey ?? process.env.AUTHBOUND_SECRET_KEY;
 
   if (!apiKey) {

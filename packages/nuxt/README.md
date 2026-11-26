@@ -14,6 +14,7 @@ export default defineNuxtConfig({
   authbound: {
     policyId: asPolicyId("pol_age_over_18_eudi_v1"),
     publishableKey: process.env.NUXT_PUBLIC_AUTHBOUND_PK,
+    apiUrl: process.env.AUTHBOUND_API_URL,
     apiKey: process.env.AUTHBOUND_SECRET_KEY,
     sessionSecret: process.env.AUTHBOUND_SESSION_SECRET,
   },
@@ -21,6 +22,13 @@ export default defineNuxtConfig({
 ```
 
 Requires Nuxt 4 and Vue 3.5.34 through 3.x.
+
+`apiUrl` is the Authbound API host your keys belong to. The server routes and
+the browser SDK both use it, and `NUXT_PUBLIC_AUTHBOUND_API_URL` overrides it at
+runtime. There is no default host: a key works only on the host that issued it.
+Without one the server routes answer `500` with `data.code: "MISSING_API_URL"`
+(`INVALID_API_URL` for a value that is not an absolute http(s) URL), and `502`
+with `data.code: "NETWORK_ERROR"` when the host cannot be reached.
 
 The module exposes the SDK verification and session routes under
 `/api/authbound`. After the browser observes a verified status, the session route

@@ -199,7 +199,7 @@ describe("Nuxt verification route", () => {
     );
   });
 
-  it("fails with CONFIG_MISSING when AUTHBOUND_API_URL is not set", async () => {
+  it("fails with MISSING_API_URL when no API URL is configured", async () => {
     vi.stubEnv("AUTHBOUND_API_URL", "");
 
     await expect(
@@ -208,10 +208,37 @@ describe("Nuxt verification route", () => {
       )
     ).rejects.toMatchObject({
       statusCode: 500,
-      message: "AUTHBOUND_API_URL not configured",
-      data: { code: "CONFIG_MISSING" },
+      message: expect.stringContaining("AUTHBOUND_API_URL"),
+      data: { code: "MISSING_API_URL" },
     });
     expect(authboundServer.AuthboundClient).not.toHaveBeenCalled();
+  });
+
+  it("prefers the module apiUrl and rejects a scheme-less one", async () => {
+    vi.stubEnv("AUTHBOUND_API_URL", "");
+    runtimeConfig.current.public.authbound = {
+      ...runtimeConfig.current.public.authbound,
+      apiUrl: "https://api.example.com/",
+    };
+    await verificationHandler(
+      createEvent({ origin: "https://shop.example" }, {}) as never
+    );
+    expect(authboundServer.AuthboundClient).toHaveBeenCalledWith(
+      expect.objectContaining({ apiUrl: "https://api.example.com" })
+    );
+
+    runtimeConfig.current.public.authbound = {
+      ...runtimeConfig.current.public.authbound,
+      apiUrl: "sandbox.example.com",
+    };
+    await expect(
+      verificationHandler(
+        createEvent({ origin: "https://shop.example" }, {}) as never
+      )
+    ).rejects.toMatchObject({
+      statusCode: 500,
+      data: { code: "INVALID_API_URL" },
+    });
   });
 
   it("redacts secret-bearing verification creation errors from debug logs", async () => {

@@ -1,4 +1,4 @@
-import { errors, type JWTPayload, type JWTVerifyGetKey, jwtVerify } from "jose";
+import { type JWTPayload, type JWTVerifyGetKey, jwtVerify } from "jose";
 
 /** The claims of a signed verification result token. */
 export interface ResultTokenPayload extends JWTPayload {
@@ -89,11 +89,27 @@ function requireNonEmpty(value: unknown, name: string): string {
   return value;
 }
 
+// jose errors are matched by their stable `code`, not `instanceof`: a key
+// resolver from another jose copy (the caller's own install, or its CJS build)
+// throws instances of that copy's classes.
+type JoseError = Error & {
+  code: string;
+  claim?: string;
+  payload?: Record<string, unknown>;
+};
+
+function isJoseError(error: unknown): error is JoseError {
+  return (
+    error instanceof Error &&
+    typeof (error as { code?: unknown }).code === "string"
+  );
+}
+
 function claimFailure(
-  error: errors.JWTClaimValidationFailed,
+  error: JoseError,
   expected: { issuer: string; verificationId: string; audience?: string }
 ): ResultTokenVerificationError {
-  const actual = error.payload[error.claim];
+  const actual = error.claim ? error.payload?.[error.claim] : undefined;
   const shown = typeof actual === "string" ? `"${actual}"` : "missing";
   switch (error.claim) {
     case "iss":
@@ -117,7 +133,7 @@ function claimFailure(
     default:
       return new ResultTokenVerificationError(
         "malformed",
-        `Result token claim ${error.claim} is invalid: ${error.message}`,
+        `Result token claim ${error.claim ?? "unknown"} is invalid: ${error.message}`,
         { cause: error }
       );
   }
@@ -127,46 +143,46 @@ function toVerificationError(
   error: unknown,
   expected: { issuer: string; verificationId: string; audience?: string }
 ): ResultTokenVerificationError {
-  if (error instanceof errors.JWTExpired) {
-    return new ResultTokenVerificationError(
-      "expired",
-      "Result token has expired. Result tokens are valid for one hour from each read; call getResult() again for a fresh one.",
-      { cause: error }
-    );
+  switch (isJoseError(error) ? error.code : undefined) {
+    case "ERR_JWT_EXPIRED":
+      return new ResultTokenVerificationError(
+        "expired",
+        "Result token has expired. Result tokens are valid for one hour from each read; call getResult() again for a fresh one.",
+        { cause: error }
+      );
+    case "ERR_JWT_CLAIM_VALIDATION_FAILED":
+      return claimFailure(error as JoseError, expected);
+    case "ERR_JWKS_NO_MATCHING_KEY":
+      return new ResultTokenVerificationError(
+        "unknown_key",
+        "No result signing key matches this token. It was probably issued by another Authbound host than the one apiUrl points at: use the apiUrl of the host you read the result from.",
+        { cause: error }
+      );
+    case "ERR_JWS_SIGNATURE_VERIFICATION_FAILED":
+      return new ResultTokenVerificationError(
+        "invalid_signature",
+        "Result token signature is invalid",
+        { cause: error }
+      );
+    case "ERR_JWS_INVALID":
+    case "ERR_JWT_INVALID":
+    case "ERR_JOSE_ALG_NOT_ALLOWED":
+      return new ResultTokenVerificationError(
+        "malformed",
+        `Result token is malformed: ${(error as JoseError).message}`,
+        { cause: error }
+      );
+    default: {
+      // Every other failure comes from the key resolver: the JWKS fetch, its
+      // timeout, or a key set jose cannot use.
+      const detail = error instanceof Error ? `: ${error.message}` : "";
+      return new ResultTokenVerificationError(
+        "keys_unavailable",
+        `Could not load the result signing keys${detail}. Check that apiUrl is reachable and serves /v1/jwks.`,
+        { cause: error }
+      );
+    }
   }
-  if (error instanceof errors.JWTClaimValidationFailed) {
-    return claimFailure(error, expected);
-  }
-  if (error instanceof errors.JWKSNoMatchingKey) {
-    return new ResultTokenVerificationError(
-      "unknown_key",
-      "No result signing key matches this token. It was probably issued by another Authbound host than the one apiUrl points at: use the apiUrl of the host you read the result from.",
-      { cause: error }
-    );
-  }
-  if (error instanceof errors.JWSSignatureVerificationFailed) {
-    return new ResultTokenVerificationError(
-      "invalid_signature",
-      "Result token signature is invalid",
-      { cause: error }
-    );
-  }
-  if (
-    error instanceof errors.JWSInvalid ||
-    error instanceof errors.JWTInvalid ||
-    error instanceof errors.JOSEAlgNotAllowed
-  ) {
-    return new ResultTokenVerificationError(
-      "malformed",
-      `Result token is malformed: ${error.message}`,
-      { cause: error }
-    );
-  }
-  return new ResultTokenVerificationError(
-    "keys_unavailable",
-    "Could not load the result signing keys. Check that apiUrl is reachable and serves /v1/jwks.",
-    { cause: error }
-  );
 }
 
 /**
