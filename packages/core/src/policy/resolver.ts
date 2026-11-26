@@ -2,7 +2,7 @@
  * Policy resolution.
  *
  * Public SDK presets now use concrete Authbound policy IDs such as
- * `pol_identity_basic_authbound_v1`.
+ * `pol_identity_basic_eudi_v1`.
  */
 
 import type { PolicyId } from "../types/branded";
@@ -30,8 +30,8 @@ export interface ResolutionContext {
  *
  * @example
  * ```ts
- * resolvePolicy('pol_identity_basic_authbound_v1', { environment: 'test' });
- * // Returns: 'pol_identity_basic_authbound_v1'
+ * resolvePolicy('pol_identity_basic_eudi_v1', { environment: 'test' });
+ * // Returns: 'pol_identity_basic_eudi_v1'
  * ```
  */
 export function resolvePolicy(

@@ -14,7 +14,7 @@ import {
   VerificationWall,
 } from "@authbound/react";
 
-const policyId = asPolicyId("pol_age_over_18_authbound_v1");
+const policyId = asPolicyId("pol_age_over_18_eudi_v1");
 
 export function App() {
   return (

@@ -1,6 +1,7 @@
 import type { VerificationProviderOptions } from "@authbound/core";
-import { AuthboundClient } from "../core/client";
+import type { AuthboundClient } from "../core/client";
 import {
+  createHandlerClient,
   createVerificationHandlerKernel,
   finalizeSessionHandlerKernel,
   getStatusHandlerKernel,
@@ -178,14 +179,7 @@ export function createAuthboundHandlers(
   const validatedConfig = parseConfig(config);
 
   // Create shared AuthboundClient instance
-  const client = new AuthboundClient({
-    apiKey: validatedConfig.apiKey,
-    apiUrl:
-      validatedConfig.apiUrl ??
-      process.env.AUTHBOUND_API_URL ??
-      "https://api.authbound.io",
-    debug: validatedConfig.debug,
-  });
+  const client = createHandlerClient(validatedConfig);
 
   // ============================================================================
   // POST Handler
@@ -370,14 +364,7 @@ export function createVerificationHandler(
   const validatedConfig = parseConfig(config);
 
   // Create AuthboundClient instance
-  const client = new AuthboundClient({
-    apiKey: validatedConfig.apiKey,
-    apiUrl:
-      validatedConfig.apiUrl ??
-      process.env.AUTHBOUND_API_URL ??
-      "https://api.authbound.io",
-    debug: validatedConfig.debug,
-  });
+  const client = createHandlerClient(validatedConfig);
 
   return (request: Request) =>
     handleCreateVerification(request, validatedConfig, options, client);
@@ -391,14 +378,7 @@ export function createSessionHandler(
   options: HandlersOptions = {}
 ) {
   const validatedConfig = parseConfig(config);
-  const client = new AuthboundClient({
-    apiKey: validatedConfig.apiKey,
-    apiUrl:
-      validatedConfig.apiUrl ??
-      process.env.AUTHBOUND_API_URL ??
-      "https://api.authbound.io",
-    debug: validatedConfig.debug,
-  });
+  const client = createHandlerClient(validatedConfig);
 
   return (request: Request) =>
     handleFinalizeSession(request, validatedConfig, options, client);

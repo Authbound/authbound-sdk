@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const runtimeConfig = vi.hoisted(() => ({
   current: {
@@ -104,7 +104,12 @@ function createEvent(headers: Record<string, string>, body: unknown) {
 }
 
 describe("Nuxt verification route", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   beforeEach(() => {
+    vi.stubEnv("AUTHBOUND_API_URL", "https://api.authbound.test");
     vi.clearAllMocks();
     runtimeConfig.current = {
       authbound: {
@@ -159,7 +164,7 @@ describe("Nuxt verification route", () => {
     });
     expect(authboundServer.AuthboundClient).toHaveBeenCalledWith({
       apiKey: `sk_test_${"x".repeat(32)}`,
-      apiUrl: "https://api.authbound.io",
+      apiUrl: "https://api.authbound.test",
       debug: false,
     });
     expect(
@@ -192,6 +197,21 @@ describe("Nuxt verification route", () => {
     expect(event.node.res.getHeader("set-cookie")).toContain(
       "__authbound_pending="
     );
+  });
+
+  it("fails with CONFIG_MISSING when AUTHBOUND_API_URL is not set", async () => {
+    vi.stubEnv("AUTHBOUND_API_URL", "");
+
+    await expect(
+      verificationHandler(
+        createEvent({ origin: "https://shop.example" }, {}) as never
+      )
+    ).rejects.toMatchObject({
+      statusCode: 500,
+      message: "AUTHBOUND_API_URL not configured",
+      data: { code: "CONFIG_MISSING" },
+    });
+    expect(authboundServer.AuthboundClient).not.toHaveBeenCalled();
   });
 
   it("redacts secret-bearing verification creation errors from debug logs", async () => {

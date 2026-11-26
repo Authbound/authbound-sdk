@@ -119,13 +119,25 @@ describe("AuthboundClient issuer APIs", () => {
 
   it("accepts API secret keys and rejects publishable keys", () => {
     expect(
-      () => new AuthboundClient({ apiKey: `sk_test_${"x".repeat(32)}` })
+      () =>
+        new AuthboundClient({
+          apiKey: `sk_test_${"x".repeat(32)}`,
+          apiUrl: "https://api.authbound.test",
+        })
     ).not.toThrow();
     expect(
-      () => new AuthboundClient({ apiKey: `sk_live_${"x".repeat(32)}` })
+      () =>
+        new AuthboundClient({
+          apiKey: `sk_live_${"x".repeat(32)}`,
+          apiUrl: "https://api.authbound.test",
+        })
     ).not.toThrow();
     expect(
-      () => new AuthboundClient({ apiKey: `pk_test_${"x".repeat(32)}` })
+      () =>
+        new AuthboundClient({
+          apiKey: `pk_test_${"x".repeat(32)}`,
+          apiUrl: "https://api.authbound.test",
+        })
     ).toThrow(/sk_test_|sk_live_/);
   });
 
@@ -931,7 +943,7 @@ describe("AuthboundClient issuer APIs", () => {
       name: "AuthboundClientError",
       code: "unsupported_issuance_option",
       statusCode: 400,
-      details: expect.objectContaining({ param: "issuance_mode" }),
+      param: "issuance_mode",
     });
   });
 

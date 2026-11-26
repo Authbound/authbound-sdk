@@ -73,23 +73,15 @@ export const PolicySchema = z.object({
 // ============================================================================
 
 /**
- * Common policy presets for quick integration.
+ * Policy presets that Authbound installations ship with. `GET /v1/presets`
+ * lists the ones enabled on yours.
  */
 export const PolicyPresets = {
-  /** Age verification (18+) using Authbound PID */
-  AGE_GATE_18: "pol_age_over_18_authbound_v1" as PolicyId,
-
-  /** Age verification (18+) using official EUDI PID */
+  /** Age verification (18+) with the EU age verification attestation or an EUDI PID */
   AGE_GATE_18_EUDI: "pol_age_over_18_eudi_v1" as PolicyId,
-
-  /** Basic identity verification using Authbound PID */
-  IDENTITY_BASIC: "pol_identity_basic_authbound_v1" as PolicyId,
 
   /** Basic identity verification using official EUDI PID */
   IDENTITY_BASIC_EUDI: "pol_identity_basic_eudi_v1" as PolicyId,
-
-  /** Basic KYC verification using Authbound PID */
-  KYC_BASIC: "pol_kyc_basic_authbound_v1" as PolicyId,
 
   /** Basic KYC verification using official EUDI PID */
   KYC_BASIC_EUDI: "pol_kyc_basic_eudi_v1" as PolicyId,
@@ -105,18 +97,6 @@ export const PRESET_POLICIES: Record<
   keyof typeof PolicyPresets,
   Omit<Policy, "contentHash" | "createdAt">
 > = {
-  AGE_GATE_18: {
-    id: PolicyPresets.AGE_GATE_18,
-    name: "Age Verification (18+, Authbound PID)",
-    description: "Verify the user is at least 18 years old using Authbound PID",
-    credentials: [
-      {
-        type: "urn:vc:authbound:pid:1.0",
-        claims: ["age_over_18"],
-        purpose: "Verify you are at least 18 years old",
-      },
-    ],
-  },
   AGE_GATE_18_EUDI: {
     id: PolicyPresets.AGE_GATE_18_EUDI,
     name: "Age Verification (18+, EUDI PID)",
@@ -130,18 +110,6 @@ export const PRESET_POLICIES: Record<
       },
     ],
   },
-  IDENTITY_BASIC: {
-    id: PolicyPresets.IDENTITY_BASIC,
-    name: "Basic Identity",
-    description: "Verify Authbound PID name and birth date",
-    credentials: [
-      {
-        type: "urn:vc:authbound:pid:1.0",
-        claims: ["family_name", "given_name", "birth_date"],
-        purpose: "Verify your identity",
-      },
-    ],
-  },
   IDENTITY_BASIC_EUDI: {
     id: PolicyPresets.IDENTITY_BASIC_EUDI,
     name: "Basic Identity (EUDI PID)",
@@ -151,18 +119,6 @@ export const PRESET_POLICIES: Record<
         type: "eu.europa.ec.eudi.pid.1",
         claims: ["family_name", "given_name", "birth_date"],
         purpose: "Verify your identity",
-      },
-    ],
-  },
-  KYC_BASIC: {
-    id: PolicyPresets.KYC_BASIC,
-    name: "Basic KYC",
-    description: "Verify Authbound PID name and nationality",
-    credentials: [
-      {
-        type: "urn:vc:authbound:pid:1.0",
-        claims: ["family_name", "given_name", "nationality"],
-        purpose: "Verify your identity for regulatory compliance",
       },
     ],
   },

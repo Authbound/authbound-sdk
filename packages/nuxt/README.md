@@ -12,7 +12,7 @@ import { asPolicyId } from "@authbound/nuxt";
 export default defineNuxtConfig({
   modules: ["@authbound/nuxt"],
   authbound: {
-    policyId: asPolicyId("pol_age_over_18_authbound_v1"),
+    policyId: asPolicyId("pol_age_over_18_eudi_v1"),
     publishableKey: process.env.NUXT_PUBLIC_AUTHBOUND_PK,
     apiKey: process.env.AUTHBOUND_SECRET_KEY,
     sessionSecret: process.env.AUTHBOUND_SESSION_SECRET,

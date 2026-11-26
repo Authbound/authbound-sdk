@@ -175,6 +175,14 @@ export function verifyWebhookSignatureDetailed(
     return { valid: false, error: "Missing payload" };
   }
 
+  if (typeof payload !== "string" && !Buffer.isBuffer(payload)) {
+    return {
+      valid: false,
+      error:
+        "payload must be the raw request body as a string or Buffer, not parsed JSON",
+    };
+  }
+
   // Parse signature header: "t=timestamp,v1=signature"
   const parts = signature.split(",").map((part) => part.trim());
   const timestampParts = parts.filter((p) => p.startsWith("t="));
@@ -262,7 +270,12 @@ export function verifyWebhookSignatureDetailed(
       return { valid: false, error: "Invalid signature length", timestamp };
     }
 
-    return { valid: false, error: "Signature mismatch", timestamp };
+    return {
+      valid: false,
+      error:
+        "Signature mismatch. Pass the raw request body exactly as received (parsing and re-serializing JSON changes it) and the signing secret of this webhook endpoint.",
+      timestamp,
+    };
   } catch {
     return { valid: false, error: "Signature comparison failed", timestamp };
   }

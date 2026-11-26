@@ -15,7 +15,7 @@ import App from "./App.vue";
 createApp(App)
   .use(AuthboundPlugin, {
     publishableKey: "pk_test_...",
-    policyId: asPolicyId("pol_age_over_18_authbound_v1"),
+    policyId: asPolicyId("pol_age_over_18_eudi_v1"),
   })
   .mount("#app");
 ```

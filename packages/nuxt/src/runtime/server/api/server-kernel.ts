@@ -7,6 +7,19 @@ import {
 } from "@authbound/server";
 import { createError, deleteCookie, type H3Event, setCookie } from "h3";
 
+/** `AUTHBOUND_API_URL`, the Authbound API host the secret key belongs to. */
+export function authboundApiUrl(): string {
+  const apiUrl = process.env.AUTHBOUND_API_URL;
+  if (!apiUrl) {
+    throw createError({
+      statusCode: 500,
+      message: "AUTHBOUND_API_URL not configured",
+      data: { code: "CONFIG_MISSING" },
+    });
+  }
+  return apiUrl;
+}
+
 export function getPendingCookieName(cookieName: string): string {
   return `${cookieName}_pending`;
 }

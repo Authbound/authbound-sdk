@@ -11,7 +11,10 @@
  */
 
 export { meetsMinimumAge } from "./core/age-claims";
-export { verifyClaimsDigest } from "./core/claims-digest";
+export {
+  ClaimsUnavailableError,
+  verifyClaimsDigest,
+} from "./core/claims-digest";
 export { logError } from "./core/error-utils";
 // Re-export edge-compatible JWT utilities
 export {
@@ -24,6 +27,7 @@ export {
   verifyToken,
 } from "./core/jwt";
 export {
+  type ResultTokenFailureReason,
   type ResultTokenPayload,
   ResultTokenVerificationError,
   type VerifiedResultToken,

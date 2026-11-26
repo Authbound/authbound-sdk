@@ -9,7 +9,7 @@
  *
  * const client = createClient({
  *   publishableKey: process.env.NEXT_PUBLIC_AUTHBOUND_PK,
- *   policyId: PolicyPresets.AGE_GATE_18,
+ *   policyId: PolicyPresets.AGE_GATE_18_EUDI,
  * });
  *
  * // Start verification

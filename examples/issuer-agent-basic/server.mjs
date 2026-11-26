@@ -10,7 +10,7 @@ if (!apiKey) {
 
 const authbound = new AuthboundClient({
   apiKey,
-  apiUrl: process.env.AUTHBOUND_API_URL || undefined,
+  apiUrl: process.env.AUTHBOUND_API_URL,
 });
 
 const ownedCredentialDefinitionId = "employee_badge_v1";

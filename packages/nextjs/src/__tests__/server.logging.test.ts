@@ -1685,3 +1685,28 @@ describe("Next.js server debug logging", () => {
     expect(onVerified).not.toHaveBeenCalled();
   });
 });
+
+describe("Next.js server API host", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("requires AUTHBOUND_API_URL or gatewayUrl instead of defaulting to a host", () => {
+    vi.stubEnv("AUTHBOUND_API_URL", "");
+    vi.stubEnv("AUTHBOUND_SECRET_KEY", "sk_test_configured");
+
+    expect(() =>
+      createVerificationRoute({
+        policyId: "pol_identity_basic_eudi_v1" as PolicyId,
+        sessionSecret: SESSION_SECRET,
+      })
+    ).toThrow(/AUTHBOUND_API_URL/);
+    expect(() =>
+      createVerificationRoute({
+        policyId: "pol_identity_basic_eudi_v1" as PolicyId,
+        gatewayUrl: "https://api.example.com",
+        sessionSecret: SESSION_SECRET,
+      })
+    ).not.toThrow();
+  });
+});

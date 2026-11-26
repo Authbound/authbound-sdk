@@ -192,12 +192,12 @@ export const ERROR_METADATA: Record<AuthboundErrorCode, ErrorMetadata> = {
   // Network
   network_error: {
     message: "Network error. Please check your connection.",
-    hint: "Verify internet connectivity and that your firewall allows connections to api.authbound.io.",
+    hint: "Verify internet connectivity and that your firewall allows connections to the Authbound API host in gatewayUrl.",
     docsPath: "/errors/network-error",
   },
   gateway_unavailable: {
     message: "Authbound service is temporarily unavailable.",
-    hint: "Check https://status.authbound.io for service status. The request can be retried.",
+    hint: "The request can be retried with exponential backoff.",
     docsPath: "/errors/gateway-unavailable",
   },
   rate_limited: {
@@ -208,7 +208,7 @@ export const ERROR_METADATA: Record<AuthboundErrorCode, ErrorMetadata> = {
   // Internal
   internal_error: {
     message: "An unexpected error occurred.",
-    hint: "This is likely a bug. Please report it at https://github.com/authbound/sdk/issues.",
+    hint: "This is likely a bug. Please report it at https://github.com/Authbound/authbound-sdk/issues.",
     docsPath: "/errors/internal-error",
   },
   unknown_error: {

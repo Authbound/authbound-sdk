@@ -11,7 +11,11 @@ import {
   BrowserWalletUrlError,
   toBrowserVerificationResponse,
 } from "./browser-verification";
-import { AuthboundClientError, type SignedVerificationResult } from "./client";
+import {
+  AuthboundClient,
+  AuthboundClientError,
+  type SignedVerificationResult,
+} from "./client";
 import { createSafeErrorResponse, logError } from "./error-utils";
 import { toVerifiedSessionFinalization } from "./session-finalization";
 import type {
@@ -24,6 +28,27 @@ import type {
 } from "./types";
 import { WebhookEventSchema } from "./types";
 import { verifyWebhookSignatureDetailed } from "./webhooks";
+
+/**
+ * The API client for framework handlers: `config.apiUrl`, else
+ * `AUTHBOUND_API_URL`. Throws `MISSING_API_URL` when neither is set.
+ */
+export function createHandlerClient(
+  config: Pick<AuthboundConfig, "apiKey" | "apiUrl" | "debug">
+): AuthboundClient {
+  const apiUrl = config.apiUrl ?? process.env.AUTHBOUND_API_URL;
+  if (!apiUrl) {
+    throw new AuthboundClientError(
+      "apiUrl is required. Set AUTHBOUND_API_URL, or apiUrl in your Authbound config, to the API host your key belongs to. A key works only on the host that issued it.",
+      "MISSING_API_URL"
+    );
+  }
+  return new AuthboundClient({
+    apiKey: config.apiKey,
+    apiUrl,
+    debug: config.debug,
+  });
+}
 
 export type HandlerKernelRequest = {
   url: string;

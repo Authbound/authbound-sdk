@@ -17,14 +17,15 @@
  * @example
  * ```ts
  * // API Client (manual orchestration)
- * import { AuthboundClient } from '@authbound/server';
+ * import { AuthboundClient, PolicyPresets } from '@authbound/server';
  *
  * const client = new AuthboundClient({
  *   apiKey: process.env.AUTHBOUND_SECRET_KEY!,
+ *   apiUrl: process.env.AUTHBOUND_API_URL!,
  * });
  *
  * const verification = await client.verifications.create({
- *   policyId: 'pol_authbound_pension_v1',
+ *   policyId: PolicyPresets.IDENTITY_BASIC_EUDI,
  *   customerUserRef: 'user_123',
  * });
  *
@@ -116,6 +117,8 @@ export {
   EudiVerificationOptionsSchema,
   type EudiVerifierAttestation,
   EudiVerifierAttestationSchema,
+  type PolicyId,
+  PolicyPresets,
   type ProviderPreference,
   type SelectedVerificationProvider,
   type VerificationProviderOptions,
@@ -128,7 +131,10 @@ export {
   BrowserWalletUrlError,
   toBrowserVerificationResponse,
 } from "./core/browser-verification";
-export { verifyClaimsDigest } from "./core/claims-digest";
+export {
+  ClaimsUnavailableError,
+  verifyClaimsDigest,
+} from "./core/claims-digest";
 export {
   type ArchivedCredentialDefinition,
   // Client class
@@ -187,6 +193,7 @@ export {
   type VerifySignatureOptions,
 } from "./core/client";
 export {
+  createHandlerClient,
   createHandlerKernelInvalidRequestBody,
   createVerificationHandlerKernel,
   finalizeSessionHandlerKernel,
@@ -203,6 +210,7 @@ export {
   signOutHandlerKernel,
 } from "./core/handler-kernel";
 export {
+  type ResultTokenFailureReason,
   type ResultTokenPayload,
   ResultTokenVerificationError,
   type VerifiedResultToken,

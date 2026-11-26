@@ -23,7 +23,10 @@ describe("WebhooksApi signature verification", () => {
     vi.setSystemTime(new Date(NOW_SECONDS * 1000));
 
     try {
-      const client = new AuthboundClient({ apiKey: "sk_test_123" });
+      const client = new AuthboundClient({
+        apiKey: "sk_test_123",
+        apiUrl: "https://api.authbound.test",
+      });
 
       expect(
         client.webhooks.verifySignature({
@@ -49,7 +52,10 @@ describe("WebhooksApi signature verification", () => {
     vi.setSystemTime(new Date(NOW_SECONDS * 1000));
 
     try {
-      const client = new AuthboundClient({ apiKey: "sk_test_123" });
+      const client = new AuthboundClient({
+        apiKey: "sk_test_123",
+        apiUrl: "https://api.authbound.test",
+      });
       const signature = signatureHeader(NOW_SECONDS).split("v1=")[1];
 
       expect(
@@ -69,7 +75,10 @@ describe("WebhooksApi signature verification", () => {
     vi.setSystemTime(new Date(NOW_SECONDS * 1000));
 
     try {
-      const client = new AuthboundClient({ apiKey: "sk_test_123" });
+      const client = new AuthboundClient({
+        apiKey: "sk_test_123",
+        apiUrl: "https://api.authbound.test",
+      });
       const signature = signatureHeader(NOW_SECONDS).split("v1=")[1];
 
       expect(
@@ -89,7 +98,10 @@ describe("WebhooksApi signature verification", () => {
     vi.setSystemTime(new Date(NOW_SECONDS * 1000));
 
     try {
-      const client = new AuthboundClient({ apiKey: "sk_test_123" });
+      const client = new AuthboundClient({
+        apiKey: "sk_test_123",
+        apiUrl: "https://api.authbound.test",
+      });
       const signature = signatureHeader(NOW_SECONDS).split("v1=")[1];
 
       expect(
@@ -109,7 +121,10 @@ describe("WebhooksApi signature verification", () => {
     vi.setSystemTime(new Date(NOW_SECONDS * 1000));
 
     try {
-      const client = new AuthboundClient({ apiKey: "sk_test_123" });
+      const client = new AuthboundClient({
+        apiKey: "sk_test_123",
+        apiUrl: "https://api.authbound.test",
+      });
       const signature = signatureHeader(NOW_SECONDS).split("v1=")[1];
 
       expect(
@@ -129,7 +144,10 @@ describe("WebhooksApi signature verification", () => {
     vi.setSystemTime(new Date(NOW_SECONDS * 1000));
 
     try {
-      const client = new AuthboundClient({ apiKey: "sk_test_123" });
+      const client = new AuthboundClient({
+        apiKey: "sk_test_123",
+        apiUrl: "https://api.authbound.test",
+      });
       const emptyPayloadSignature = generateWebhookSignature({
         payload: "",
         secret: SECRET,

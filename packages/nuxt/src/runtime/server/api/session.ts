@@ -12,7 +12,11 @@ import {
   readBody,
 } from "h3";
 import { useRuntimeConfig } from "nitropack/runtime";
-import { getPendingCookieName, returnNuxtKernelResult } from "./server-kernel";
+import {
+  authboundApiUrl,
+  getPendingCookieName,
+  returnNuxtKernelResult,
+} from "./server-kernel";
 
 function sessionOriginRequest(event: Parameters<typeof getRequestURL>[0]) {
   return {
@@ -47,8 +51,7 @@ export default defineEventHandler(async (event) => {
     ? await getVerificationFromToken(pendingCookie, sessionSecret)
     : null;
 
-  const gatewayUrl =
-    process.env.AUTHBOUND_API_URL ?? "https://api.authbound.io";
+  const gatewayUrl = authboundApiUrl();
   const apiKey = config.authbound?.apiKey ?? process.env.AUTHBOUND_SECRET_KEY;
 
   if (!apiKey) {

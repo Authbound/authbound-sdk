@@ -10,12 +10,12 @@
  *
  * const client = new AuthboundClient({
  *   apiKey: process.env.AUTHBOUND_SECRET_KEY!,
- *   apiUrl: process.env.AUTHBOUND_API_URL, // optional
+ *   apiUrl: process.env.AUTHBOUND_API_URL!,
  * });
  *
  * // Create a verification
  * const verification = await client.verifications.create({
- *   policyId: 'pol_authbound_pension_v1',
+ *   policyId: 'pol_identity_basic_eudi_v1',
  *   customerUserRef: 'user_123',
  * });
  *
@@ -75,10 +75,11 @@ export interface AuthboundClientConfig {
   apiKey: string;
 
   /**
-   * Authbound API URL.
-   * Defaults to "https://api.authbound.io" if not specified.
+   * The Authbound API host your key belongs to, for example the value of
+   * `AUTHBOUND_API_URL`. A key works only on the host that issued it, so
+   * there is no default.
    */
-  apiUrl?: string;
+  apiUrl: string;
 
   /**
    * Request timeout in milliseconds.
@@ -99,7 +100,6 @@ export interface AuthboundClientConfig {
   resultIssuer?: string;
 }
 
-const DEFAULT_API_URL = "https://api.authbound.io";
 const DEFAULT_TIMEOUT = 30_000; // 30 seconds
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -767,10 +767,12 @@ export interface CreateVerificationOptions {
 }
 
 export interface ListVerificationsOptions {
-  status?: PublicVerificationStatus;
-  limit?: number;
-  startingAfter?: string;
-  endingBefore?: string;
+  status?: PublicVerificationStatus | undefined;
+  limit?: number | undefined;
+  /** The previous page's `nextCursor`, for the next (older) page. */
+  startingAfter?: string | undefined;
+  /** A verification ID, for the newer page before it. */
+  endingBefore?: string | undefined;
 }
 
 export type PolicyRequestedClaim =
@@ -906,8 +908,9 @@ export interface CreateStationOptions {
 }
 
 export interface ListStationsOptions {
-  limit?: number;
-  cursor?: string;
+  limit?: number | undefined;
+  /** The previous page's `nextCursor`. */
+  cursor?: string | undefined;
 }
 
 export interface Station {
@@ -1039,9 +1042,10 @@ export interface CreateOperatorDeviceGrantOptions {
 }
 
 export interface ListStationVerificationsOptions {
-  after?: string;
-  limit?: number;
-  status?: PublicVerificationStatus;
+  /** The previous page's `nextCursor`. */
+  after?: string | undefined;
+  limit?: number | undefined;
+  status?: PublicVerificationStatus | undefined;
 }
 
 export interface GetStationDisplayOptions {
@@ -1287,17 +1291,18 @@ export interface ListCredentialDefinitionsOptions {
    * Customer-controlled deployments only: definitions per page, 1 to 100.
    * Hosted deployments refuse it.
    */
-  limit?: number;
+  limit?: number | undefined;
   /**
    * Customer-controlled deployments only: the previous page's `nextCursor`.
    * Hosted deployments refuse it.
    */
-  cursor?: string;
+  cursor?: string | undefined;
 }
 
 export interface ListOpenId4VcIssuanceOptions {
-  limit?: number;
-  cursor?: string;
+  limit?: number | undefined;
+  /** The previous page's `nextCursor`. */
+  cursor?: string | undefined;
 }
 
 export interface UpdateOpenId4VcIssuanceOptions {
@@ -1309,18 +1314,32 @@ export class AuthboundClientError extends Error {
   readonly code: string;
   readonly statusCode?: number;
   readonly details?: unknown;
+  /** The request field the API error is about, when it names one. */
+  readonly param?: string;
+  /** The API's `x-request-id` for the failed request. Quote it to support. */
+  readonly requestId?: string;
 
   constructor(
     message: string,
     code: string,
     statusCode?: number,
-    details?: unknown
+    details?: unknown,
+    options?: { cause?: unknown; param?: string; requestId?: string }
   ) {
-    super(message);
+    super(
+      message,
+      options?.cause === undefined ? undefined : { cause: options.cause }
+    );
     this.name = "AuthboundClientError";
     this.code = code;
     this.statusCode = statusCode;
     this.details = details;
+    if (options?.param !== undefined) {
+      this.param = options.param;
+    }
+    if (options?.requestId !== undefined) {
+      this.requestId = options.requestId;
+    }
   }
 }
 
@@ -1595,7 +1614,8 @@ function mapStationVerificationDisclosure(
 // ============================================================================
 
 export class AuthboundClient {
-  private readonly apiKey: string;
+  // A private field keeps the key out of console.log, util.inspect and JSON.
+  readonly #apiKey: string;
   private readonly apiUrl: string;
   private readonly timeout: number;
   private readonly debug: boolean;
@@ -1644,8 +1664,8 @@ export class AuthboundClient {
       );
     }
 
-    this.apiKey = config.apiKey;
-    this.apiUrl = config.apiUrl ?? DEFAULT_API_URL;
+    this.#apiKey = config.apiKey;
+    this.apiUrl = parseApiUrl(config.apiUrl);
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT;
     this.debug = config.debug ?? false;
     this.resultIssuer = config.resultIssuer ?? new URL(this.apiUrl).origin;
@@ -1701,7 +1721,7 @@ export class AuthboundClient {
         [AUTHBOUND_CONTRACT_REVISION_HEADER]: AUTHBOUND_CONTRACT_REVISION,
         ...(options?.includeApiKey === false
           ? {}
-          : { "X-Authbound-Key": this.apiKey }),
+          : { "X-Authbound-Key": this.#apiKey }),
         ...(options?.headers ?? {}),
       },
       signal: controller.signal,
@@ -1711,50 +1731,37 @@ export class AuthboundClient {
       fetchOptions.body = JSON.stringify(body);
     }
 
+    let response: Response;
     try {
-      const response = await fetch(url, fetchOptions);
+      response = await fetch(url, fetchOptions);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new AuthboundClientError(
+          `Request timed out after ${this.timeout}ms`,
+          "TIMEOUT",
+          408
+        );
+      }
+      throw networkError(this.apiUrl, error);
+    }
 
+    try {
       if (!response.ok) {
-        const errorText = await response.text();
-        let errorBody: unknown = errorText;
-        try {
-          errorBody = errorText ? JSON.parse(errorText) : "";
-        } catch {
-          errorBody = errorText;
-        }
-
+        const errorBody = parseResponseText(await response.text());
         if (this.debug) {
           console.error(
             `[AuthboundClient] Error ${response.status}:`,
             summarizeForDebug(errorBody)
           );
         }
-
-        const publicError =
-          errorBody &&
-          typeof errorBody === "object" &&
-          !Array.isArray(errorBody) &&
-          (errorBody as Record<string, unknown>).object === "error"
-            ? (errorBody as Record<string, unknown>)
-            : undefined;
-
-        throw new AuthboundClientError(
-          errorMessageFromApiResponse(
-            publicError,
-            `API request failed: ${response.status} ${response.statusText}`
-          ),
-          typeof publicError?.code === "string"
-            ? publicError.code
-            : "API_ERROR",
-          response.status,
-          errorDetailsFromApiResponse(publicError, errorBody)
-        );
+        throw apiErrorFromResponse(response, errorBody);
       }
 
       const data = await response.json();
 
       if (this.debug) {
-        console.log(`[AuthboundClient] Response:`, summarizeForDebug(data));
+        console.log("[AuthboundClient] Response:", summarizeForDebug(data));
       }
 
       return data as T;
@@ -1772,6 +1779,11 @@ export class AuthboundClient {
     }
   }
 
+  /** Keeps the key out of `JSON.stringify(client)`. */
+  toJSON(): { apiUrl: string } {
+    return { apiUrl: this.apiUrl };
+  }
+
   /**
    * Get the configured API URL.
    */
@@ -1783,7 +1795,7 @@ export class AuthboundClient {
    * Get the configured API key.
    */
   getApiKey(): string {
-    return this.apiKey;
+    return this.#apiKey;
   }
 }
 
@@ -2089,22 +2101,87 @@ function assertCoreDefinitionDisplay(options: {
   }
 }
 
-function errorMessageFromApiResponse(
-  publicError: Record<string, unknown> | undefined,
-  fallback: string
-): string {
-  if (typeof publicError?.message === "string") {
-    return redactSensitiveText(publicError.message);
+function parseResponseText(text: string): unknown {
+  if (!text) {
+    return "";
   }
-  return fallback;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
-function errorDetailsFromApiResponse(
-  publicError: Record<string, unknown> | undefined,
+function apiErrorFromResponse(
+  response: Response,
   body: unknown
-): unknown {
-  const parsed = PublicErrorDetailsSchema.safeParse(publicError?.details);
-  return parsed.success ? parsed.data : summarizeForDebug(body);
+): AuthboundClientError {
+  const publicError =
+    isRecord(body) && body.object === "error" ? body : undefined;
+  const details = PublicErrorDetailsSchema.safeParse(publicError?.details);
+  const requestId = response.headers.get("x-request-id");
+  return new AuthboundClientError(
+    typeof publicError?.message === "string"
+      ? redactSensitiveText(publicError.message)
+      : `API request failed: ${response.status} ${response.statusText}`,
+    typeof publicError?.code === "string" ? publicError.code : "API_ERROR",
+    response.status,
+    details.success ? details.data : undefined,
+    {
+      ...(typeof publicError?.param === "string"
+        ? { param: redactSensitiveText(publicError.param) }
+        : {}),
+      ...(requestId ? { requestId } : {}),
+    }
+  );
+}
+
+function networkError(apiUrl: string, cause: unknown): AuthboundClientError {
+  const reason =
+    cause instanceof Error && cause.cause instanceof Error
+      ? cause.cause.message
+      : cause instanceof Error
+        ? cause.message
+        : String(cause);
+  return new AuthboundClientError(
+    `Could not reach the Authbound API at ${apiUrl}: ${redactSensitiveText(reason)}. Check apiUrl and your network.`,
+    "NETWORK_ERROR",
+    undefined,
+    undefined,
+    { cause }
+  );
+}
+
+/**
+ * The API base URL without a trailing slash. Throws when it is missing or is
+ * not an absolute http(s) URL, so a typo fails here and not on the first call.
+ */
+function parseApiUrl(value: unknown): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new AuthboundClientError(
+      "apiUrl is required. Set it to the Authbound API host your key belongs to, for example apiUrl: process.env.AUTHBOUND_API_URL. A key works only on the host that issued it.",
+      "MISSING_API_URL"
+    );
+  }
+  let url: URL | undefined;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    url = undefined;
+  }
+  if (!url || (url.protocol !== "https:" && url.protocol !== "http:")) {
+    throw new AuthboundClientError(
+      `apiUrl must be an absolute http(s) URL such as https://api.example.com, got "${redactSensitiveText(value)}"`,
+      "INVALID_API_URL"
+    );
+  }
+  if (url.search || url.hash || url.username || url.password) {
+    throw new AuthboundClientError(
+      "apiUrl must not contain credentials, a query or a fragment",
+      "INVALID_API_URL"
+    );
+  }
+  return `${url.origin}${url.pathname}`.replace(/\/+$/, "");
 }
 
 // ============================================================================
@@ -2597,19 +2674,21 @@ class VerificationsApi {
 
   /**
    * Verify a result token from `getResult()` against the deployment's
-   * `/v1/jwks`: ES256 signature, `iss`, `sub` equal to `verificationId`,
-   * `aud` when `audience` is given, and `exp`. Pass the returned token to
-   * `verifyClaimsDigest` to check the claims it commits to.
+   * `/v1/jwks`: ES256 signature, `iss`, `sub` equal to `verificationId`
+   * (required), `aud` when `audience` is given, and `exp`. Pass the returned
+   * token to `verifyClaimsDigest` to check the claims it commits to.
    *
-   * @throws ResultTokenVerificationError when any check fails.
+   * @throws TypeError when `verificationId` is missing.
+   * @throws ResultTokenVerificationError when any check fails; `reason` names it.
    */
   verifyResultToken(
     resultToken: string,
-    options: { verificationId: string; audience?: string }
+    options: { verificationId: string; audience?: string | undefined }
   ): Promise<VerifiedResultToken> {
     return verifyResultToken(resultToken, {
       ...this.client.resultTokenTrust(),
-      ...options,
+      verificationId: options?.verificationId,
+      audience: options?.audience,
     });
   }
 
@@ -2821,7 +2900,7 @@ class StationsApi {
 
   async listEvents(
     stationId: string,
-    options?: { after?: number; limit?: number }
+    options?: { after?: number | undefined; limit?: number | undefined }
   ): Promise<StationEventList> {
     assertNonEmpty(stationId, "stationId");
     const response = await this.client.request<unknown>(
@@ -2974,7 +3053,8 @@ class WebhooksApi {
  *
  * const verification = await createVerification({
  *   apiKey: process.env.AUTHBOUND_SECRET_KEY!,
- *   policyId: 'pol_authbound_pension_v1',
+ *   apiUrl: process.env.AUTHBOUND_API_URL!,
+ *   policyId: 'pol_identity_basic_eudi_v1',
  *   customerUserRef: 'user_123',
  * });
  * ```
@@ -2982,7 +3062,7 @@ class WebhooksApi {
 export async function createVerification(
   options: CreateVerificationOptions & {
     apiKey: string;
-    apiUrl?: string;
+    apiUrl: string;
   }
 ): Promise<Verification> {
   const { apiKey, apiUrl, ...verificationOptions } = options;
@@ -2997,53 +3077,36 @@ export async function createVerification(
  * For multiple API calls, prefer creating an AuthboundClient instance.
  */
 export async function getVerificationStatus(options: {
-  apiUrl?: string;
+  apiUrl: string;
   verificationId: string;
   clientToken: string;
   publishableKey: string;
 }): Promise<VerificationStatus> {
-  const { apiUrl, verificationId, clientToken, publishableKey } = options;
+  const { verificationId, clientToken, publishableKey } = options;
+  const apiUrl = parseApiUrl(options.apiUrl);
   assertBrowserStatusCredentials({ clientToken, publishableKey });
-  const response = await fetch(
-    `${apiUrl ?? DEFAULT_API_URL}/v1/verifications/${encodePathSegment(verificationId)}/status`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        [AUTHBOUND_API_VERSION_HEADER]: AUTHBOUND_API_VERSION,
-        [AUTHBOUND_CONTRACT_REVISION_HEADER]: AUTHBOUND_CONTRACT_REVISION,
-        Authorization: `Bearer ${clientToken}`,
-        "X-Authbound-Publishable-Key": publishableKey,
-      },
-    }
-  );
-
-  const responseText = await response.text();
-  let body: unknown = responseText;
+  let response: Response;
   try {
-    body = responseText ? JSON.parse(responseText) : "";
-  } catch {
-    body = responseText;
+    response = await fetch(
+      `${apiUrl}/v1/verifications/${encodePathSegment(verificationId)}/status`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          [AUTHBOUND_API_VERSION_HEADER]: AUTHBOUND_API_VERSION,
+          [AUTHBOUND_CONTRACT_REVISION_HEADER]: AUTHBOUND_CONTRACT_REVISION,
+          Authorization: `Bearer ${clientToken}`,
+          "X-Authbound-Publishable-Key": publishableKey,
+        },
+      }
+    );
+  } catch (error) {
+    throw networkError(apiUrl, error);
   }
 
+  const body = parseResponseText(await response.text());
   if (!response.ok) {
-    const publicError =
-      body &&
-      typeof body === "object" &&
-      !Array.isArray(body) &&
-      (body as Record<string, unknown>).object === "error"
-        ? (body as Record<string, unknown>)
-        : undefined;
-
-    throw new AuthboundClientError(
-      errorMessageFromApiResponse(
-        publicError,
-        `API request failed: ${response.status} ${response.statusText}`
-      ),
-      typeof publicError?.code === "string" ? publicError.code : "API_ERROR",
-      response.status,
-      errorDetailsFromApiResponse(publicError, body)
-    );
+    throw apiErrorFromResponse(response, body);
   }
 
   return parseApiResponse(

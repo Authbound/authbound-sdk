@@ -30,7 +30,7 @@ export const VerificationWall = defineComponent({
   props: {
     /**
      * Policy ID for verification.
-     * Format: concrete `pol_*_vN` ID (e.g., "pol_age_over_18_authbound_v1")
+     * Format: concrete `pol_*_vN` ID (e.g., "pol_age_over_18_eudi_v1")
      */
     policyId: {
       type: String,

@@ -10,10 +10,7 @@ import {
   setHeaders,
 } from "h3";
 import { useRuntimeConfig } from "nitropack/runtime";
-
-function gatewayUrl(): string {
-  return process.env.AUTHBOUND_API_URL ?? "https://api.authbound.io";
-}
+import { authboundApiUrl } from "./server-kernel";
 
 export function stationParam(event: H3Event, name: string): string {
   const value = getRouterParam(event, name);
@@ -126,7 +123,7 @@ export async function forwardStationRequest<TBody>(
   init: RequestInit
 ): Promise<TBody> {
   const config = useRuntimeConfig();
-  const response = await fetch(`${gatewayUrl()}${path}`, {
+  const response = await fetch(`${authboundApiUrl()}${path}`, {
     ...init,
     headers: withAuthboundContractHeaders(init.headers),
   });
@@ -166,7 +163,7 @@ export async function forwardStationStream(
   const requestHeaders = options.lastEventId
     ? { "Last-Event-ID": options.lastEventId }
     : undefined;
-  const response = await fetch(`${gatewayUrl()}${path}`, {
+  const response = await fetch(`${authboundApiUrl()}${path}`, {
     method: "GET",
     headers: withAuthboundContractHeaders(requestHeaders),
   });

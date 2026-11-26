@@ -311,7 +311,7 @@ describe("AuthboundClient verifications API", () => {
       message: "API request failed: 503 Service Unavailable",
       code: "API_ERROR",
       statusCode: 503,
-      details: { bodyType: "string" },
+      details: undefined,
     });
   });
 
@@ -926,7 +926,7 @@ describe("AuthboundClient verifications API", () => {
       message: "API request failed: 503 Service Unavailable",
       code: "API_ERROR",
       statusCode: 503,
-      details: { bodyType: "string" },
+      details: undefined,
     });
   });
 
@@ -1106,7 +1106,7 @@ describe("AuthboundClient verifications API", () => {
         })),
       },
     ],
-  ])("falls back to the sanitized debug summary for %s", async (_, details) => {
+  ])("drops malformed API error details: %s", async (_, details) => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -1134,19 +1134,13 @@ describe("AuthboundClient verifications API", () => {
     expect(thrown).toBeInstanceOf(AuthboundClientError);
     expect(thrown).toMatchObject({
       code: "credential_definition_not_publishable",
-      details: {
-        object: "error",
-        code: "credential_definition_not_publishable",
-        message: "Credential definition is not publishable",
-        hasClientToken: false,
-        hasResultToken: false,
-        hasWebhookSecret: false,
-      },
+      message: "Credential definition is not publishable",
     });
+    expect((thrown as AuthboundClientError).details).toBeUndefined();
     expect(JSON.stringify(thrown)).not.toContain("sk_live_sensitive");
   });
 
-  it("applies malformed-detail fallback at the standalone status boundary", async () => {
+  it("drops malformed details at the standalone status boundary", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -1179,12 +1173,8 @@ describe("AuthboundClient verifications API", () => {
     expect(thrown).toBeInstanceOf(AuthboundClientError);
     expect(thrown).toMatchObject({
       code: "credential_definition_not_publishable",
-      details: {
-        object: "error",
-        code: "credential_definition_not_publishable",
-        message: "Credential definition is not publishable",
-      },
     });
+    expect((thrown as AuthboundClientError).details).toBeUndefined();
     expect(JSON.stringify(thrown)).not.toContain(
       "sk_live_sensitive_standalone_value"
     );
@@ -1223,21 +1213,11 @@ describe("AuthboundClient verifications API", () => {
     }
 
     expect(thrown).toBeInstanceOf(AuthboundClientError);
-    expect(thrown).toMatchObject({
-      code: "bad_request",
-      details: {
-        code: "bad_request",
-        hasClientToken: true,
-        hasResultToken: true,
-        hasWebhookSecret: true,
-        id: "[redacted]",
-        object: "error",
-        type: "[redacted]",
-      },
-      statusCode: 400,
-    });
+    expect(thrown).toMatchObject({ code: "bad_request", statusCode: 400 });
+    expect((thrown as AuthboundClientError).details).toBeUndefined();
     const serialized = JSON.stringify({
       message: (thrown as AuthboundClientError).message,
+      param: (thrown as AuthboundClientError).param,
       details: (thrown as AuthboundClientError).details,
     });
     expect(serialized).not.toContain("client_token_secret");
