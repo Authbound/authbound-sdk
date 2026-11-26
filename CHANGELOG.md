@@ -2,6 +2,76 @@
 
 All customer-visible changes to the Authbound public SDK are recorded here.
 
+## Unreleased
+
+### Breaking changes
+
+- `apiUrl` is required. The built-in `https://api.authbound.io` default is
+  gone: a key works only on the host that issued it, so the default sent test
+  keys to a host that refused them. Every package reports the same codes:
+  `MISSING_API_URL` when no URL is set, `INVALID_API_URL` for a value that is
+  not an absolute http(s) URL (such as `sandbox.example.com`), and
+  `NETWORK_ERROR` when the host cannot be reached.
+  - `@authbound/server`: `AuthboundClient`, `createVerification` and
+    `getVerificationStatus` throw `AuthboundClientError` with these codes. The
+    Express, Hono and `@authbound/server/next` handlers use `apiUrl`, else
+    `AUTHBOUND_API_URL`, and throw `MISSING_API_URL` when they are created
+    without either.
+  - `@authbound/nextjs/server`: the route factories (`createVerificationRoute`,
+    `createStatusRoute`, `createSessionRoute` and the station routes) read
+    `gatewayUrl`, else `AUTHBOUND_API_URL`, on each request, so importing a
+    route never throws. They answer `500` with `code` `MISSING_API_URL` or
+    `INVALID_API_URL`, and `502` with `NETWORK_ERROR`. The standalone
+    `createVerification` throws `AuthboundClientError` with the same codes.
+  - `@authbound/nuxt`: new `apiUrl` module option (default
+    `AUTHBOUND_API_URL`, runtime override `NUXT_PUBLIC_AUTHBOUND_API_URL`),
+    used by the server routes and the browser SDK. The server routes answer an
+    h3 `500` with `data.code` `MISSING_API_URL` or `INVALID_API_URL` (was
+    `CONFIG_MISSING`), and `502` with `NETWORK_ERROR`.
+  - Browser SDK: `gatewayUrl` is required in `@authbound/core` `createClient`,
+    the React `AuthboundProvider` and the Vue `AuthboundPlugin`. Without it
+    `createClient` throws `config_invalid`. Before, the browser polled status
+    on `https://api.authbound.io` even when the server created the
+    verification on another host. `DEFAULT_CONFIG.gatewayUrl` is removed.
+  - The framework handlers answer `502` instead of `500` when the API host
+    cannot be reached.
+- `verifyResultToken` and `client.verifications.verifyResultToken` throw a
+  `TypeError` when `verificationId` (or `issuer`, or an empty `audience`) is
+  missing, instead of skipping the `sub` check and accepting a token for any
+  verification.
+- `ResultTokenVerificationError` takes a `reason` as its first constructor
+  argument and exposes it: `unknown_key`, `keys_unavailable`,
+  `invalid_signature`, `wrong_issuer`, `wrong_audience`, `wrong_subject`,
+  `expired` or `malformed`. Each message names the failed check.
+- `verifyClaimsDigest` throws `ClaimsUnavailableError` (`claimsStatus`
+  `expired` or `none`) when `claims` or `claimsSalt` is absent, instead of a
+  JCS `TypeError`. It accepts `undefined` for both, so `result.claims` and
+  `result.claimsSalt` can be passed as they are.
+- `AuthboundClientError.details` holds only structured details the API
+  returned. It no longer falls back to an SDK debug summary
+  (`hasClientToken`, `hasResultToken`, `hasWebhookSecret`, `bodyType`). The
+  API's `param` and `x-request-id` are on the new `param` and `requestId`
+  fields.
+- Network failures throw `AuthboundClientError` with code `NETWORK_ERROR`,
+  naming the host, with the original error as `cause`, instead of the raw
+  `fetch failed` `TypeError`.
+- Remove `PolicyPresets.AGE_GATE_18`, `IDENTITY_BASIC` and `KYC_BASIC`
+  (`pol_age_over_18_authbound_v1`, `pol_identity_basic_authbound_v1`,
+  `pol_kyc_basic_authbound_v1`). No Authbound installation serves them; use
+  `AGE_GATE_18_EUDI`, `IDENTITY_BASIC_EUDI` or `KYC_BASIC_EUDI`.
+
+### Changes
+
+- The secret key is a private field of `AuthboundClient`: `console.log`,
+  `util.inspect` and `JSON.stringify` of a client no longer show it.
+- `@authbound/server` exports `PolicyPresets` and `PolicyId`, so code that
+  installs only `@authbound/server` can use them.
+- A webhook signature mismatch says to pass the raw request body, and a
+  parsed body is refused with its own message.
+- List options accept `undefined` for `limit` and cursors, so the previous
+  page's `nextCursor` can be passed directly under
+  `exactOptionalPropertyTypes`.
+
 ## 0.5.0 - 2026-11-16
 
 `0.5.0-rc.0` and `0.5.0-rc.1` were release candidates of these changes.

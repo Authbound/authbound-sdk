@@ -144,8 +144,8 @@ export interface AuthboundPluginOptions {
   sessionEndpoint?: string;
   /** Whether the SDK should create its own browser session binding */
   sessionMode?: "sdk" | "manual";
-  /** Gateway URL override (for testing) */
-  gatewayUrl?: string;
+  /** The Authbound API host your keys belong to (required, no default). */
+  gatewayUrl: string;
   /** Appearance customization */
   appearance?: AuthboundAppearance;
   /** Enable debug logging */
@@ -170,6 +170,7 @@ export interface AuthboundPluginOptions {
  *
  * app.use(AuthboundPlugin, {
  *   publishableKey: import.meta.env.VITE_AUTHBOUND_PK,
+ *   gatewayUrl: import.meta.env.VITE_AUTHBOUND_API_URL,
  *   policyId,
  * });
  *

@@ -11,7 +11,12 @@ import {
   BrowserWalletUrlError,
   toBrowserVerificationResponse,
 } from "./browser-verification";
-import { AuthboundClientError, type SignedVerificationResult } from "./client";
+import {
+  AuthboundClient,
+  AuthboundClientError,
+  resolveApiUrl,
+  type SignedVerificationResult,
+} from "./client";
 import { createSafeErrorResponse, logError } from "./error-utils";
 import { toVerifiedSessionFinalization } from "./session-finalization";
 import type {
@@ -24,6 +29,20 @@ import type {
 } from "./types";
 import { WebhookEventSchema } from "./types";
 import { verifyWebhookSignatureDetailed } from "./webhooks";
+
+/**
+ * The API client for framework handlers: `config.apiUrl`, else
+ * `AUTHBOUND_API_URL`. Throws `MISSING_API_URL` when neither is set.
+ */
+export function createHandlerClient(
+  config: Pick<AuthboundConfig, "apiKey" | "apiUrl" | "debug">
+): AuthboundClient {
+  return new AuthboundClient({
+    apiKey: config.apiKey,
+    apiUrl: resolveApiUrl(config.apiUrl),
+    debug: config.debug,
+  });
+}
 
 export type HandlerKernelRequest = {
   url: string;
@@ -234,7 +253,7 @@ export async function createVerificationHandlerKernel({
     }
     if (error instanceof AuthboundClientError) {
       logError(error, "Verification creation", config.debug);
-      return errorResponse(error.message, error.statusCode ?? 500, error.code);
+      return errorResponse(error.message, clientErrorStatus(error), error.code);
     }
     logError(error, "Verification creation", config.debug);
     const safeError = createSafeErrorResponse(error, 500, config.debug);
@@ -345,7 +364,7 @@ export async function finalizeSessionHandlerKernel({
   } catch (error) {
     if (error instanceof AuthboundClientError) {
       logError(error, "Session finalization", config.debug);
-      return errorResponse(error.message, error.statusCode ?? 500, error.code);
+      return errorResponse(error.message, clientErrorStatus(error), error.code);
     }
     logError(error, "Session finalization", config.debug);
     const safeError = createSafeErrorResponse(error, 500, config.debug);
@@ -545,6 +564,11 @@ export function mapHandlerKernelException(
   logError(error, context, config.debug);
   const safeError = createSafeErrorResponse(error, 500, config.debug);
   return errorResponse(safeError.message, 500, safeError.code);
+}
+
+/** The API's status for API errors; 502 when the API could not be reached. */
+function clientErrorStatus(error: AuthboundClientError): number {
+  return error.statusCode ?? (error.code === "NETWORK_ERROR" ? 502 : 500);
 }
 
 function errorResponse(

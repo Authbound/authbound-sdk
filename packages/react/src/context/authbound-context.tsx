@@ -159,8 +159,8 @@ export interface AuthboundProviderProps {
    * use manual mode with server-side coordination.
    */
   sessionMode?: "sdk" | "manual";
-  /** Gateway URL override (for testing) */
-  gatewayUrl?: string;
+  /** The Authbound API host your keys belong to (required, no default). */
+  gatewayUrl: string;
   /** Appearance customization */
   appearance?: AuthboundAppearance;
   /** Enable debug logging */
@@ -187,6 +187,7 @@ export interface AuthboundProviderProps {
  *   return (
  *     <AuthboundProvider
  *       publishableKey={process.env.NEXT_PUBLIC_AUTHBOUND_PK!}
+ *       gatewayUrl={process.env.NEXT_PUBLIC_AUTHBOUND_API_URL!}
  *       policyId={policyId}
  *     >
  *       {children}
@@ -468,7 +469,7 @@ interface ErrorBoundaryState {
  *       )}
  *       onError={(error) => console.error('Authbound error:', error)}
  *     >
- *       <AuthboundProvider publishableKey="pk_...">
+ *       <AuthboundProvider publishableKey="pk_..." gatewayUrl="https://...">
  *         <YourApp />
  *       </AuthboundProvider>
  *     </AuthboundErrorBoundary>

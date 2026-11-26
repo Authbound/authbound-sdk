@@ -13,7 +13,7 @@ import { authboundConfig } from "@/authbound.config";
 async function readVerifiedClaims(verificationId: string) {
   const client = new AuthboundClient({
     apiKey: authboundConfig.apiKey,
-    apiUrl: authboundConfig.apiUrl,
+    apiUrl: authboundConfig.apiUrl ?? "",
     resultIssuer: process.env.AUTHBOUND_RESULT_ISSUER,
   });
   try {

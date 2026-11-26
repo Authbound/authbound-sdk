@@ -35,11 +35,14 @@ AUTHBOUND_SESSION_SECRET=your-session-secret-at-least-32-characters
 AUTHBOUND_WEBHOOK_SECRET=whsec_...
 NEXT_PUBLIC_AUTHBOUND_PK=pk_test_...
 NEXT_PUBLIC_AUTHBOUND_POLICY_ID=pol_authbound_pension_v1
+AUTHBOUND_API_URL=https://...
+NEXT_PUBLIC_AUTHBOUND_API_URL=https://...
 ```
 
-For staging or another gateway, set both `AUTHBOUND_API_URL` and
-`NEXT_PUBLIC_AUTHBOUND_API_URL` to the same URL. The server creates verifications;
-the browser connects to that gateway for status updates.
+Set both `AUTHBOUND_API_URL` and `NEXT_PUBLIC_AUTHBOUND_API_URL` to the
+Authbound API host your keys belong to. The server creates verifications there
+and fails with `MISSING_API_URL` without it; the browser connects to the same
+host for status updates.
 
 For a customer-controlled EUDI verifier, also set `AUTHBOUND_EUDI_PROFILE=haip`.
 That verifier starts a wallet request only for an explicit HAIP request, so the

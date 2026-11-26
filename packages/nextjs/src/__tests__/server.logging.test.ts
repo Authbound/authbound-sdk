@@ -2,10 +2,12 @@ import {
   AUTHBOUND_API_VERSION,
   AUTHBOUND_CONTRACT_REVISION,
   type PolicyId,
+  STATION_OPERATOR_GRANT_TOKEN_HEADER,
 } from "@authbound/core";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import {
   createSessionRoute,
+  createStationOperatorRoute,
   createStatusRoute,
   createVerification,
   createVerificationRoute,
@@ -1683,5 +1685,107 @@ describe("Next.js server debug logging", () => {
     });
     expect(onEvent).not.toHaveBeenCalled();
     expect(onVerified).not.toHaveBeenCalled();
+  });
+});
+
+describe("Next.js server API host", () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    vi.unstubAllEnvs();
+  });
+
+  function statusRequest() {
+    return new Request(
+      "https://shop.example/api/authbound/status/vrf_1234567890abcdef",
+      { headers: { Authorization: "Bearer client_token_value" } }
+    );
+  }
+  const statusContext = {
+    params: Promise.resolve({ verificationId: "vrf_1234567890abcdef" }),
+  };
+
+  // Next.js imports route modules during `next build`, often without runtime
+  // env vars, so a missing URL must surface per request, not at import.
+  it("creates routes without AUTHBOUND_API_URL and answers MISSING_API_URL per request", async () => {
+    vi.stubEnv("AUTHBOUND_API_URL", "");
+    vi.stubEnv("AUTHBOUND_SECRET_KEY", "sk_test_configured");
+    vi.stubEnv("NEXT_PUBLIC_AUTHBOUND_PK", "pk_test_configured");
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as typeof fetch;
+
+    const createRoute = createVerificationRoute({
+      policyId: "pol_identity_basic_eudi_v1" as PolicyId,
+      sessionSecret: SESSION_SECRET,
+    });
+    const statusRoute = createStatusRoute();
+    const stationRoute = createStationOperatorRoute();
+
+    const created = await createRoute(
+      new Request("https://shop.example/api/authbound/verification", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      })
+    );
+    expect(created.status).toBe(500);
+    expect(await created.json()).toMatchObject({
+      code: "MISSING_API_URL",
+      error: expect.stringContaining("AUTHBOUND_API_URL"),
+    });
+
+    const status = await statusRoute(statusRequest(), statusContext);
+    expect(status.status).toBe(500);
+    expect(await status.json()).toMatchObject({ code: "MISSING_API_URL" });
+
+    const station = await stationRoute(
+      new Request(
+        "https://shop.example/api/authbound/stations/stn_1/operator",
+        {
+          headers: { [STATION_OPERATOR_GRANT_TOKEN_HEADER]: "grant" },
+        }
+      ),
+      { params: Promise.resolve({ stationId: "stn_1" }) }
+    );
+    expect(station.status).toBe(500);
+    expect(await station.json()).toMatchObject({ code: "MISSING_API_URL" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a scheme-less URL and drops a trailing slash", async () => {
+    vi.stubEnv("NEXT_PUBLIC_AUTHBOUND_PK", "pk_test_configured");
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 404 });
+    global.fetch = fetchMock as typeof fetch;
+
+    const schemeless = await createStatusRoute({
+      gatewayUrl: "sandbox.example.com",
+    })(statusRequest(), statusContext);
+    expect(schemeless.status).toBe(500);
+    expect(await schemeless.json()).toMatchObject({ code: "INVALID_API_URL" });
+
+    await createStatusRoute({ gatewayUrl: "https://api.example.com/" })(
+      statusRequest(),
+      statusContext
+    );
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://api.example.com/v1/verifications/vrf_1234567890abcdef/status"
+    );
+  });
+
+  it("answers NETWORK_ERROR naming the host when the API is unreachable", async () => {
+    vi.stubEnv("NEXT_PUBLIC_AUTHBOUND_PK", "pk_test_configured");
+    global.fetch = vi
+      .fn()
+      .mockRejectedValue(new TypeError("fetch failed")) as typeof fetch;
+
+    const response = await createStatusRoute({
+      gatewayUrl: "https://api.example.com",
+    })(statusRequest(), statusContext);
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({
+      code: "NETWORK_ERROR",
+      error: expect.stringContaining("https://api.example.com"),
+    });
   });
 });

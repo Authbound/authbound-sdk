@@ -54,6 +54,26 @@ async function sha256Hex(input: string): Promise<string> {
 }
 
 /**
+ * Thrown by `verifyClaimsDigest` when there are no claims to check, because
+ * the result's `claimsStatus` is `expired` (claims are returned for 15 minutes
+ * after the verification completes) or `none` (the policy returns no claims).
+ */
+export class ClaimsUnavailableError extends Error {
+  readonly code = "CLAIMS_UNAVAILABLE";
+  readonly claimsStatus: "expired" | "none";
+
+  constructor(claimsStatus: "expired" | "none") {
+    super(
+      claimsStatus === "expired"
+        ? 'No claims to check: claimsStatus is "expired". Claims are returned for 15 minutes after the verification completes; afterwards only the result token\'s claims_sha256 remains.'
+        : 'No claims to check: claimsStatus is "none". This verification\'s policy returns no claims.'
+    );
+    this.name = "ClaimsUnavailableError";
+    this.claimsStatus = claimsStatus;
+  }
+}
+
+/**
  * Check that `claims` and `claimsSalt` from a verification result are the
  * ones a verified result token commits to: its `claims_sha256` must equal the
  * SHA-256 of the RFC 8785 canonical JSON `{"claims": claims, "salt": claimsSalt}`.
@@ -63,12 +83,14 @@ async function sha256Hex(input: string): Promise<string> {
  * match then proves the claims are the ones Authbound signed for, also when
  * you stored them or received them from someone else.
  *
+ * @throws ClaimsUnavailableError when `claims` or `claimsSalt` is absent, with
+ *   the result's `claimsStatus` (`expired` or `none`).
  * @throws TypeError when `resultToken` was not returned by `verifyResultToken`,
  *   or when the claims contain a value JSON cannot represent.
  */
 export async function verifyClaimsDigest(
-  claims: Record<string, unknown>,
-  claimsSalt: string,
+  claims: Record<string, unknown> | undefined,
+  claimsSalt: string | undefined,
   resultToken: VerifiedResultToken
 ): Promise<boolean> {
   if (!isVerifiedResultToken(resultToken)) {
@@ -77,6 +99,9 @@ export async function verifyClaimsDigest(
     );
   }
   const expected = resultToken.payload.claims_sha256;
+  if (!(claims && claimsSalt)) {
+    throw new ClaimsUnavailableError(expected === null ? "none" : "expired");
+  }
   const actual = await sha256Hex(canonicalJson({ claims, salt: claimsSalt }));
   return expected !== null && expected === actual;
 }

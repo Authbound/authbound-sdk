@@ -221,7 +221,7 @@ function getBundledRegistry(): PresetRegistry {
         default_purpose:
           policy.credentials[0]?.purpose ?? "Verify your credentials",
         use_cases: [],
-        is_featured: key === "IDENTITY_BASIC",
+        is_featured: key === "IDENTITY_BASIC_EUDI",
         policy_id: policyId,
       };
     }
@@ -237,16 +237,10 @@ function getBundledRegistry(): PresetRegistry {
 
 function getSlugFromKey(key: string): string {
   switch (key) {
-    case "AGE_GATE_18":
-      return "age_over_18";
     case "AGE_GATE_18_EUDI":
       return "age_over_18_eudi";
-    case "IDENTITY_BASIC":
-      return "identity_basic";
     case "IDENTITY_BASIC_EUDI":
       return "identity_basic_eudi";
-    case "KYC_BASIC":
-      return "kyc_basic";
     case "KYC_BASIC_EUDI":
       return "kyc_basic_eudi";
     case "PENSION":
@@ -302,8 +296,8 @@ export function clearPresetCache(): void {
  * @example
  * ```ts
  * // Using bundled preset key
- * const policyId = getPresetPolicyId('AGE_GATE_18');
- * // Returns: 'pol_age_over_18_authbound_v1'
+ * const policyId = getPresetPolicyId('AGE_GATE_18_EUDI');
+ * // Returns: 'pol_age_over_18_eudi_v1'
  * ```
  */
 export function getPresetPolicyId(

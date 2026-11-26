@@ -20,8 +20,9 @@ import type { VerificationProviderOptions } from "@authbound/core";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { AuthboundClient } from "../core/client";
+import type { AuthboundClient } from "../core/client";
 import {
+  createHandlerClient,
   createVerificationHandlerKernel,
   finalizeSessionHandlerKernel,
   getStatusHandlerKernel,
@@ -275,14 +276,7 @@ export function createAuthboundApp(
   const validatedConfig = parseConfig(config);
 
   // Create shared AuthboundClient instance
-  const client = new AuthboundClient({
-    apiKey: validatedConfig.apiKey,
-    apiUrl:
-      validatedConfig.apiUrl ??
-      process.env.AUTHBOUND_API_URL ??
-      "https://api.authbound.io",
-    debug: validatedConfig.debug,
-  });
+  const client = createHandlerClient(validatedConfig);
 
   const app = new Hono();
 
@@ -329,14 +323,7 @@ export function createVerificationHandler(
   const validatedConfig = parseConfig(config);
 
   // Create AuthboundClient instance
-  const client = new AuthboundClient({
-    apiKey: validatedConfig.apiKey,
-    apiUrl:
-      validatedConfig.apiUrl ??
-      process.env.AUTHBOUND_API_URL ??
-      "https://api.authbound.io",
-    debug: validatedConfig.debug,
-  });
+  const client = createHandlerClient(validatedConfig);
 
   return (c) => handleCreateVerification(c, validatedConfig, options, client);
 }
@@ -360,14 +347,7 @@ export function createSessionHandler(
   options: HandlersOptions = {}
 ): (c: Context) => Promise<Response> {
   const validatedConfig = parseConfig(config);
-  const client = new AuthboundClient({
-    apiKey: validatedConfig.apiKey,
-    apiUrl:
-      validatedConfig.apiUrl ??
-      process.env.AUTHBOUND_API_URL ??
-      "https://api.authbound.io",
-    debug: validatedConfig.debug,
-  });
+  const client = createHandlerClient(validatedConfig);
   return (c) => handleFinalizeSession(c, validatedConfig, options, client);
 }
 

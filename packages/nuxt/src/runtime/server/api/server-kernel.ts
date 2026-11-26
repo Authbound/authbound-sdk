@@ -1,11 +1,53 @@
 import {
+  AuthboundClientError,
   createToken,
   type HandlerKernelCookieEffects,
   type HandlerKernelErrorBody,
   type HandlerKernelResponse,
   mapHandlerKernelException,
+  resolveApiUrl,
 } from "@authbound/server";
 import { createError, deleteCookie, type H3Event, setCookie } from "h3";
+
+/**
+ * The Authbound API host the secret key belongs to: the module's `apiUrl`
+ * (`NUXT_PUBLIC_AUTHBOUND_API_URL`), else `AUTHBOUND_API_URL`. A missing or
+ * invalid value is a 500 with `MISSING_API_URL` or `INVALID_API_URL`.
+ */
+export function authboundApiUrl(configured: string | undefined): string {
+  try {
+    return resolveApiUrl(configured || undefined);
+  } catch (error) {
+    throw apiHostError(error);
+  }
+}
+
+/**
+ * The h3 error for an API host failure, with the SDK's error code in `data`:
+ * 500 for a missing or invalid URL, 502 for an unreachable host.
+ */
+export function apiHostError(error: unknown): unknown {
+  if (!(error instanceof AuthboundClientError)) {
+    return error;
+  }
+  switch (error.code) {
+    case "MISSING_API_URL":
+    case "INVALID_API_URL":
+      return createError({
+        statusCode: 500,
+        message: error.message,
+        data: { code: error.code },
+      });
+    case "NETWORK_ERROR":
+      return createError({
+        statusCode: 502,
+        message: error.message,
+        data: { code: error.code },
+      });
+    default:
+      return error;
+  }
+}
 
 export function getPendingCookieName(cookieName: string): string {
   return `${cookieName}_pending`;

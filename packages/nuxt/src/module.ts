@@ -66,6 +66,14 @@ export interface ModuleOptions {
   publishableKey?: PublishableKey | string;
 
   /**
+   * The Authbound API host your keys belong to, used by the server routes
+   * and the browser SDK. There is no default: a key works only on the host
+   * that issued it.
+   * @default process.env.AUTHBOUND_API_URL
+   */
+  apiUrl?: string;
+
+  /**
    * Verification creation endpoint used by the browser SDK.
    * @default '/api/authbound/verification'
    */
@@ -183,6 +191,7 @@ export default defineNuxtModule<ModuleOptions>({
     protectedRoutes: undefined,
     policyId: undefined,
     publishableKey: undefined,
+    apiUrl: undefined,
     verificationEndpoint: "/api/authbound/verification",
     sessionEndpoint: "/api/authbound/session",
     sessionMode: "sdk",
@@ -223,6 +232,8 @@ export default defineNuxtModule<ModuleOptions>({
         options.publishableKey ??
         process.env.NUXT_PUBLIC_AUTHBOUND_PK ??
         process.env.VITE_AUTHBOUND_PK,
+      // An empty default keeps NUXT_PUBLIC_AUTHBOUND_API_URL overridable at runtime.
+      apiUrl: options.apiUrl ?? process.env.AUTHBOUND_API_URL ?? "",
       verifyPath: options.verifyPath,
       verificationEndpoint: options.verificationEndpoint,
       sessionEndpoint: options.sessionEndpoint,
@@ -366,6 +377,7 @@ declare module "@nuxt/schema" {
     authbound: {
       policyId?: PolicyId | string;
       publishableKey?: string;
+      apiUrl?: string;
       verifyPath?: string;
       verificationEndpoint?: string;
       sessionEndpoint?: string;

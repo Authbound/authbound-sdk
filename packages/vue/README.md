@@ -15,10 +15,13 @@ import App from "./App.vue";
 createApp(App)
   .use(AuthboundPlugin, {
     publishableKey: "pk_test_...",
-    policyId: asPolicyId("pol_age_over_18_authbound_v1"),
+    gatewayUrl: "https://...", // the Authbound API host your keys belong to
+    policyId: asPolicyId("pol_age_over_18_eudi_v1"),
   })
   .mount("#app");
 ```
+
+`gatewayUrl` is required and has no default, because a key works only on the host that issued it. Use the same value as `AUTHBOUND_API_URL` on your server.
 
 Requires Vue 3.5.34 through 3.x. Mount the standard `@authbound/server` router on the same origin so `/api/authbound/verification` and `/api/authbound/session` are available.
 

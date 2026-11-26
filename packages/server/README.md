@@ -33,15 +33,33 @@ Requires Node.js 18 or newer. Framework adapters use optional peer dependencies,
 
 `jose` is installed with the package and does not need to be added separately.
 
+Every API call needs the Authbound API host your key belongs to, as `apiUrl`
+or the `AUTHBOUND_API_URL` environment variable. A key works only on the host
+that issued it, so there is no default host: the client throws
+`MISSING_API_URL` without one, and `INVALID_API_URL` for a value such as
+`sandbox.example.com` that is not an absolute http(s) URL.
+
+### Errors
+
+API calls throw `AuthboundClientError` with:
+
+- `code`: the API error code, or an SDK code such as `MISSING_API_URL`,
+  `INVALID_API_URL`, `NETWORK_ERROR` (the host could not be reached; `cause`
+  holds the underlying error) or `TIMEOUT`
+- `statusCode`, `param` (the request field the error is about) and `requestId`
+  (the API's `x-request-id`; quote it when you contact support)
+- `details`: structured details the API returned, such as validation issues
+
 ## OpenID4VC Issuance
 
-Use `AuthboundClient` on your server to create credential definitions and OpenID4VCI wallet offers. See the runnable example in [`examples/issuer-agent-basic`](../../examples/issuer-agent-basic).
+Use `AuthboundClient` on your server to create credential definitions and OpenID4VCI wallet offers. See the runnable example in [`examples/issuer-agent-basic`](https://github.com/Authbound/authbound-sdk/tree/main/examples/issuer-agent-basic).
 
 ```typescript
 import { AuthboundClient } from "@authbound/server";
 
 const authbound = new AuthboundClient({
   apiKey: process.env.AUTHBOUND_SECRET_KEY!, // sk_test_* or sk_live_*
+  apiUrl: process.env.AUTHBOUND_API_URL!, // the API host the key belongs to
 });
 
 const definition = await authbound.issuer.credentialDefinitions.create({
@@ -123,6 +141,10 @@ Use `authbound.issuer.credentialDefinitions.list({ lifecycleStatus: "draft" })` 
 `metadata` is authenticated management metadata, not wallet-discoverable issuer or credential metadata. Do not put secrets or personal data in definition titles, aliases, labels, rendering, or metadata. `rendering` accepts six-digit colors and Authbound-owned presets only, not arbitrary SVG, HTML, CSS, or customer templates.
 
 ## Verification Policies
+
+`PolicyPresets` (exported by `@authbound/server`) holds the IDs of the policy
+presets Authbound ships; `GET /v1/presets` lists the ones enabled on your
+installation.
 
 Use `AuthboundClient` on your server to create immutable project-scoped verification policies. The same policy ID works with test and live keys for the project, and can be passed to `verifications.create`.
 
@@ -315,12 +337,12 @@ export const { GET, POST, DELETE } = createAuthboundHandlers(authboundConfig, {
     // Send notifications
     await sendEmail(verification.customer_user_ref, "Verification complete");
   },
-
-  validateWebhookSignature: async (request, rawBody) => {
-    return verifySignature(request.headers.get("x-authbound-signature"), rawBody);
-  },
 });
 ```
+
+The handlers verify the `X-Authbound-Signature` header against the raw body
+with `webhookSecret`. To verify it yourself, pass `validateWebhookSignature`
+(see Webhook Security below).
 
 Webhooks and events never carry claims.
 
@@ -335,10 +357,13 @@ remains. `none` means the policy returned no claims.
 ```typescript
 import { AuthboundClient, verifyClaimsDigest } from "@authbound/server";
 
-const client = new AuthboundClient({ apiKey: process.env.AUTHBOUND_SECRET_KEY! });
+const client = new AuthboundClient({
+  apiKey: process.env.AUTHBOUND_SECRET_KEY!,
+  apiUrl: process.env.AUTHBOUND_API_URL!,
+});
 const result = await client.verifications.getResult(verificationId);
 
-if (result.claims && result.claimsSalt) {
+if (result.claimsStatus === "available") {
   // Throws ResultTokenVerificationError for a forged, expired or foreign token.
   const resultToken = await client.verifications.verifyResultToken(
     result.resultToken,
@@ -352,15 +377,27 @@ if (result.claims && result.claimsSalt) {
 }
 ```
 
+`verifyClaimsDigest` throws `ClaimsUnavailableError` when there are no claims
+to check; its `claimsStatus` is `expired` or `none`.
+
 Claims are keyed by their disclosed paths, for example
 `{ age_equal_or_over: { "18": true } }` from an SD-JWT VC PID or
 `{ "eu.europa.ec.av.1": { age_over_18: true } }` from an age verification
 attestation.
 
 `verifyResultToken` checks the ES256 signature against the deployment's
-`/v1/jwks`, the issuer, that `sub` is this verification, and `exp`. Result
-tokens are valid for one hour from each read. Set `resultIssuer` on the client
-when your deployment's `iss` is not the origin of `apiUrl`. `verifyClaimsDigest`
+`/v1/jwks`, the issuer, that `sub` is this verification, and `exp`.
+`verificationId` is required: without it a valid token for any verification
+would pass. Pass `audience` (your project ID) to check `aud` as well; Authbound
+signs a result token only for the project that owns the verification, so the
+`sub` check already pins it to your project. Result tokens are valid for one
+hour from each read. Set `resultIssuer` on the client when your deployment's
+`iss` is not the origin of `apiUrl`.
+
+A failed check throws `ResultTokenVerificationError` whose `reason` names it:
+`unknown_key` (the token was most likely issued by another Authbound host than
+`apiUrl`), `keys_unavailable`, `invalid_signature`, `wrong_issuer`,
+`wrong_audience`, `wrong_subject`, `expired` or `malformed`. `verifyClaimsDigest`
 then checks the claims against the verified token's `claims_sha256` (RFC 8785
 JSON of claims and salt). Together they matter when claims are stored, or come
 to you from someone other than the API: within one TLS response from the API
@@ -376,9 +413,11 @@ verification has already finished. Pass `returnUrl` on an origin registered for 
 `?verification_id=` once the verification finishes.
 
 ```typescript
+import { PolicyPresets } from "@authbound/server";
+
 // Start: create, remember the id server-side, redirect.
 const verification = await client.verifications.create({
-  policyId: "pol_age_over_18_authbound_v1",
+  policyId: PolicyPresets.AGE_GATE_18_EUDI,
   returnUrl: "https://app.example.com/verified",
 });
 if (!verification.verificationUrl) {
@@ -529,7 +568,7 @@ interface AuthboundConfig {
   routes: RoutesConfig;        // Route protection configuration
   
   // Optional
-  apiUrl?: string;             // Authbound API URL (default: https://api.authbound.io)
+  apiUrl?: string;             // Authbound API host; falls back to AUTHBOUND_API_URL, one is required
   cookie?: CookieOptions;       // Cookie configuration
   debug?: boolean;             // Enable debug logging
 }
@@ -581,7 +620,7 @@ secret: process.env.AUTHBOUND_SESSION_SECRET || generateSecret(),
 
 **✅ DO:**
 - Set `AUTHBOUND_WEBHOOK_SECRET`; webhook handlers fail closed by default
-- Verify request origin/IP if possible
+- Verify the signature against the raw request body, before parsing it
 - Use HTTPS for webhook endpoints
 
 **Webhook Signature Validation Example:**
@@ -593,41 +632,19 @@ export const { GET, POST, DELETE } = createAuthboundHandlers(config, {
   validateWebhookSignature: async (request, rawBody) => {
     const signature = request.headers.get("x-authbound-signature");
     if (!signature) return false;
-    return verifyWebhookSignatureDetailed({
+    const result = verifyWebhookSignatureDetailed({
       payload: rawBody,
       signature,
       secret: process.env.AUTHBOUND_WEBHOOK_SECRET!,
-    }).valid;
+    });
+    if (!result.valid) console.warn("[Authbound] Webhook rejected:", result.error);
+    return result.valid;
   },
 });
 ```
 
-**IP Allowlist Example:**
-
-```typescript
-// Only allow webhooks from Authbound IPs
-const AUTHBOUND_IPS = [
-  "52.1.2.3", // Example Authbound IP
-  "52.4.5.6", // Add your Authbound webhook IPs
-];
-
-export const { POST } = createAuthboundHandlers(config, {
-  validateWebhookSignature: async (request, payload) => {
-    // Check IP address
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0] ||
-               request.ip ||
-               "unknown";
-    
-    if (!AUTHBOUND_IPS.includes(ip)) {
-      console.warn(`[Authbound] Rejected webhook from IP: ${ip}`);
-      return false;
-    }
-
-    // Then validate signature
-    return verifyWebhookSignature(request, payload, webhookSecret);
-  },
-});
-```
+`payload` must be the raw body exactly as received: a parsed and
+re-serialized body fails with `Signature mismatch`.
 
 ### 3. Cookie Security
 
@@ -676,7 +693,8 @@ const handlers = createAuthboundHandlers(authboundConfig);
 // Wrap handlers with rate limiting
 export async function POST(request: NextRequest) {
   // Get identifier (IP address or user ID)
-  const identifier = request.ip || "anonymous";
+  const identifier =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "anonymous";
   
   const { success, limit, reset, remaining } = await ratelimit.limit(
     `authbound:${identifier}`
@@ -733,7 +751,8 @@ export function rateLimit(
 
 // Usage in route handler
 export async function POST(request: NextRequest) {
-  const identifier = request.ip || "anonymous";
+  const identifier =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "anonymous";
   
   if (!rateLimit(identifier, 10, 10000)) {
     return NextResponse.json(
@@ -922,7 +941,7 @@ const config = parseConfig({
 
 ## Examples
 
-See the [Next.js example app](../../examples/next-example) for a complete implementation.
+See the [Next.js example app](https://github.com/Authbound/authbound-sdk/tree/main/examples/next-example) for a complete implementation.
 
 ## API Compatibility
 
@@ -932,13 +951,13 @@ See the [Next.js example app](../../examples/next-example) for a complete implem
 
 ## Contributing
 
-Contributions are welcome! Please read our [contributing guidelines](../../CONTRIBUTING.md) first.
+Contributions are welcome! Please read our [contributing guidelines](https://github.com/Authbound/authbound-sdk/blob/main/CONTRIBUTING.md) first.
 
 ## License
 
-MIT © [Authbound](https://authbound.com)
+[MIT](https://github.com/Authbound/authbound-sdk/blob/main/packages/server/LICENSE) © Authbound
 
 ## Support
 
 - [Documentation](https://docs.authbound.io)
-- [GitHub Issues](https://github.com/authbound/sdk/issues)
+- [GitHub Issues](https://github.com/Authbound/authbound-sdk/issues)

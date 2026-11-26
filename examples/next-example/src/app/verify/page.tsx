@@ -14,6 +14,7 @@ function VerifyContent() {
   const returnTo = searchParams.get("returnTo") || "/dashboard";
   const publishableKey = process.env.NEXT_PUBLIC_AUTHBOUND_PK;
   const policyId = process.env.NEXT_PUBLIC_AUTHBOUND_POLICY_ID;
+  const apiUrl = process.env.NEXT_PUBLIC_AUTHBOUND_API_URL;
   const [verified, setVerified] = useState(false);
 
   const signOut = async () => {
@@ -21,7 +22,7 @@ function VerifyContent() {
     setVerified(false);
   };
 
-  if (!(publishableKey && policyId)) {
+  if (!(publishableKey && policyId && apiUrl)) {
     return (
       <div
         className="container"
@@ -30,8 +31,9 @@ function VerifyContent() {
         <div className="card">
           <h2>Authbound is not configured</h2>
           <p>
-            Set <code>NEXT_PUBLIC_AUTHBOUND_PK</code> and{" "}
-            <code>NEXT_PUBLIC_AUTHBOUND_POLICY_ID</code> in your environment.
+            Set <code>NEXT_PUBLIC_AUTHBOUND_PK</code>,{" "}
+            <code>NEXT_PUBLIC_AUTHBOUND_POLICY_ID</code> and{" "}
+            <code>NEXT_PUBLIC_AUTHBOUND_API_URL</code> in your environment.
           </p>
         </div>
       </div>
@@ -49,7 +51,7 @@ function VerifyContent() {
       </nav>
 
       <AuthboundProvider
-        gatewayUrl={process.env.NEXT_PUBLIC_AUTHBOUND_API_URL}
+        gatewayUrl={apiUrl}
         policyId={asPolicyId(policyId)}
         publishableKey={publishableKey}
       >

@@ -36,7 +36,10 @@
  *
  * export default function VerifyPage() {
  *   return (
- *     <AuthboundProvider publishableKey={process.env.NEXT_PUBLIC_AUTHBOUND_PK!}>
+ *     <AuthboundProvider
+ *       publishableKey={process.env.NEXT_PUBLIC_AUTHBOUND_PK!}
+ *       gatewayUrl={process.env.NEXT_PUBLIC_AUTHBOUND_API_URL!}
+ *     >
  *       <VerificationWall>
  *         <div>Welcome! You're verified.</div>
  *       </VerificationWall>

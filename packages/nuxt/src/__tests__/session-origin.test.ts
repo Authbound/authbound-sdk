@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const runtimeConfig = vi.hoisted(() => ({
   current: {
@@ -68,7 +68,10 @@ vi.mock("nitropack/runtime", () => ({
   useRuntimeConfig: () => runtimeConfig.current,
 }));
 
-vi.mock("@authbound/server", () => authboundServer);
+vi.mock("@authbound/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@authbound/server")>()),
+  ...authboundServer,
+}));
 
 import sessionHandler from "../runtime/server/api/session";
 
@@ -121,7 +124,12 @@ function createEvent(
 }
 
 describe("Nuxt session origin handling", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   beforeEach(() => {
+    vi.stubEnv("AUTHBOUND_API_URL", "https://api.authbound.test");
     vi.clearAllMocks();
     vi.stubGlobal("fetch", vi.fn());
     runtimeConfig.current = {
@@ -204,7 +212,7 @@ describe("Nuxt session origin handling", () => {
     });
     expect(authboundServer.AuthboundClient).toHaveBeenCalledWith({
       apiKey: `sk_test_${"x".repeat(32)}`,
-      apiUrl: "https://api.authbound.io",
+      apiUrl: "https://api.authbound.test",
     });
     expect(authboundServer.finalizeSessionHandlerKernel).toHaveBeenCalledWith(
       expect.objectContaining({

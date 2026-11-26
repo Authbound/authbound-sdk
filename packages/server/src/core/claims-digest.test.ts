@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
+import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import {
   createLocalJWKSet,
@@ -10,7 +11,7 @@ import {
   SignJWT,
 } from "jose";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { verifyClaimsDigest } from "./claims-digest";
+import { ClaimsUnavailableError, verifyClaimsDigest } from "./claims-digest";
 import { AuthboundClient } from "./client";
 import {
   ResultTokenVerificationError,
@@ -72,11 +73,17 @@ afterAll(
 
 function resultToken(
   claimsSha256: string | null,
-  overrides: { key?: KeyLike; sub?: string; exp?: number; iss?: string } = {}
+  overrides: {
+    key?: KeyLike;
+    kid?: string;
+    sub?: string;
+    exp?: number;
+    iss?: string;
+  } = {}
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   return new SignJWT({ status: "verified", claims_sha256: claimsSha256 })
-    .setProtectedHeader({ alg: "ES256", kid: "result-1" })
+    .setProtectedHeader({ alg: "ES256", kid: overrides.kid ?? "result-1" })
     .setIssuer(overrides.iss ?? ISSUER)
     .setSubject(overrides.sub ?? VERIFICATION_ID)
     .setAudience("prj_123")
@@ -109,21 +116,115 @@ describe("verifyResultToken", () => {
 
   // Keys exist only after beforeAll, so each case builds its overrides lazily.
   it.each([
-    ["a forged signature", () => ({ key: otherKey })],
-    ["another verification", () => ({ sub: "vrf_other" })],
-    ["an expired token", () => ({ exp: Math.floor(Date.now() / 1000) - 60 })],
-    ["another issuer", () => ({ iss: "https://other.authbound.test" })],
-  ])("rejects %s", async (_case, overrides) => {
+    ["a forged signature", () => ({ key: otherKey }), "invalid_signature"],
+    [
+      "a key from another installation",
+      () => ({ key: otherKey, kid: "other-installation" }),
+      "unknown_key",
+    ],
+    ["another verification", () => ({ sub: "vrf_other" }), "wrong_subject"],
+    [
+      "an expired token",
+      () => ({ exp: Math.floor(Date.now() / 1000) - 60 }),
+      "expired",
+    ],
+    [
+      "another issuer",
+      () => ({ iss: "https://other.authbound.test" }),
+      "wrong_issuer",
+    ],
+  ])("rejects %s with a reason", async (_case, overrides, reason) => {
     const token = await resultToken("a".repeat(64), overrides());
-    await expect(verify(token)).rejects.toBeInstanceOf(
-      ResultTokenVerificationError
-    );
+    const error = await verify(token).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ResultTokenVerificationError);
+    expect(error).toMatchObject({ code: "RESULT_TOKEN_INVALID", reason });
+  });
+
+  it("names the expected and actual values in claim failures", async () => {
+    await expect(
+      verify(await resultToken("a".repeat(64), { sub: "vrf_other" }))
+    ).rejects.toThrow(/"vrf_other", expected "vrf_123"/);
+    await expect(
+      verify(
+        await resultToken("a".repeat(64), {
+          iss: "https://other.authbound.test",
+        })
+      )
+    ).rejects.toThrow(/resultIssuer/);
+    await expect(
+      verify(
+        await resultToken("a".repeat(64), {
+          key: otherKey,
+          kid: "other-installation",
+        })
+      )
+    ).rejects.toThrow(/another Authbound host/);
   });
 
   it("rejects a token for another project when the audience is checked", async () => {
     await expect(
       verify(await resultToken("a".repeat(64)), { audience: "prj_other" })
-    ).rejects.toBeInstanceOf(ResultTokenVerificationError);
+    ).rejects.toMatchObject({ reason: "wrong_audience" });
+  });
+
+  it("rejects a value that is not a JWT as malformed", async () => {
+    await expect(verify("not-a-jwt")).rejects.toMatchObject({
+      reason: "malformed",
+    });
+  });
+
+  // Plain JavaScript callers can leave out a required option; without the
+  // check jose would skip the `sub` comparison and accept any verification.
+  it("refuses to verify without a verificationId", async () => {
+    const token = await resultToken("a".repeat(64), { sub: "vrf_any" });
+    const options = {
+      keys: createLocalJWKSet(jwks),
+      issuer: ISSUER,
+    } as unknown as Parameters<typeof verifyResultToken>[1];
+
+    await expect(verifyResultToken(token, options)).rejects.toThrow(
+      /verificationId/
+    );
+    await expect(
+      verifyResultToken(token, { ...options, verificationId: "" })
+    ).rejects.toThrow(TypeError);
+  });
+
+  it("refuses an empty audience instead of skipping the check", async () => {
+    await expect(
+      verify(await resultToken("a".repeat(64)), { audience: "" })
+    ).rejects.toThrow(TypeError);
+  });
+
+  // A caller's own jose (here its CJS build) throws instances of other classes.
+  it("names the reason when the keys come from another jose copy", async () => {
+    const cjsJose = createRequire(import.meta.url)(
+      "jose"
+    ) as typeof import("jose");
+    const keys = cjsJose.createLocalJWKSet(jwks);
+    const options = { keys, issuer: ISSUER, verificationId: VERIFICATION_ID };
+
+    await expect(
+      verifyResultToken(
+        await resultToken(null, { key: otherKey, kid: "other-installation" }),
+        options
+      )
+    ).rejects.toMatchObject({ reason: "unknown_key" });
+    await expect(
+      verifyResultToken(await resultToken(null, { key: otherKey }), options)
+    ).rejects.toMatchObject({ reason: "invalid_signature" });
+  });
+
+  it("reports unreachable keys as keys_unavailable", async () => {
+    await expect(
+      verifyResultToken(await resultToken(null), {
+        keys: async () => {
+          throw new TypeError("fetch failed");
+        },
+        issuer: ISSUER,
+        verificationId: VERIFICATION_ID,
+      })
+    ).rejects.toMatchObject({ reason: "keys_unavailable" });
   });
 
   it("fetches the keys from the client's /v1/jwks", async () => {
@@ -145,6 +246,12 @@ describe("verifyResultToken", () => {
         { verificationId: VERIFICATION_ID }
       )
     ).rejects.toBeInstanceOf(ResultTokenVerificationError);
+    await expect(
+      client.verifications.verifyResultToken(
+        token,
+        {} as unknown as { verificationId: string }
+      )
+    ).rejects.toThrow(/verificationId/);
   });
 });
 
@@ -180,6 +287,28 @@ describe("verifyClaimsDigest", () => {
         await verify(await resultToken(null))
       )
     ).resolves.toBe(false);
+  });
+
+  it("names the claims status when the claims are no longer returned", async () => {
+    const withDigest = await verify(await resultToken("a".repeat(64)));
+    const error = await verifyClaimsDigest(
+      undefined,
+      undefined,
+      withDigest
+    ).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ClaimsUnavailableError);
+    expect(error).toMatchObject({
+      code: "CLAIMS_UNAVAILABLE",
+      claimsStatus: "expired",
+    });
+
+    await expect(
+      verifyClaimsDigest(
+        undefined,
+        undefined,
+        await verify(await resultToken(null))
+      )
+    ).rejects.toMatchObject({ claimsStatus: "none" });
   });
 
   it("refuses a token that verifyResultToken did not return", async () => {

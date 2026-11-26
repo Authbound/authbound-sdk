@@ -29,10 +29,11 @@ import { AuthboundClient } from "@authbound/server";
 
 const authbound = new AuthboundClient({
   apiKey: process.env.AUTHBOUND_SECRET_KEY!,
+  apiUrl: process.env.AUTHBOUND_API_URL!,
 });
 ```
 
-Use a server-side secret key: `sk_test_*` for test mode or `sk_live_*` for live mode. Do not expose this key in browser code.
+Use a server-side secret key: `sk_test_*` for test mode or `sk_live_*` for live mode. Do not expose this key in browser code. `apiUrl` is the Authbound API host the key belongs to; a key works only on the host that issued it, so the SDK has no default and throws `MISSING_API_URL` without one.
 
 ## Run The Basic Issuer Example
 
@@ -42,7 +43,7 @@ The smallest runnable issuer-agent example lives in [`examples/issuer-agent-basi
 cd examples/issuer-agent-basic
 pnpm install
 cp .env.example .env
-AUTHBOUND_SECRET_KEY=sk_test_... pnpm dev
+AUTHBOUND_SECRET_KEY=sk_test_... AUTHBOUND_API_URL=https://... pnpm dev
 ```
 
 Open `http://localhost:3000`, click **Create wallet offer**, and the server will:

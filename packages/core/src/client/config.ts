@@ -21,8 +21,12 @@ export interface AuthboundClientConfig {
   /** Default policy ID for verification (can be overridden per-call) */
   policyId?: PolicyId;
 
-  /** Authbound API URL (defaults to production) */
-  gatewayUrl?: string;
+  /**
+   * The Authbound API host your keys belong to, for example the value of
+   * `AUTHBOUND_API_URL`. Required: a key works only on the host that issued
+   * it, so there is no default host.
+   */
+  gatewayUrl: string;
 
   /** Verification creation endpoint on your server */
   verificationEndpoint?: string;
@@ -51,7 +55,14 @@ export const AuthboundClientConfigSchema = z.object({
       "Invalid publishable key format. Expected pk_live_... or pk_test_...",
   }),
   policyId: z.string().refine(isPolicyId, "Invalid policy ID").optional(),
-  gatewayUrl: z.string().url().optional(),
+  gatewayUrl: z
+    .string({
+      error: (issue) =>
+        issue.input === undefined
+          ? "is required. Set it to the Authbound API host your keys belong to (the same value as AUTHBOUND_API_URL on your server)."
+          : "must be a URL",
+    })
+    .url("must be an absolute URL such as https://api.example.com"),
   verificationEndpoint: z.string().optional(),
   sessionEndpoint: z.string().optional(),
   sessionMode: z.enum(["sdk", "manual"]).optional(),
@@ -67,7 +78,6 @@ export const AuthboundClientConfigSchema = z.object({
  * Default configuration values.
  */
 export const DEFAULT_CONFIG = {
-  gatewayUrl: "https://api.authbound.io",
   verificationEndpoint: "/api/authbound/verification",
   sessionEndpoint: "/api/authbound/session",
   sessionMode: "sdk",
@@ -120,7 +130,7 @@ export function resolveConfig(config: AuthboundClientConfig): ResolvedConfig {
   return {
     publishableKey: validated.publishableKey as PublishableKey,
     policyId: validated.policyId as PolicyId | undefined,
-    gatewayUrl: validated.gatewayUrl ?? DEFAULT_CONFIG.gatewayUrl,
+    gatewayUrl: validated.gatewayUrl.replace(/\/+$/, ""),
     verificationEndpoint:
       validated.verificationEndpoint ?? DEFAULT_CONFIG.verificationEndpoint,
     sessionEndpoint:

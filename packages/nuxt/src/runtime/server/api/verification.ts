@@ -13,7 +13,7 @@ import {
 } from "@authbound/server";
 import { createError, defineEventHandler, getHeader, readBody } from "h3";
 import { useRuntimeConfig } from "nitropack/runtime";
-import { returnNuxtKernelResult } from "./server-kernel";
+import { authboundApiUrl, returnNuxtKernelResult } from "./server-kernel";
 
 type CreateVerificationRequest = {
   policyId?: PolicyId | string;
@@ -26,8 +26,7 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig();
   const body = await readBody<CreateVerificationRequest>(event);
 
-  const gatewayUrl =
-    process.env.AUTHBOUND_API_URL ?? "https://api.authbound.io";
+  const gatewayUrl = authboundApiUrl(config.public.authbound?.apiUrl);
   const apiKey = config.authbound?.apiKey ?? process.env.AUTHBOUND_SECRET_KEY;
 
   if (!apiKey) {

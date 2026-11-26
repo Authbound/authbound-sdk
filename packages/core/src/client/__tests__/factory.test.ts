@@ -54,6 +54,22 @@ describe("createClient", () => {
     vi.restoreAllMocks();
   });
 
+  it("requires gatewayUrl, because a key works only on the host that issued it", () => {
+    const create = (gatewayUrl: unknown) => () =>
+      createClient({
+        publishableKey: "pk_test_public123" as never,
+        gatewayUrl: gatewayUrl as string,
+      });
+
+    expect(create(undefined)).toThrow(/gatewayUrl: is required/);
+    expect(create("sandbox.example.com")).toThrow(
+      /gatewayUrl: must be an absolute URL/
+    );
+    expect(create("https://api.example.com/")().config.gatewayUrl).toBe(
+      "https://api.example.com"
+    );
+  });
+
   it("rejects EUDI provider options that the verifier runtime rejects", () => {
     expect(
       VerificationProviderOptionsSchema.safeParse({
@@ -351,6 +367,7 @@ describe("createClient", () => {
 
     const client = createClient({
       publishableKey: "pk_test_public123" as never,
+      gatewayUrl: "https://gateway.authbound.test",
       policyId: "pol_authbound_pension_v1" as never,
       verificationEndpoint: "/api/authbound/verification",
     });
@@ -388,6 +405,7 @@ describe("createClient", () => {
 
     const client = createClient({
       publishableKey: "pk_test_public123" as never,
+      gatewayUrl: "https://gateway.authbound.test",
       policyId: "pol_authbound_pension_v1" as never,
       verificationEndpoint: "/api/authbound/verification",
     });
@@ -437,6 +455,7 @@ describe("createClient", () => {
 
     const client = createClient({
       publishableKey: "pk_test_public123" as never,
+      gatewayUrl: "https://gateway.authbound.test",
       policyId: "pol_authbound_pension_v1" as never,
       verificationEndpoint: "/api/authbound/verification",
     });
@@ -466,6 +485,7 @@ describe("createClient", () => {
 
     const client = createClient({
       publishableKey: "pk_test_public123" as never,
+      gatewayUrl: "https://gateway.authbound.test",
       sessionEndpoint: "/api/authbound/session",
     });
 
@@ -514,6 +534,7 @@ describe("createClient", () => {
 
     const client = createClient({
       publishableKey: "pk_test_public123" as never,
+      gatewayUrl: "https://gateway.authbound.test",
       policyId: "pol_authbound_pension_v1" as never,
       verificationEndpoint: "/api/authbound/verification",
     });
@@ -544,6 +565,7 @@ describe("createClient", () => {
 
     const client = createClient({
       publishableKey: "pk_test_public123" as never,
+      gatewayUrl: "https://gateway.authbound.test",
       policyId: "pol_authbound_pension_v1" as never,
       verificationEndpoint: "/api/authbound/verification",
     });

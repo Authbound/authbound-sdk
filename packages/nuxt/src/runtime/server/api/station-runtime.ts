@@ -1,5 +1,5 @@
 import { withAuthboundContractHeaders } from "@authbound/core";
-import { redactSensitiveText } from "@authbound/server";
+import { fetchAuthboundApi, redactSensitiveText } from "@authbound/server";
 import {
   createError,
   getHeader,
@@ -10,10 +10,7 @@ import {
   setHeaders,
 } from "h3";
 import { useRuntimeConfig } from "nitropack/runtime";
-
-function gatewayUrl(): string {
-  return process.env.AUTHBOUND_API_URL ?? "https://api.authbound.io";
-}
+import { apiHostError, authboundApiUrl } from "./server-kernel";
 
 export function stationParam(event: H3Event, name: string): string {
   const value = getRouterParam(event, name);
@@ -126,9 +123,12 @@ export async function forwardStationRequest<TBody>(
   init: RequestInit
 ): Promise<TBody> {
   const config = useRuntimeConfig();
-  const response = await fetch(`${gatewayUrl()}${path}`, {
+  const apiUrl = authboundApiUrl(config.public.authbound?.apiUrl);
+  const response = await fetchAuthboundApi(apiUrl, path, {
     ...init,
     headers: withAuthboundContractHeaders(init.headers),
+  }).catch((error: unknown) => {
+    throw apiHostError(error);
   });
   const body = await response.json().catch(() => ({
     error: response.statusText,
@@ -166,9 +166,12 @@ export async function forwardStationStream(
   const requestHeaders = options.lastEventId
     ? { "Last-Event-ID": options.lastEventId }
     : undefined;
-  const response = await fetch(`${gatewayUrl()}${path}`, {
+  const apiUrl = authboundApiUrl(useRuntimeConfig().public.authbound?.apiUrl);
+  const response = await fetchAuthboundApi(apiUrl, path, {
     method: "GET",
     headers: withAuthboundContractHeaders(requestHeaders),
+  }).catch((error: unknown) => {
+    throw apiHostError(error);
   });
   const responseHeaders = new Headers();
   for (const name of [

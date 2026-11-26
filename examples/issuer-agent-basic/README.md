@@ -22,7 +22,7 @@ If port 3000 is already in use (for example by the Authbound dashboard), set `PO
 `.env` is local configuration for this example only and is git-ignored:
 
 - `AUTHBOUND_SECRET_KEY` (required): server-side secret key for the Authbound environment you are calling. Keep it on the server.
-- `AUTHBOUND_API_URL` (optional): the Authbound API deployment to call. When unset, the SDK uses its default production URL; set it to target a local or staging API.
+- `AUTHBOUND_API_URL` (required): the Authbound API host your key belongs to. A key works only on the host that issued it, so the SDK has no default.
 - `PORT` (optional): the port for this example's own local web server. Defaults to 3000.
 
 ## What It Shows
