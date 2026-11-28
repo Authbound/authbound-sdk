@@ -24,6 +24,47 @@ export type VerificationFailureCode = z.infer<
   typeof VerificationFailureCodeSchema
 >;
 
+/**
+ * Which check failed (`failed`), or why the verification expired (`expired`), on contract revision
+ * `v1.2026-11-28.1`. A closed list of check names; it never carries a claim value, an issuer, a URL
+ * or a message.
+ */
+export const VerificationFailureReasonSchema = z.enum([
+  "issuer_not_trusted",
+  "issuer_not_matched",
+  "credential_invalid",
+  "key_binding_invalid",
+  "holder_key_unsupported",
+  "disclosures_invalid",
+  "credential_type_not_accepted",
+  "credential_revoked",
+  "status_list_invalid",
+  "status_missing",
+  "response_malformed",
+  "claims_too_large",
+  "other",
+  "claims_not_disclosed",
+  "status_list_blocked",
+  "verifier_error",
+  "invalid_request",
+  "invalid_client",
+  "invalid_scope",
+  "unauthorized_client",
+  "unsupported_response_type",
+  "server_error",
+  "temporarily_unavailable",
+  "vp_formats_not_supported",
+  "invalid_request_uri_method",
+  "invalid_transaction_data",
+  "wallet_unavailable",
+  "unregistered_error",
+  "request_not_fetched",
+  "wallet_no_response",
+]);
+export type VerificationFailureReason = z.infer<
+  typeof VerificationFailureReasonSchema
+>;
+
 export const VerificationProgressStatusSchema = z.enum([
   "created",
   "awaiting_user",
@@ -235,6 +276,7 @@ export const PublicVerificationSchema = z
     expires_at: z.string(),
     terminal_at: z.string().nullish(),
     failure_code: VerificationFailureCodeSchema.nullish(),
+    failure_reason: VerificationFailureReasonSchema.nullish(),
     client_action: VerificationClientActionSchema.nullish(),
     verification_url: z.string().nullish(),
     customer_user_ref: z.string().nullish(),

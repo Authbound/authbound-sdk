@@ -4,6 +4,15 @@ All customer-visible changes to the Authbound public SDK are recorded here.
 
 ## 0.5.0 - Unreleased
 
+### Changes
+
+- Send API contract revision `v1.2026-11-28.1`. A verification can now carry
+  `failure_reason`, which says which check failed (`status: "failed"`) or why
+  it expired (`request_not_fetched`, `wallet_no_response`). It is a closed
+  list (`VerificationFailureReasonSchema`) and never carries a claim value, an
+  issuer, a URL or a message. Earlier contract revisions never return it, so
+  older SDK versions keep working unchanged.
+
 `0.5.0-rc.0` is a release candidate of these changes, published under the npm
 `next` tag. `latest` stays on 0.4.0 until 0.5.0 is released.
 

@@ -193,6 +193,8 @@ export {
   type VerificationClientActionWire,
   type VerificationFailureCode,
   VerificationFailureCodeSchema,
+  type VerificationFailureReason,
+  VerificationFailureReasonSchema,
   type VerificationProgressStatus,
   VerificationProgressStatusSchema,
   type VerificationUiStatus,

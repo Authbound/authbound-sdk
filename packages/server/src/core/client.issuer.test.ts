@@ -737,7 +737,7 @@ describe("AuthboundClient issuer APIs", () => {
       RequestInit,
     ];
     expect(request.headers).toMatchObject({
-      "Authbound-Contract-Revision": "v1.2026-10-24.1",
+      "Authbound-Contract-Revision": "v1.2026-11-28.1",
     });
     expect(JSON.parse(request.body as string)).toMatchObject({
       grantType,

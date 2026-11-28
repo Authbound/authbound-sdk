@@ -66,6 +66,43 @@ describe("public verification contract module", () => {
     ).toBe(false);
   });
 
+  it("accepts a failure reason from the closed list only", () => {
+    const failed = {
+      object: "verification",
+      id: "vrf_reason",
+      status: "failed",
+      policy_id: "pol_age_over_18_authbound_v1",
+      provider: "eudi",
+      env_mode: "test",
+      created_at: "2026-11-28T10:00:00.000Z",
+      expires_at: "2026-11-28T10:15:00.000Z",
+      failure_code: "wallet_error",
+      failure_reason: "invalid_client",
+    };
+    expect(PublicVerificationSchema.safeParse(failed).success).toBe(true);
+    expect(
+      PublicVerificationSchema.safeParse({
+        ...failed,
+        status: "expired",
+        failure_code: undefined,
+        failure_reason: "request_not_fetched",
+      }).success
+    ).toBe(true);
+    expect(
+      PublicVerificationSchema.safeParse({
+        ...failed,
+        failure_reason: "https://issuer.example",
+      }).success
+    ).toBe(false);
+    expect(
+      PublicCreateVerificationResponseSchema.safeParse({
+        ...failed,
+        client_token: "ct",
+        failure_reason: "credential_revoked",
+      }).success
+    ).toBe(true);
+  });
+
   it("requires OpenAPI-required public verification fields", () => {
     const response = {
       object: "verification",
