@@ -14,7 +14,7 @@ describe("AuthboundClient contract version headers", () => {
     vi.unstubAllGlobals();
   });
 
-  it("client sends Authbound-Contract-Revision v1.2026-10-24.1", async () => {
+  it("client sends Authbound-Contract-Revision v1.2026-11-28.1", async () => {
     const fetchMock = vi.fn(async () =>
       Response.json({
         object: "list",
@@ -32,7 +32,7 @@ describe("AuthboundClient contract version headers", () => {
     ];
     expect(request.headers).toMatchObject({
       "Authbound-Api-Version": "v1",
-      "Authbound-Contract-Revision": "v1.2026-10-24.1",
+      "Authbound-Contract-Revision": "v1.2026-11-28.1",
     });
   });
 
